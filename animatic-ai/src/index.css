@@ -1,0 +1,44 @@
+:root[data-theme="dark"] {
+  --bg: #080C14;
+  --surface: #0F1521;
+  --surface2: #161E2E;
+  --border: rgba(255,255,255,0.07);
+  --text: #F0F4FF;
+  --text-secondary: #7A8BA8;
+  --accent: #1B6EF3;
+  --accent-glow: rgba(27,110,243,0.35);
+  --accent2: #7C3AED;
+  --accent2-glow: rgba(124,58,237,0.3);
+  --card-bg: rgba(15,21,33,0.8);
+  --nav-bg: rgba(8,12,20,0.85);
+  --hero-gradient: radial-gradient(ellipse 80% 60% at 60% 40%, rgba(27,110,243,0.18) 0%, transparent 65%), radial-gradient(ellipse 50% 40% at 80% 70%, rgba(124,58,237,0.12) 0%, transparent 60%);
+  --tag-bg: rgba(27,110,243,0.12);
+}
+
+:root[data-theme="light"] {
+  --bg: #F0F4FC;
+  --surface: #FFFFFF;
+  --surface2: #E8EEF8;
+  --border: rgba(0,0,0,0.08);
+  --text: #0D1526;
+  --text-secondary: #5A6A85;
+  --accent: #1B6EF3;
+  --accent-glow: rgba(27,110,243,0.2);
+  --accent2: #7C3AED;
+  --accent2-glow: rgba(124,58,237,0.15);
+  --card-bg: rgba(255,255,255,0.9);
+  --nav-bg: rgba(240,244,252,0.9);
+  --hero-gradient: radial-gradient(ellipse 80% 60% at 60% 40%, rgba(27,110,243,0.08) 0%, transparent 65%), radial-gradient(ellipse 50% 40% at 80% 70%, rgba(124,58,237,0.06) 0%, transparent 60%);
+  --tag-bg: rgba(27,110,243,0.08);
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
+}
