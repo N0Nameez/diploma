@@ -3,13 +3,12 @@ import { Link } from "react-router-dom";
 
 interface NavbarProps {
     links: { label: string; href: string }[]
-    theme: "dark" | "light"
     onThemeToggle: () => void
     onLoginClick: () => void
     onRegisterClick: () => void 
 }
 
-function Navbar({ links, theme, onThemeToggle, onLoginClick, onRegisterClick}: NavbarProps) {
+function Navbar({ links, onThemeToggle, onLoginClick, onRegisterClick}: NavbarProps) {
 
     return(
         <nav className="fixed top-0 left-0 right-0 z-50 h-16

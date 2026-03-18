@@ -28,7 +28,7 @@
   --accent2-glow: rgba(124,58,237,0.15);
   --card-bg: rgba(255,255,255,0.9);
   --nav-bg: rgba(240,244,252,0.9);
-  --hero-gradient: radial-gradient(ellipse 80% 60% at 60% 40%, rgba(27,110,243,0.08) 0%, transparent 65%), radial-gradient(ellipse 50% 40% at 80% 70%, rgba(124,58,237,0.06) 0%, transparent 60%);
+  --hero-gradient: radial-gradient(ellipse 80% 60% at 60% 40%, rgba(27,110,243,0.36) 0%, transparent 65%), radial-gradient(ellipse 50% 40% at 80% 70%, rgba(124,58,237,0.24) 0%, transparent 60%);
   --tag-bg: rgba(27,110,243,0.08);
 }
 

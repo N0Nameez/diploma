@@ -66,10 +66,10 @@ function ViewerCard() {
       {/* Badge */}
       <div className=" z-10
         absolute top-4 left-4
-        bg-[rgba(27,110,243,0.2)]
-        border border-[rgba(27,110,243,0.3)]
+        bg-surface2
+        border border-border
         rounded-lg px-[10px] py-[5px]
-        text-[11px] text-[#6EAAFF] font-semibold
+        text-[11px] text-accent font-semibold
         tracking-[0.5px]
       ">
         ● LIVE 3D

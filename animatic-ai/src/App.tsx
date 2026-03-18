@@ -5,6 +5,7 @@ import HomePage from "./pages/HomePage"
 import CatalogPage from "./pages/CatalogPage"
 import GenerationPage from "./pages/GenerationPage"
 import ProfilePage from "./pages/ProfilePage"
+import Modal from "./components/Modal"
 
 function App() {
   const [currentTheme, setTheme] = useState<'dark' | 'light'>('dark')
@@ -24,8 +25,7 @@ function App() {
     <>
 
       <Navbar
-      links={links} 
-      theme={currentTheme} 
+      links={links}
       onThemeToggle={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
       onLoginClick={() => setModal('login')}
       onRegisterClick={() => setModal('register')}/>

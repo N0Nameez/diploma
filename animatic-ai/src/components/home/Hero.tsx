@@ -1,4 +1,3 @@
-// Hero.tsx
 import StatItem from "./StatItem"
 import Button from "../Button"
 import ViewerCard from "./ViewerCard"
@@ -24,6 +23,7 @@ function Hero({ onRegisterClick }: HeroProps){
                 absolute inset-0 
                 bg-hero-gradient 
                 pointer-events-none
+                animate-heartbeat
             "></div>
             
             {/* Hero Grid */}

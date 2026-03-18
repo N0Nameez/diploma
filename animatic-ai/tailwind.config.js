@@ -11,10 +11,22 @@
             from: { opacity: '0', transform: 'translateY(24px)' },
             to: { opacity: '1', transform: 'translateY(0)' },
           },
+          fade: {
+            from: { opacity: '0'},
+            to: { opacity: '1'},
+          },
+          fadeOut: {
+          from: { opacity: '1' },
+          to: { opacity: '0' },
+          },
           pulse: {
             '0%, 100%': { opacity: '1', transform: 'scale(1)' },
             '50%': { opacity: '0.5', transform: 'scale(1.4)' },
           },
+          heartbeat: {
+            '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+            '50%': { opacity: '0.7',transform: 'scale(1.4)' },
+          }
         },
 
         animation: {
@@ -24,6 +36,9 @@
           'fade-up-delay-3': 'fadeUp 0.6s 0.3s ease both',
           'fade-up-delay-4': 'fadeUp 0.6s 0.4s ease both',
           'pulse-dot': 'pulse 2s infinite',
+          'heartbeat': 'heartbeat 5s ease-in-out infinite',
+          'fade': 'fade 0.6s ease both',
+          'fade-out': 'fadeOut 0.6s ease both',
         },
         backgroundImage: {
           'hero-gradient': 'var(--hero-gradient)',
