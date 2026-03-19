@@ -29,6 +29,7 @@ function ViewerCard() {
         border border-border
         rounded-[20px] 
         overflow-hidden
+        transition-colors duration-[0.2s]
         relative
         shadow-[0_24px_80px_rgba(0,0,0,0.4),0_0_0_1px_var(--border)]
       "
@@ -68,6 +69,7 @@ function ViewerCard() {
         absolute top-4 left-4
         bg-surface2
         border border-border
+        transition-colors duration-[0.2s]
         rounded-lg px-[10px] py-[5px]
         text-[11px] text-accent font-semibold
         tracking-[0.5px]

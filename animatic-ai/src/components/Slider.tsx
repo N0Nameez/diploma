@@ -70,12 +70,12 @@ function Slider({ items }: SliderProps) {
                 style={{ background: item.gradient }}
               >
                 <div className="absolute bottom-3 left-0 right-0 px-3
-                                text-center text-[13px] font-extrabold text-text">
+                                text-center text-[13px] font-extrabold text-white">
                   {item.label}
                 </div>
                 {isActive && (
                   <div className="absolute top-2.5 right-2.5 w-1.5 h-1.5
-                                  rounded-full bg-white/70" />
+                                  rounded-full bg-accent" />
                 )}
               </div>
             </button>
@@ -84,7 +84,7 @@ function Slider({ items }: SliderProps) {
       </div>
 
       {/* Slides */}
-      <div className="overflow-hidden rounded-[24px] border border-[var(--border)]">
+      <div className="overflow-hidden rounded-[24px] border border-border">
         <div
           className="flex transition-transform duration-500 ease-out"
           style={{ transform: `translateX(-${activeIndex * 100}%)` }}
@@ -93,24 +93,26 @@ function Slider({ items }: SliderProps) {
             <div
               key={item.id}
               className="
+                transition-colors duration-[0.2s]
                 w-full flex-shrink-0
                 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12
                 px-10 py-10
-                bg-[var(--surface)]
+                bg-surface
               "
             >
               {/* Left part - text */}
               <div className="flex flex-col justify-center">
                 <h3 className="
                   text-[clamp(28px,4vw,48px)] font-extrabold
-                  leading-[1.1] tracking-[-1px] mb-4 text-[var(--text)]
+                  leading-[1.1] tracking-[-1px] mb-4 text-text
+                  transition-colors duration-[0.2s]
                 ">
                   {item.content.title}
                 </h3>
 
                 <p className="
                   text-[16px] leading-[1.6] font-light mb-6
-                  text-[var(--text-secondary)]
+                  text-textSecondary
                 ">
                   {item.content.description}
                 </p>
@@ -119,12 +121,12 @@ function Slider({ items }: SliderProps) {
                   <ul className="flex flex-col gap-3 mb-8">
                     {item.content.features.map((feature, i) => (
                       <li key={i} className="flex items-center gap-3 text-sm
-                                             text-[var(--text-secondary)]">
+                                             text-textSecondary">
                         <span className="
                           w-5 h-5 rounded-full flex-shrink-0
                           bg-[rgba(27,110,243,0.2)]
                           flex items-center justify-center
-                          text-[var(--accent)] text-[10px] font-bold
+                          text-accent text-[10px] font-bold
                         ">
                           ✓
                         </span>
@@ -139,10 +141,9 @@ function Slider({ items }: SliderProps) {
                     onClick={item.content.cta.onClick}
                     className="
                       w-fit px-8 py-4
-                      bg-[var(--accent)] text-white
+                      bg-accent text-white
                       font-semibold rounded-full
                       flex items-center gap-2
-                      transition-all duration-200
                       hover:shadow-[0_0_40px_var(--accent-glow)]
                       hover:-translate-y-0.5
                     "
@@ -159,8 +160,9 @@ function Slider({ items }: SliderProps) {
               {/* Right part - image */}
               <div className="
                 relative rounded-[20px] overflow-hidden
-                bg-[var(--surface2)] min-h-[280px]
+                bg-surface2 min-h-[280px]
                 flex items-center justify-center
+                transition-colors duration-[0.2s]
               ">
                 {item.content.image
                   ? <img src={item.content.image} alt={item.content.title}

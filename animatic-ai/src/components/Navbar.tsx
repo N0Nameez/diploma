@@ -15,7 +15,7 @@ function Navbar({ links, onThemeToggle, onLoginClick, onRegisterClick}: NavbarPr
                 bg-navBg backdrop-blur-lg
                 border-b border-border
                 flex items-center px-8 gap-8
-                transition-all">
+                transition-colors duration-[0.2s]">
             
             <Link to="/" className="font-extrabold text-[24px] text-accent
             tracking-[-0.5px] shrink-0">AnimaticAI</Link>
@@ -35,7 +35,7 @@ function Navbar({ links, onThemeToggle, onLoginClick, onRegisterClick}: NavbarPr
 
                 <input className="w-full pt-2 pr-4 pb-2 pl-10 border
                 bg-surface2 border-border rounded-[10px]
-                text-text text-[14px] outline-none transition-all
+                text-text text-[14px] outline-none transition-colors duration-[0.2s]
                 focus:border-accent placeholder-textSecondary " placeholder="Поиск моделей, анимаций, авторов" />
             </div>
 

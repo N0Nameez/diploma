@@ -8,8 +8,8 @@ function Section({title, label, sub}: SectionProps){
    return(
     <>
         <div className="
-        pt-0 px-10 pb-5 
-        max-w-7xl my-0 mx-auto">
+        pt-0 pb-5 
+        max-w-7xl my-0">
                 <div className="
                 text-[11px] font-bold tracking-[2px]
                 uppercase text-accent mb-3

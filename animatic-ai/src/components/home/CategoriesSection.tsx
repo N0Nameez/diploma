@@ -42,10 +42,10 @@ function CategoriesSection() {
   ]
 
   return (
-    <>
+    <section className="max-w-7xl mx-auto py-20">
       <Section label="Категории" title="Погрузись в мир 3D" />
       <Slider items={categories} />
-    </>
+    </section>
   )
 }
 
