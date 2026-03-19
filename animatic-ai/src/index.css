@@ -42,3 +42,11 @@ body {
   font-family: 'DM Sans', sans-serif;
   transition: all 0.2s;
 }
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
