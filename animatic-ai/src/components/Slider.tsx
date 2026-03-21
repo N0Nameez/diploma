@@ -146,6 +146,7 @@ function Slider({ items }: SliderProps) {
                       flex items-center gap-2
                       hover:shadow-[0_0_40px_var(--accent-glow)]
                       hover:-translate-y-0.5
+                      transition-all duration
                     "
                   >
                     {item.content.cta.label}

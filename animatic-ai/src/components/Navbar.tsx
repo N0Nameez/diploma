@@ -22,7 +22,7 @@ function Navbar({ links, onThemeToggle, onLoginClick, onRegisterClick}: NavbarPr
 
             <div className="flex gap-1">
                 {links.map((link) => (
-                    <Button key={link.href} label={link.label} href={link.href} variant="ghost"></Button>
+                    <Button key={link.href} label={link.label} href={link.href} variant="link"></Button>
                 ))}
             </div>
 

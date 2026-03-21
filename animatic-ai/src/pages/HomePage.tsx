@@ -1,6 +1,9 @@
 import Hero from "../components/home/Hero"
 import CategoriesSection from "../components/home/CategoriesSection"
 import ModelsSection from "../components/home/ModelSection"
+import FeaturesSection from "../components/home/FeaturesSection"
+import CTABanner  from "../components/home/CTABanner"
+import Footer from '../components/Footer'
 
 interface HomePageProps{
     onRegisterClick: () => void
@@ -18,6 +21,11 @@ function HomePage({ onRegisterClick }: HomePageProps) {
       <ModelsSection />
       <div className="h-px"
            style={{ background: 'linear-gradient(90deg,transparent,var(--accent),var(--accent2),transparent)', opacity: 0.3 }} />
+      <FeaturesSection/>
+
+      <CTABanner onRegisterClick={onRegisterClick} />
+      
+      <Footer />
     </main>
   )
 }
