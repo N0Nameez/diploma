@@ -6,8 +6,10 @@ import CatalogPage from "./pages/CatalogPage"
 import GenerationPage from "./pages/GenerationPage"
 import ProfilePage from "./pages/ProfilePage"
 import Modal from "./components/Modal"
+import { useAuth } from './hooks/useAuth'
 
 function App() {
+  const { user, signUp, signIn, signOut } = useAuth()
   const [currentTheme, setTheme] = useState<'dark' | 'light'>('dark')
   const [modal, setModal] = useState<'login' | 'register' | null>(null)
 
@@ -26,6 +28,8 @@ function App() {
 
       <Navbar
       links={links}
+      user={user}
+      onLogout={signOut}
       onThemeToggle={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
       onLoginClick={() => setModal('login')}
       onRegisterClick={() => setModal('register')}/>
@@ -42,6 +46,8 @@ function App() {
           type={modal}
           onClose={() => setModal(null)}
           onSwitch={setModal}
+          onSignIn={signIn}
+          onSignUp={signUp}
         />
       )}
     </>
