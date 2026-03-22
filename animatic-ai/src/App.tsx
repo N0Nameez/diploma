@@ -18,8 +18,8 @@ function App() {
   }, [currentTheme])  
 
   const links = [
-    { label: '3D-модели', href: '/models'},
-    { label: 'Анимации', href: '/animation'},
+    { label: '3D-модели', href: '/models?content=3d" '},
+    { label: 'Анимации', href: '/models?content=animation'},
     { label: 'Генерация', href: '/generation'}
   ]
 

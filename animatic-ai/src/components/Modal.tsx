@@ -49,8 +49,6 @@ function Modal({ type, onClose, onSwitch, onSignIn, onSignUp }: ModalProps) {
       else setError(msg)
       return
     }
-
-    onClose()
   }
 
   useEffect(() => {
@@ -74,16 +72,17 @@ function Modal({ type, onClose, onSwitch, onSignIn, onSignUp }: ModalProps) {
                       rounded-3xl p-10
                       ${isClosing ? 'animate-fade-out' : 'animate-fade'}`}>
 
-        {/* Закрыть */}
-        <button onClick={onClose}
-          className="absolute top-5 right-5 w-8 h-8 rounded-lg
+        {/* Close button */}
+        <button onClick={handleClose}
+          className={`absolute top-5 right-5 w-8 h-8 rounded-lg
                      bg-surface2 border border-border
                      text-textSecondary hover:text-text
-                     flex items-center justify-center transition-all text-lg">
+                     flex items-center justify-center transition-all text-lg
+                     ${isClosing ? 'animate-fade-out' : 'animate-fade'}`}>
           ×
         </button>
 
-        {/* Заголовок */}
+        {/* Header */}
         <div className="font-extrabold text-xl text-accent mb-1">AnimaticAI</div>
         <div className="font-bold text-2xl tracking-tight mb-1">
           {isLogin ? 'Добро пожаловать' : 'Создать аккаунт'}
@@ -92,20 +91,17 @@ function Modal({ type, onClose, onSwitch, onSignIn, onSignUp }: ModalProps) {
           {isLogin ? 'Войди чтобы продолжить' : 'Начни создавать 3D-модели бесплатно'}
         </div>
 
-        {/* Поля */}
+        {/* Input Fields */}
         {!isLogin && (
           <div className="flex flex-col gap-2 mb-4">
             <label className="text-[11px] font-bold text-textSecondary uppercase tracking-[0.8px]">
               Имя пользователя
             </label>
-            <input
+            <InputField
               type="text"
               placeholder="username"
               value={username}
-              onChange={e => setUsername(e.target.value)}
-              className="w-full px-4 py-3 bg-surface2 border border-border rounded-xl
-                         text-text text-sm outline-none focus:border-accent transition-all
-                         placeholder:text-textSecondary"
+              onChange={setUsername}
             />
           </div>
         )}
@@ -140,7 +136,7 @@ function Modal({ type, onClose, onSwitch, onSignIn, onSignUp }: ModalProps) {
           />
         </div>
 
-        {/* Ошибка */}
+        {/* Error */}
         {error && (
           <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20
                           text-red-400 text-sm">
@@ -148,7 +144,7 @@ function Modal({ type, onClose, onSwitch, onSignIn, onSignUp }: ModalProps) {
           </div>
         )}
 
-        {/* Кнопка */}
+        {/* Submit Button */}
         <button
           onClick={handleSubmit}
           disabled={loading}
@@ -160,7 +156,7 @@ function Modal({ type, onClose, onSwitch, onSignIn, onSignUp }: ModalProps) {
           {loading ? 'Загрузка...' : isLogin ? 'Войти' : 'Создать аккаунт'}
         </button>
 
-        {/* Переключение */}
+        {/* Auth/Reg switch button */}
         <div className="text-center mt-5 text-sm text-textSecondary">
           {isLogin ? 'Нет аккаунта? ' : 'Уже есть аккаунт? '}
           <button
