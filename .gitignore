@@ -31,6 +31,10 @@ output_3d/
 *.fbx
 *.ply
 
+# Backend generation output
+backend/generation/output/
+!backend/generation/output/.gitkeep
+
 # =============================================================================
 # Large Images (оставить только маленькие превью)
 # =============================================================================
