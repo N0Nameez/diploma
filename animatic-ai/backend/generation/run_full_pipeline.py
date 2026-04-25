@@ -16,9 +16,9 @@ from validation import PhotoValidator
 # НАСТРОЙКИ
 # ============================================================
 
-NAME = 'ya'
+NAME = 'vlad_T'
 
-INPUT = os.path.join(PROJECT_ROOT, 'src', f'{NAME}.jpg')
+INPUT = os.path.join(PROJECT_ROOT, 'src', f'{NAME}.png')
 OUTPUT = os.path.join(PROJECT_ROOT, 'output')
 Path(OUTPUT).mkdir(exist_ok=True)
 

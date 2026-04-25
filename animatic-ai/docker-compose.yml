@@ -1,0 +1,70 @@
+services:
+  # ── Redis (queue backend) ──
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── FastAPI Backend ──
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app # hot reload for dev
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ── ARQ Worker (GPU generation) ──
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    env_file: .env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+    command: python -m arq worker.WorkerSettings
+    # GPU support (requires Docker Desktop + WSL2 + NVIDIA drivers)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # ── React Frontend ──
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "5173:5173"
+    env_file: .env
+    depends_on:
+      - backend
+    volumes:
+      - .:/app
+      - /app/node_modules # prevent overwriting
+    command: npm run dev -- --host 0.0.0.0
