@@ -1,18 +1,59 @@
 :root[data-theme="dark"] {
-  --bg: #080C14;
-  --surface: #0F1521;
-  --surface2: #161E2E;
-  --border: rgba(255,255,255,0.07);
-  --text: #F0F4FF;
-  --text-secondary: #7A8BA8;
-  --accent: #1B6EF3;
-  --accent-glow: rgba(27,110,243,0.35);
-  --accent2: #7C3AED;
-  --accent2-glow: rgba(124,58,237,0.3);
-  --card-bg: rgba(15,21,33,0.8);
-  --nav-bg: rgba(8,12,20,0.85);
-  --hero-gradient: radial-gradient(ellipse 80% 60% at 60% 40%, rgba(27,110,243,0.18) 0%, transparent 65%), radial-gradient(ellipse 50% 40% at 80% 70%, rgba(124,58,237,0.12) 0%, transparent 60%);
-  --tag-bg: rgba(27,110,243,0.12);
+  /* ── ФОН И ПОВЕРХНОСТИ ── */
+  --bg-primary: #000;
+  --bg-secondary: #141414;
+  --bg-overlay-1: rgba(0, 0, 0, 0.1);
+  --bg-overlay-2: rgba(0, 0, 0, 0.3);
+  --bg-overlay-3: rgba(0, 0, 0, 0.6);
+  --bg-surface: rgba(255, 255, 255, 0.02);
+  --bg-nav-scrolled: rgba(20, 20, 20, 0.65);
+  --bg-icon: rgba(255, 255, 255, 0.06);
+  --bg-tag: rgba(255, 255, 255, 0.06);
+  --bg-grid: rgba(255, 255, 255, 0.08);
+  --bg-selection: rgba(236, 72, 153, 0.3);
+
+  /* ── ТИПОГРАФИКА ── */
+  --text-primary: #fff;
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --text-tertiary: rgba(255, 255, 255, 0.5);
+  --text-muted: rgba(255, 255, 255, 0.4);
+  --text-dimmed: rgba(255, 255, 255, 0.35);
+  --text-disabled: rgba(255, 255, 255, 0.3);
+  --text-selection: #fff;
+
+  /* ── АКЦЕНТЫ ── */
+  --accent: #EC4899;
+  --accent-rgb: 236, 72, 153;
+  --accent-glow: rgba(236, 72, 153, 0.08);
+  --accent-shadow: rgba(236, 72, 153, 0.2);
+  --accent-line-start: rgba(236, 72, 153, 0.4);
+  --accent-line-end: rgba(236, 72, 153, 0.6);
+  --accent-particle: rgba(236, 72, 153, 0.4);
+
+  /* ── UI-ЭЛЕМЕНТЫ ── */
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-elevated: rgba(255, 255, 255, 0.12);
+  --border-section-label: rgba(255, 255, 255, 0.2);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.15);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
+  --scrollbar-track: #000;
+  --cursor-glow: radial-gradient(circle, rgba(236, 72, 153, 0.08) 0%, transparent 70%);
+  --mask-gradient: linear-gradient(to right, transparent 0%, black 40%);
+
+  /* ── СТАТУСЫ / УТИЛИТЫ ── */
+  --status-online: #EC4899;
+  --status-online-glow: rgba(236, 72, 153, 0.6);
+  --overlay-gradient: linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.6) 80%, #000 100%);
+  --dot-pattern: radial-gradient(circle, rgba(255,255,255,0.4) 1px, transparent 1px);
+
+  /* ── ВТОРИЧНЫЕ КНОПКИ ── */
+  --btn-primary-bg: #fff;
+  --btn-primary-text: #000;
+  --btn-primary-hover: rgba(255, 255, 255, 0.85);
+  --btn-secondary-bg: transparent;
+  --btn-secondary-text: rgba(255, 255, 255, 0.6);
+  --btn-secondary-hover-text: #fff;
+  --btn-secondary-hover-bg: rgba(255, 255, 255, 0.08);
 }
 
 :root[data-theme="light"] {
@@ -36,17 +77,86 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  background-color: var(--bg);
-  color: var(--text);
-  font-family: 'DM Sans', sans-serif;
-  transition: all 0.2s;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
+html {
+  scroll-behavior: smooth;
 }
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #000;
+  color: #fff;
+  overflow-x: hidden;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(236, 72, 153, 0.3);
+  color: #fff;}
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #000; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+
+/* ── SCROLL REVEAL ── */
+.reveal {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-up {
+  opacity: 0;
+  transform: translateY(60px);
+  transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal-up.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-scale {
+  opacity: 0;
+  transform: scale(0.92) translateY(30px);
+  transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal-scale.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+/* ── WORD ANIMATION ── */
+.word-anim {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+.word-anim span {
+  display: inline-block;
+  transform: translateY(110%);
+  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.word-anim.visible span {
+  transform: translateY(0);
+}
+
+/* --- Сканер сетки --- */
+@keyframes scanner {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+.animate-scanner {
+  animation: scanner 6s linear infinite;
 }

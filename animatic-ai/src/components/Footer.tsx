@@ -1,99 +1,87 @@
-import { Link } from 'react-router-dom'
+import { Link } from "react-router-dom";
 
 const LINKS = {
-  'Продукт': [
-    { label: '3D-модели', href: '/models' },
-    { label: 'Анимации', href: '/animations' },
-    { label: 'Генерация', href: '/generation' },
-    { label: 'Каталог', href: '/models' },
+  "Продукт": [
+    { label: "3D-модели", href: "/models" },
+    { label: "Анимации", href: "/animations" },
+    { label: "Генерация", href: "/generation" },
+    { label: "Каталог", href: "/models" },
   ],
-  'Компания': [
-    { label: 'О нас', href: '#' },
-    { label: 'Блог', href: '#' },
-    { label: 'Карьера', href: '#' },
-    { label: 'Контакты', href: '#' },
+  "Разработчикам": [
+    { label: "Документация", href: "#" },
+    { label: "API", href: "#" },
+    { label: "SDK", href: "#" },
+    { label: "Статус", href: "#" },
   ],
-  'Поддержка': [
-    { label: 'Документация', href: '#' },
-    { label: 'FAQ', href: '#' },
-    { label: 'Сообщество', href: '#' },
-    { label: 'Статус', href: '#' },
+  "Компания": [
+    { label: "О нас", href: "#" },
+    { label: "Блог", href: "#" },
+    { label: "Карьера", href: "#", badge: "Hiring" },
+    { label: "Контакты", href: "#" },
   ],
-}
+  "Правовая информация": [
+    { label: "Конфиденциальность", href: "#" },
+    { label: "Условия", href: "#" },
+    { label: "Безопасность", href: "#" },
+  ],
+};
 
 function Footer() {
   return (
-    <footer className="bg-surface border-t border-border transition-colors duration-200">
-      <div className="max-w-7xl mx-auto py-12">
+    <footer className="pt-20 px-10 pb-10 border-t border-border-default">
+      <div className="w-full max-w-[1280px] mx-auto mb-20 rounded-[24px] overflow-hidden opacity-60 border border-border-default">
+        <img src="/images/footer-garden.jpg" alt="" className="w-full h-auto block" />
+      </div>
 
-        {/* Top */}
-        <div className="flex flex-wrap gap-10 justify-between mb-10">
-
-          {/* Brand */}
-          <div className="max-w-[260px]">
-            <Link to="/" className="
-              font-extrabold text-xl text-accent
-              tracking-[-0.5px] no-underline
-            ">
-              AnimaticAI
-            </Link>
-            <p className="text-sm text-textSecondary font-light leading-relaxed mt-3">
-              Платформа для генерации, анимации и публикации
-              3D-моделей с помощью искусственного интеллекта.
-            </p>
+      <div className="max-w-[1280px] mx-auto grid grid-cols-1 lg:grid-cols-[2fr_repeat(4,1fr)] gap-10 mb-20">
+        <div className="footer-brand">
+          <div className="font-tight text-[18px] font-bold text-white tracking-[-0.5px] mb-4 flex items-center gap-1">
+            AnimaticAI<span className="text-[10px] opacity-50 font-medium">TM</span>
           </div>
-
-          {/* Link columns */}
-          <div className="flex flex-wrap gap-12">
-            {Object.entries(LINKS).map(([category, links]) => (
-              <div key={category}>
-                <div className="
-                  text-[11px] font-bold tracking-[1.5px]
-                  uppercase text-textSecondary mb-4
-                ">
-                  {category}
-                </div>
-                <ul className="flex flex-col gap-2.5">
-                  {links.map(link => (
-                    <li key={link.label}>
-                      <Link
-                        to={link.href}
-                        className="
-                          text-sm text-textSecondary no-underline
-                          hover:text-accent transition-colors duration-200
-                        "
-                      >
-                        {link.label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+          <p className="text-[14px] font-light text-text-muted leading-[1.6] max-w-[260px]">
+            Платформа для генерации, анимации и публикации 3D-моделей с помощью искусственного интеллекта.
+          </p>
+          <div className="flex gap-4 mt-6">
+            <a href="#" className="text-[13px] font-normal text-text-muted no-underline transition-colors duration-200 hover:text-white">Twitter</a>
+            <a href="#" className="text-[13px] font-normal text-text-muted no-underline transition-colors duration-200 hover:text-white">GitHub</a>
+            <a href="#" className="text-[13px] font-normal text-text-muted no-underline transition-colors duration-200 hover:text-white">LinkedIn</a>
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="h-px bg-border mb-6" />
-
-        {/* Bottom */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <span className="text-xs text-textSecondary">
-            © 2025 AnimaticAI. Все права защищены.
-          </span>
-          <div className="flex gap-5">
-            <Link to="#" className="text-xs text-textSecondary hover:text-accent transition-colors duration-200 no-underline">
-              Конфиденциальность
-            </Link>
-            <Link to="#" className="text-xs text-textSecondary hover:text-accent transition-colors duration-200 no-underline">
-              Условия использования
-            </Link>
+        {Object.entries(LINKS).map(([category, links]) => (
+          <div key={category} className="footer-col">
+            <h4 className="text-[13px] font-medium text-white mb-5">{category}</h4>
+            <ul className="list-none flex flex-col gap-3">
+              {links.map((link) => (
+                <li key={link.label}>
+                  <Link
+                    to={link.href}
+                    className="text-[14px] font-light text-text-muted no-underline transition-colors duration-200 flex items-center gap-2 hover:text-white"
+                  >
+                    {link.label}
+                    {link.badge && (
+                      <span className="py-0.5 px-2 bg-white text-black text-[10px] font-semibold rounded-full tracking-[0.5px]">
+                        {link.badge}
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
-        </div>
+        ))}
+      </div>
 
+      <div className="max-w-[1280px] mx-auto pt-8 border-t border-border-default flex justify-between items-center flex-wrap gap-4">
+        <div className="font-mono text-[12px] font-normal text-text-disabled tracking-[0.5px]">
+          © 2025 AnimaticAI. Все права защищены.
+        </div>
+        <div className="font-mono text-[12px] font-normal text-text-muted tracking-[0.5px] flex items-center gap-2 before:content-[''] before:w-1.5 before:h-1.5 before:rounded-full before:bg-[#EC4899] before:animate-pulse-status">
+          Система работает стабильно
+        </div>
       </div>
     </footer>
-  )
+  );
 }
 
-export default Footer
+export default Footer;
