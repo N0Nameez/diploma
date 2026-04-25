@@ -1,7 +1,732 @@
-function GenerationPage(){
-    return(
-        <label>Страница генерации</label>
-    )
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
+import { useGeneration } from "../hooks/useGeneration";
+import type { GenerationSettings } from "../hooks/useGeneration";
+import { Gem, Download, Save, Edit3, RotateCcw } from "lucide-react";
+import ModeSwitcher from "../components/generation/ModeSwitcher";
+import UploadPanel from "../components/generation/UploadPanel";
+import SettingsPanel from "../components/generation/SettingsPanel";
+import QualitySettings from "../components/generation/QualitySettings";
+import PreviewPanel from "../components/generation/PreviewPanel";
+import { Viewer3D } from "../components/Viewer3D";
+import CreditsPanel from "../components/generation/CreditsPanel";
+import HistoryPanel from "../components/generation/HistoryPanel";
+import Toast from "../components/model/Toast";
+import Modal from "../components/Modal";
+import LicenseModal from "../components/model/LicenseModal";
+import { publishModel, downloadModel, fetchModel } from "../services/api";
+
+function GenerationPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { user, signIn, signUp } = useAuth();
+  const {
+    mode,
+    setMode,
+    file,
+    fileUrl,
+    uploading,
+    generating,
+    progress,
+    status,
+    errorMessage,
+    credits,
+    creditsResetDate,
+    history,
+    resultModelId,
+    modelFileUrl,
+    setOnComplete,
+    uploadFile,
+    startGeneration,
+    loadUserCredits,
+    loadUserHistory,
+    removeFile,
+    reset,
+  } = useGeneration();
+
+  const [settings, setSettings] = useState<GenerationSettings>({
+    name: "",
+    category: "Персонаж",
+    description: "",
+    stylePreset: "realism",
+    qualityLevel: "high",
+    polyCount: "50k",
+    enablePbr: true,
+    enableRig: true,
+    autoPublish: false,
+  });
+
+  // Queue state
+  const [queuePosition, setQueuePosition] = useState<number | null>(null);
+  const [queueLength, setQueueLength] = useState<number>(0);
+  const [prevStatus, setPrevStatus] = useState<string | null>(null);
+
+  // Editor mode (after generation completes)
+  const [editorMode, setEditorMode] = useState(false);
+  const [editorModelId, setEditorModelId] = useState<string | null>(null);
+  const [editorName, setEditorName] = useState("");
+  const [editorDescription, setEditorDescription] = useState("");
+  const [editorCategory, setEditorCategory] = useState("Персонажи");
+  const [editorSaving, setEditorSaving] = useState(false);
+  const [editorError, setEditorError] = useState<string | null>(null);
+
+  const [toast, setToast] = useState<{ visible: boolean; message: string }>({
+    visible: false,
+    message: "",
+  });
+
+  // Модальное окно авторизации
+  const [authModal, setAuthModal] = useState<
+    "login" | "register" | "reset-password" | null
+  >(null);
+
+  // Модалка выбора лицензии
+  const [licenseModalOpen, setLicenseModalOpen] = useState(false);
+
+  // Hide settings panels when generating or after completion
+  const showSettings =
+    !generating && status !== "completed" && status !== "processing";
+
+  // Validation: name is required
+  const nameError =
+    !settings.name.trim() && generating === false && file !== null
+      ? "Введите название модели"
+      : "";
+  const canGenerate = !!file && !generating && !!settings.name.trim();
+
+  /* 🧹 Refactored: 2026-04-21 — merged duplicate useEffect */
+  useEffect(() => {
+    if (user) {
+      loadUserCredits(user.id);
+      loadUserHistory(user.id);
+    }
+  }, [user]);
+
+  /* Play completion sound using Web Audio API */
+  const playCompletionSound = () => {
+    try {
+      const ctx = new (
+        window.AudioContext || (window as any).webkitAudioContext
+      )();
+      const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.15);
+        gain.gain.exponentialRampToValueAtTime(
+          0.001,
+          ctx.currentTime + i * 0.15 + 0.4,
+        );
+        osc.start(ctx.currentTime + i * 0.15);
+        osc.stop(ctx.currentTime + i * 0.15 + 0.4);
+      });
+    } catch {
+      // Ignore audio errors
+    }
+  };
+
+  /* Set up completion callback */
+  useEffect(() => {
+    setOnComplete((modelId: string) => {
+      setLicenseModalOpen(true);
+      playCompletionSound();
+      showToast("✅ Модель готова! Смотрите результат");
+      // Enter editor mode
+      setEditorMode(true);
+      setEditorModelId(modelId);
+      setEditorName(settings.name);
+      setEditorDescription(settings.description);
+      setEditorCategory(settings.category || "Персонажи");
+    });
+    return () => setOnComplete(null);
+  }, [settings]);
+
+  /* Load model data when entering editor mode from history */
+  const [editorFileUrl, setEditorFileUrl] = useState<string | null>(null);
+  const [editorPreviewUrl, setEditorPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!editorMode || !editorModelId) return;
+    setEditorFileUrl(null);
+    setEditorPreviewUrl(null);
+    fetchModel(editorModelId)
+      .then((model) => {
+        setEditorName(model.name);
+        setEditorDescription(model.description || "");
+        setEditorCategory(model.category || "Персонажи");
+        setEditorFileUrl(model.file_url);
+        setEditorPreviewUrl(model.preview_url);
+      })
+      .catch(() => {});
+  }, [editorMode, editorModelId]);
+
+  /* Save edited model */
+  const handleSaveEditor = async () => {
+    if (!editorModelId || !user || !editorName.trim()) return;
+    setEditorSaving(true);
+    setEditorError(null);
+    try {
+      const qs = new URLSearchParams();
+      qs.set("name", editorName.trim());
+      qs.set("description", editorDescription);
+      qs.set("category", editorCategory);
+      qs.set("author_id", user.id);
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/models/${editorModelId}?${qs}`,
+        { method: "PUT" },
+      );
+      if (!res.ok) throw new Error("Failed to save");
+      showToast("Модель сохранена");
+    } catch {
+      setEditorError("Ошибка при сохранении");
+    } finally {
+      setEditorSaving(false);
+    }
+  };
+
+  /* Reset editor mode */
+  const handleNewGeneration = () => {
+    setEditorMode(false);
+    setEditorModelId(null);
+    setEditorName("");
+    setEditorDescription("");
+    setEditorCategory("Персонажи");
+    reset();
+  };
+
+  /* Handle model_id from URL (edit mode from ModelPage) */
+  useEffect(() => {
+    const modelId = searchParams.get("model_id");
+    if (modelId && user) {
+      setEditorMode(true);
+      setEditorModelId(modelId);
+      fetchModel(modelId)
+        .then((model) => {
+          setEditorName(model.name);
+          setEditorDescription(model.description || "");
+          setEditorCategory(model.category || "Персонажи");
+          setEditorFileUrl(model.file_url);
+          setEditorPreviewUrl(model.preview_url);
+        })
+        .catch(() => {});
+    }
+  }, [searchParams, user]);
+
+  /* Poll queue position when status is queued */
+  useEffect(() => {
+    if (!user || status !== "queued") return;
+
+    const pollQueue = async () => {
+      try {
+        const { getGenerationStatus } = await import("../services/api");
+        // Get current gen ID from history
+        const currentGen = history.find(
+          (h) => h.status === "queued" || h.status === "processing",
+        );
+        if (!currentGen) return;
+
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/generate/${currentGen.id}`,
+        );
+        const data = await res.json();
+        setQueuePosition(data.queue_position);
+        setQueueLength(data.queue_length || 0);
+
+        // Detect status transition: queued -> processing
+        if (prevStatus === "queued" && data.status === "processing") {
+          showToast("🎨 Генерация началась! GPU обрабатывает вашу модель...");
+        }
+        setPrevStatus(data.status);
+      } catch {
+        // Ignore polling errors
+      }
+    };
+
+    pollQueue();
+    const interval = setInterval(pollQueue, 3000);
+    return () => clearInterval(interval);
+  }, [user, status, history, prevStatus]);
+
+  /* Handle publish with chosen license */
+  const handlePublish = async (license: string) => {
+    if (!resultModelId || !user) return;
+    try {
+      await publishModel(resultModelId, user.id, license);
+      setLicenseModalOpen(false);
+      showToast(
+        `Модель опубликована с лицензией: ${license === "private" ? "Приватная" : license === "view_only" ? "Просмотр" : "Публичная"}`,
+      );
+      setTimeout(() => navigate(`/models/${resultModelId}`), 1500);
+    } catch (err) {
+      console.error("Publish failed:", err);
+      showToast("Ошибка при публикации");
+    }
+  };
+
+  const showToast = (message: string) => {
+    setToast({ visible: true, message });
+    setTimeout(() => setToast({ visible: false, message: "" }), 2800);
+  };
+
+  const handleUpload = async (uploadedFile: File) => {
+    await uploadFile(uploadedFile);
+    showToast(file ? "Файл загружен" : "Файл готов к загрузке");
+  };
+
+  const handleGenerate = async () => {
+    if (!user) {
+      setAuthModal("register");
+      return;
+    }
+
+    const result = await startGeneration(user.id, settings);
+    if (result) {
+      showToast(
+        mode === "model"
+          ? "Генерация 3D-модели запущена"
+          : "Генерация анимации запущена",
+      );
+    }
+  };
+
+  const handleRetry = () => {
+    reset();
+    showToast("Генерация сброшена");
+  };
+
+  /* Download completed model */
+  const handleDownloadModel = async () => {
+    if (!resultModelId) return;
+    try {
+      const data = await downloadModel(resultModelId);
+      const response = await fetch(data.file_url);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `${data.name}.${data.format.toLowerCase()}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+      showToast(`Скачивание: ${data.name}.${data.format.toLowerCase()}`);
+    } catch (err) {
+      console.error("Download failed:", err);
+      showToast("Ошибка при скачивании");
+    }
+  };
+
+  const handleToggle = (setting: string, value: boolean) => {
+    setSettings({ ...settings, [setting]: value });
+  };
+
+  return (
+    <div className="pt-16 min-h-screen">
+      {/* Page Header */}
+      <div className="max-w-[1320px] mx-auto px-10 pt-20 pb-0">
+        {editorMode ? (
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-bold text-text flex items-center gap-2">
+              <Edit3 className="w-6 h-6 text-accent" />
+              Редактирование модели
+            </h1>
+            <button
+              onClick={handleNewGeneration}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-white text-sm font-semibold hover:brightness-108 transition-all"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Новая генерация
+            </button>
+          </div>
+        ) : (
+          <ModeSwitcher mode={mode} onModeChange={setMode} />
+        )}
+      </div>
+
+      {/* Editor Mode */}
+      {editorMode && (
+        <div className="max-w-[1320px] mx-auto px-10 pb-20 grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-6 items-start">
+          {/* Left Column - Editor Form */}
+          <div className="flex flex-col gap-4">
+            {/* Model Preview / 3D Viewer */}
+            <Viewer3D
+              variant="full"
+              modelUrl={modelFileUrl || editorFileUrl || undefined}
+              showToolbar={true}
+              showBadge={false}
+              autoRotate={true}
+            />
+
+            {/* Editor Fields */}
+            <div className="bg-surface border border-border rounded-2xl p-6">
+              <h2 className="text-lg font-bold text-text mb-4">
+                Параметры модели
+              </h2>
+
+              {/* Name */}
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-text mb-2">
+                  Название
+                </label>
+                <input
+                  type="text"
+                  value={editorName}
+                  onChange={(e) => setEditorName(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-surface2 border border-border rounded-xl text-text text-sm outline-none focus:border-accent transition-all"
+                  placeholder="Введите название..."
+                />
+              </div>
+
+              {/* Description */}
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-text mb-2">
+                  Описание
+                </label>
+                <textarea
+                  value={editorDescription}
+                  onChange={(e) => setEditorDescription(e.target.value)}
+                  rows={3}
+                  className="w-full px-4 py-2.5 bg-surface2 border border-border rounded-xl text-text text-sm outline-none focus:border-accent transition-all resize-none"
+                  placeholder="Опишите модель..."
+                />
+              </div>
+
+              {/* Category */}
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-text mb-2">
+                  Категория
+                </label>
+                <select
+                  value={editorCategory}
+                  onChange={(e) => setEditorCategory(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-surface2 border border-border rounded-xl text-text text-sm outline-none focus:border-accent transition-all"
+                >
+                  <option value="Персонажи">Персонажи</option>
+                  <option value="Архитектура">Архитектура</option>
+                  <option value="Природа">Природа</option>
+                  <option value="Транспорт">Транспорт</option>
+                  <option value="Оружие">Оружие</option>
+                  <option value="Животные">Животные</option>
+                  <option value="Интерьер">Интерьер</option>
+                </select>
+              </div>
+
+              {/* Locked Fields Notice */}
+              <div className="p-3 rounded-xl bg-surface2 border border-border mb-4">
+                <p className="text-xs text-textSecondary">
+                  🔒 Фото и параметры генерации заблокированы. Для изменения
+                  создайте новую генерацию.
+                </p>
+              </div>
+
+              {/* Error */}
+              {editorError && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-500 text-sm mb-4">
+                  {editorError}
+                </div>
+              )}
+
+              {/* Save Button */}
+              <button
+                onClick={handleSaveEditor}
+                disabled={editorSaving || !editorName.trim()}
+                className="w-full py-3 rounded-xl bg-accent text-white font-semibold flex items-center justify-center gap-2 hover:brightness-108 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Save className="w-4 h-4" />
+                {editorSaving ? "Сохранение..." : "Сохранить"}
+              </button>
+            </div>
+          </div>
+
+          {/* Right Column - History */}
+          <div className="flex flex-col gap-4">
+            <HistoryPanel
+              history={history}
+              onClear={() => showToast("История очищена")}
+              onSelectItem={(id, status) => {
+                const gen = history.find((h) => h.id === id);
+                if (!gen) return;
+                if (status === "completed") {
+                  setEditorMode(true);
+                  if (gen.resultModelId) {
+                    setEditorModelId(gen.resultModelId);
+                  }
+                } else if (status === "failed") {
+                  showToast("❌ Ошибка генерации");
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Normal Generation Mode */}
+      {!editorMode && (
+        <div className="max-w-[1320px] mx-auto px-10 pb-20 grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-6 items-start">
+          {/* Left Column */}
+          <div className="flex flex-col gap-4">
+            <UploadPanel
+              mode={mode}
+              file={file}
+              fileUrl={fileUrl}
+              uploading={uploading}
+              generating={generating}
+              progress={progress}
+              status={status}
+              modelFileUrl={modelFileUrl}
+              onUpload={handleUpload}
+              onRemove={removeFile}
+            />
+
+            {showSettings && (
+              <>
+                <SettingsPanel
+                  mode={mode}
+                  settings={settings}
+                  onSettingsChange={setSettings}
+                  nameError={nameError}
+                />
+
+                <QualitySettings
+                  qualityLevel={settings.qualityLevel}
+                  polyCount={settings.polyCount}
+                  enablePbr={settings.enablePbr}
+                  enableRig={settings.enableRig}
+                  autoPublish={settings.autoPublish}
+                  onQualityChange={(level) =>
+                    setSettings({ ...settings, qualityLevel: level as any })
+                  }
+                  onPolyChange={(count) =>
+                    setSettings({ ...settings, polyCount: count })
+                  }
+                  onToggle={handleToggle}
+                />
+              </>
+            )}
+          </div>
+
+          {/* Right Column */}
+          <div className="flex flex-col gap-4 lg:sticky lg:top-20">
+            <PreviewPanel
+              mode={mode}
+              status={status}
+              progress={progress}
+              fileUploaded={!!file}
+              modelFileUrl={modelFileUrl}
+              onRetry={handleRetry}
+            />
+
+            <button
+              onClick={handleGenerate}
+              disabled={!canGenerate}
+              className={`w-full py-4 rounded-[14px] font-extrabold text-[16px] flex items-center justify-center gap-2.5
+                        transition-all duration-200 relative overflow-hidden text-white
+                        ${
+                          mode === "model"
+                            ? "bg-gradient-to-br from-accent to-accentDark shadow-[0_6px_28px_var(--accent-glow)]"
+                            : "bg-gradient-to-br from-accent2 to-accent2Dark shadow-[0_6px_28px_var(--accent2-glow)]"
+                        }
+                        ${!canGenerate ? "opacity-50 cursor-not-allowed" : "hover:-translate-y-0.5 hover:brightness-108"}
+                        ${generating ? "loading" : ""}`}
+            >
+              {generating ? (
+                <>
+                  <svg
+                    className="animate-spin"
+                    width="18"
+                    height="18"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38" />
+                  </svg>
+                  <span>Генерация...</span>
+                </>
+              ) : (
+                <>
+                  <svg
+                    width="18"
+                    height="18"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    viewBox="0 0 24 24"
+                  >
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                  <span>
+                    {mode === "model"
+                      ? "Генерировать 3D-модель"
+                      : "Генерировать анимацию"}
+                  </span>
+                  <span className="opacity-70 font-medium text-[13px]">
+                    · {mode === "model" ? "3" : "2"} кредита
+                  </span>
+                </>
+              )}
+            </button>
+
+            {/* Queue indicator */}
+            {status === "queued" && queuePosition && (
+              <div className="bg-surface border border-border rounded-[14px] p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+                    <svg
+                      className="animate-pulse"
+                      width="16"
+                      height="16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 6v6l4 2" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-text">
+                      Вы {queuePosition}-й в очереди
+                    </div>
+                    <div className="text-xs text-textSecondary">
+                      Ожидают ещё {queueLength - 1} задач
+                    </div>
+                  </div>
+                </div>
+                {/* Queue progress bar */}
+                <div className="w-full h-2 bg-surface2 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-accent rounded-full transition-all duration-500"
+                    style={{
+                      width: `${Math.max(5, (1 - queuePosition / Math.max(queueLength, 1)) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <div className="text-xs text-textSecondary mt-2">
+                  ⏳ Примерно ~{queuePosition * 3} мин
+                </div>
+              </div>
+            )}
+
+            {/* Download button - only when model is completed */}
+            {status === "completed" && resultModelId && (
+              <button
+                onClick={handleDownloadModel}
+                className="w-full py-3 rounded-[14px] font-semibold text-[15px] flex items-center justify-center gap-2
+                         transition-all duration-200 bg-surface2 border border-border text-text
+                         hover:-translate-y-0.5 hover:border-accent hover:text-accent"
+              >
+                <Download className="w-4 h-4" />
+                Скачать модель
+              </button>
+            )}
+
+            {/* Name validation error below button */}
+            {nameError && (
+              <div className="text-[12px] text-red-500 font-medium text-center mt-1">
+                {nameError}
+              </div>
+            )}
+
+            {/* Credits Panel - показываем только авторизованным */}
+            {user ? (
+              <CreditsPanel credits={credits} resetDate={creditsResetDate} />
+            ) : (
+              <div className="bg-surface border border-border rounded-[18px] p-[18px_20px] text-center transition-colors duration-200">
+                <div className="flex items-center justify-center gap-2 font-extrabold text-[14px] text-text mb-2">
+                  <Gem className="w-4 h-4 text-accent" />
+                  Кредиты
+                </div>
+                <div className="text-[13px] text-text-secondary mb-3">
+                  Зарегистрируйтесь чтобы получить 15 бесплатных кредитов
+                </div>
+                <button
+                  onClick={() => setAuthModal("register")}
+                  className="w-full py-2 rounded-lg bg-accent text-white text-[12px] font-semibold hover:opacity-[0.85] transition-all duration-200"
+                >
+                  Зарегистрироваться
+                </button>
+              </div>
+            )}
+
+            {/* History Panel - показываем только авторизованным */}
+            {user && (
+              <HistoryPanel
+                history={history}
+                onClear={() => showToast("История очищена")}
+                onSelectItem={(id, status) => {
+                  const gen = history.find((h) => h.id === id);
+                  if (!gen) return;
+                  if (status === "completed") {
+                    setEditorMode(true);
+                    if (gen.resultModelId) {
+                      setEditorModelId(gen.resultModelId);
+                    }
+                  } else if (status === "failed") {
+                    showToast("❌ Ошибка генерации. Попробуйте другое фото.");
+                  } else if (status === "processing" || status === "queued") {
+                    showToast("⏳ Генерация в процессе...");
+                  }
+                }}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* License Modal */}
+      <LicenseModal
+        isOpen={licenseModalOpen}
+        onClose={() => setLicenseModalOpen(false)}
+        onPublish={handlePublish}
+        modelId={resultModelId}
+      />
+
+      {/* Toast */}
+      <Toast
+        message={toast.message}
+        isVisible={toast.visible}
+        onClose={() => setToast({ ...toast, visible: false })}
+      />
+
+      {/* Error Message */}
+      {errorMessage && (
+        <div className="fixed bottom-7 left-1/2 -translate-x-1/2 z-[2000] bg-red-500/10 border border-red-500/20 rounded-xl px-5 py-3 text-red-400 text-sm font-medium flex items-center gap-2">
+          <svg
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          {errorMessage}
+        </div>
+      )}
+
+      {/* Auth Modal */}
+      {authModal && (
+        <Modal
+          type={authModal}
+          onClose={() => setAuthModal(null)}
+          onSwitch={setAuthModal}
+          onSignIn={signIn}
+          onSignUp={signUp}
+        />
+      )}
+    </div>
+  );
 }
 
-export default GenerationPage
+export default GenerationPage;
