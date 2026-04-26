@@ -65,7 +65,7 @@ export function AboutSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="font-tight text-[clamp(40px,6vw,80px)] font-medium leading-[1.1] tracking-[-2px] mb-12 text-white"
+            className="font-tight text-[clamp(40px,6vw,80px)] font-medium leading-[1.1] tracking-[-2px] mb-12 text-text-primary"
           >
             Будущее 3D-графики<br />
             <span className="text-accent">в ваших руках</span>
@@ -83,7 +83,7 @@ export function AboutSection() {
             })}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-left pt-12 border-t border-border/50">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-left pt-12 border-t border-border-default">
             {[
               { label: 'Скорость', value: '10x', desc: 'Ускорение рабочего процесса' },
               { label: 'Инновации', value: 'ИИ', desc: 'Собственные ИИ-алгоритмы' },
@@ -118,7 +118,7 @@ function Word({ children, progress, range }: WordProps) {
   const opacity = useTransform(progress, range, [0, 1]);
   return (
     <span className="relative mx-1 lg:mx-1.5 inline-block">
-      <motion.span style={{ opacity }} className="text-white">
+      <motion.span style={{ opacity }} className="text-text-primary">
         {children}
       </motion.span>
     </span>

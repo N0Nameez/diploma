@@ -51,7 +51,7 @@ export function HeroScene({ onRegisterClick, user }: HeroSceneProps) {
         <BackgroundParticles />
         
         {/* Grid Overlay */}
-        <div className="absolute inset-0 z-0 opacity-20 pointer-events-none bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]" />
+        <div className="absolute inset-0 z-0 opacity-20 pointer-events-none bg-[linear-gradient(var(--grid-color)_1px,transparent_1px),linear-gradient(90deg,var(--grid-color)_1px,transparent_1px)] bg-[size:40px_40px]" />
 
         {/* 3D Scene Wrapper with Dynamic Blur */}
         <motion.div 
@@ -66,9 +66,9 @@ export function HeroScene({ onRegisterClick, user }: HeroSceneProps) {
             eventPrefix="client"
             gl={{ antialias: true, alpha: true }}
           >
-            <ambientLight intensity={2} />
-            <directionalLight position={[10, 10, 5]} intensity={1.5} />
-            <directionalLight position={[-10, -10, -5]} intensity={1} color="#EC4899" />
+            <ambientLight intensity={1.5} />
+            <directionalLight position={[10, 10, 5]} intensity={1} />
+            <directionalLight position={[-10, -10, -5]} intensity={0.5} color="#EC4899" />
             <SceneContent progress={smoothProgress} />
           </Canvas>
         </motion.div>

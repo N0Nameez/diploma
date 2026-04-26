@@ -16,7 +16,7 @@ export function ScanningGrid() {
       <div 
         className="absolute inset-0 opacity-[0.15]" 
         style={{
-          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.8) 1.5px, transparent 1.5px)',
+          backgroundImage: 'radial-gradient(circle, var(--text-primary) 1.5px, transparent 1.5px)',
           backgroundSize: '32px 32px',
           backgroundPosition: 'center',
         }}

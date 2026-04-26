@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  darkMode: ['selector', '[data-theme="dark"]'],
   theme: {
     extend: {
       letterSpacing: { tight: '-0.5px' },
@@ -58,9 +59,9 @@ export default {
           secondary: 'var(--bg-secondary)',
           surface: 'var(--bg-surface)',
           'nav-scrolled': 'var(--bg-nav-scrolled)',
-          icon: 'rgba(255, 255, 255, 0.06)',
-          tag: 'rgba(255, 255, 255, 0.06)',
-          grid: 'rgba(255, 255, 255, 0.08)',
+          icon: 'var(--border-default)',
+          tag: 'var(--border-default)',
+          grid: 'var(--grid-color)',
           selection: 'var(--accent-shadow)',
         },
         text: {
@@ -112,7 +113,7 @@ export default {
         '20': '20px',
       },
       boxShadow: {
-        'glass': '0 4px 30px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
+        'glass': '0 4px 30px rgba(0,0,0,0.1), inset 0 1px 0 var(--glass-border)',
       },
     },
   },

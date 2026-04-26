@@ -33,7 +33,7 @@ export function BackgroundParticles() {
             delay: p.delay,
             ease: "linear"
           }}
-          className="absolute bg-white/15 rounded-sm blur-[1px]"
+          className="absolute bg-text-primary/10 rounded-sm blur-[1px]"
           style={{
             width: p.size,
             height: p.size,

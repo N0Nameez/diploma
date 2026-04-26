@@ -15,7 +15,7 @@ export function CTASection({ onRegisterClick }: CTASectionProps) {
   return (
     <section className="py-[160px] px-10 max-w-[1280px] mx-auto text-center relative overflow-hidden" id="cta">
       {/* Background Glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[400px] bg-accent/10 blur-[120px] pointer-events-none rounded-full"></div>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[400px] bg-accent/30 blur-[140px] pointer-events-none rounded-full"></div>
       
       <motion.div
         initial={{ opacity: 0, y: 30 }}

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/Button';
 import { ArrowRight } from 'lucide-react';
 import { Magnetic } from '@/components/Magnetic';
+import CursorGlow from '../CursorGlow';
 
 interface TreeCTAProps {
   onStartClick: () => void;
@@ -15,14 +16,16 @@ interface TreeCTAProps {
 export function TreeCTA({ onStartClick }: TreeCTAProps) {
   return (
     <div className="relative w-full min-h-screen flex flex-col items-center justify-center text-center px-6 lg:px-10 overflow-hidden">
+      <CursorGlow />
+      
       {/* Background Overlay for contrast */}
       <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute inset-0 bg-background-primary/40" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.6)_0%,transparent_70%)]" />
+        <div className="absolute inset-0 bg-background-primary/60 backdrop-blur-sm" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,var(--bg-primary)_0%,transparent_70%)] opacity-50" />
       </div>
 
       <div className="relative z-10 max-w-[1200px] mx-auto">
-        <div className="flex flex-col items-center p-10 md:p-16 lg:p-20 rounded-[40px] md:rounded-[60px] border border-white/10 bg-black/20 backdrop-blur-xl shadow-[0_0_100px_rgba(0,0,0,0.3)]">
+        <div className="flex flex-col items-center p-10 md:p-16 lg:p-20 rounded-[40px] md:rounded-[60px] border border-glass-border bg-glass-bg backdrop-blur-xl shadow-glass">
           <div className="font-mono text-[11px] font-normal text-accent tracking-[3px] mb-8 uppercase px-4 py-1.5 border border-accent/20 rounded-full bg-accent/5 backdrop-blur-sm">
             Будущее уже здесь
           </div>

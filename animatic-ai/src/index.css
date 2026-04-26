@@ -24,23 +24,34 @@
 }
 
 :root[data-theme="light"] {
-  --bg-primary: #F0F4FC;
-  --bg-secondary: #E8EEF8;
+  --bg-primary: #FAFAFA;
+  --bg-secondary: #F4F4F5;
   --bg-surface: #FFFFFF;
-  --bg-nav-scrolled: rgba(240, 244, 252, 0.9);
+  --bg-nav-scrolled: rgba(250, 250, 250, 0.8);
   
-  --text-primary: #0D1526;
-  --text-secondary: #5A6A85;
-  --text-tertiary: #718096;
-  --text-muted: #A0AEC0;
-  --text-dimmed: #CBD5E0;
+  --text-primary: #09090B;
+  --text-secondary: #3F3F46;
+  --text-tertiary: #52525B;
+  --text-muted: #71717A;
+  --text-dimmed: #A1A1AA;
   
   --border-default: rgba(0, 0, 0, 0.08);
   --border-elevated: rgba(0, 0, 0, 0.12);
   
-  --accent: #1B6EF3;
-  --accent-rgb: 27 110 243;
-  --accent-glow: rgba(27, 110, 243, 0.1);
+  --accent: #EC4899;
+  --accent-rgb: 236 72 153;
+  --accent-glow: rgba(236, 72, 153, 0.1);
+  --accent-shadow: rgba(236, 72, 153, 0.15);
+
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.05);
+  --grid-color: rgba(0, 0, 0, 0.04);
+}
+
+:root[data-theme="dark"] {
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --grid-color: rgba(255, 255, 255, 0.05);
 }
 
 @tailwind base;

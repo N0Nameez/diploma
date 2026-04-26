@@ -67,7 +67,7 @@ export function Navbar({
         <div className="hidden lg:flex flex-none items-center gap-4">
           <button
             onClick={onThemeToggle}
-            className="w-9 h-9 border border-border rounded-[10px] flex items-center justify-center transition-all duration-200 text-text-secondary hover:bg-background-surface hover:text-accent"
+            className="w-9 h-9 border border-border rounded-[10px] flex items-center justify-center transition-all duration-200 text-text-secondary hover:bg-background-surface hover:text-accent hover:border-accent"
           >
             <Sun size={16} className="hidden dark:block" />
             <Moon size={16} className="block dark:hidden" />
@@ -88,7 +88,7 @@ export function Navbar({
               </Link>
               <button
                 onClick={onLogout}
-                className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                className="text-sm text-text-secondary hover:text-accent transition-colors"
               >
                 <LogOut size={18} />
               </button>

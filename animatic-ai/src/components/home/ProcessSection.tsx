@@ -93,9 +93,9 @@ function ProcessCard({ step, index, isHovered, isAnyHovered, onHover }: ProcessC
           scale: scaleValue,
           transformStyle: "preserve-3d",
         }}
-        className={`group relative p-8 rounded-[32px] bg-background-secondary border border-border/50 
+        className={`group relative p-8 rounded-[32px] bg-background-secondary border border-border-default
           cursor-pointer transition-colors duration-500 overflow-visible h-full flex flex-col
-          ${isHovered ? 'z-30 border-accent/40 shadow-[0_40px_80px_rgba(0,0,0,0.4)]' : 'z-10'}
+          ${isHovered ? 'z-30 border-accent/40 shadow-glass' : 'z-10'}
         `}
       >
         {/* 3D Content Layer - Pushed Deep Forward */}
@@ -107,10 +107,10 @@ function ProcessCard({ step, index, isHovered, isAnyHovered, onHover }: ProcessC
           }} 
           className="relative z-10 pointer-events-none"
         >
-          <div className="w-14 h-14 rounded-[16px] bg-background-icon flex items-center justify-center text-text-primary mb-8 transition-all duration-500 group-hover:bg-accent group-hover:text-white group-hover:shadow-[0_0_40px_rgba(236,72,153,0.5)]">
+          <div className="w-14 h-14 rounded-[16px] bg-background-surface border border-border-default flex items-center justify-center text-text-primary mb-8 transition-all duration-500 group-hover:bg-accent group-hover:text-white group-hover:shadow-[0_0_40px_rgba(236,72,153,0.5)]">
             {step.icon}
           </div>
-          <h3 className="font-tight text-[26px] font-medium tracking-[-1px] mb-4 group-hover:text-white transition-colors duration-500">
+          <h3 className="font-tight text-[26px] font-medium tracking-[-1px] mb-4 group-hover:text-accent transition-colors duration-500">
             {step.title}
           </h3>
           <p className="text-[16px] font-light text-text-tertiary leading-[1.6]">
@@ -133,7 +133,7 @@ function ProcessCard({ step, index, isHovered, isAnyHovered, onHover }: ProcessC
         {/* Deep Shadow layer to anchor the card and give volume */}
         <div 
           style={{ transform: "translateZ(-30px)" }}
-          className="absolute inset-0 rounded-[32px] bg-black/60 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" 
+          className="absolute inset-0 rounded-[32px] bg-black/10 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" 
         />
       </motion.div>
     </div>

@@ -176,7 +176,7 @@ function PricingCard({ plan, index, isHovered, isAnyHovered, onHover, onRegister
         />
         
         {/* Shine reflection */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none rounded-[40px]" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-text-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none rounded-[40px]" />
       </motion.div>
     </div>
   );
@@ -222,7 +222,7 @@ export function PricingSection({ onRegisterClick }: { onRegisterClick: () => voi
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-4xl lg:text-7xl font-medium text-white tracking-tighter leading-[0.9] mb-8"
+            className="text-4xl lg:text-7xl font-medium text-text-primary tracking-tighter leading-[0.9] mb-8"
           >
             Выберите свой <br />
             <span className="text-accent italic font-light">уровень</span> возможностей
@@ -264,7 +264,7 @@ export function PricingSection({ onRegisterClick }: { onRegisterClick: () => voi
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          className="mt-20 text-center text-[13px] text-text-dimmed font-mono uppercase tracking-[1px] flex items-center justify-center gap-4 before:h-px before:flex-grow before:bg-white/5 after:h-px after:flex-grow after:bg-white/5"
+          className="mt-20 text-center text-[13px] text-text-dimmed font-mono uppercase tracking-[1px] flex items-center justify-center gap-4 before:h-px before:flex-grow before:bg-border-default after:h-px after:flex-grow after:bg-border-default"
         >
           Безопасные платежи через <span className="text-text-secondary">ЮKassa Sandbox</span>
         </motion.div>

@@ -93,7 +93,7 @@ export function Hero({ onRegisterClick, user, hideCanvas = false }: HeroProps) {
           <BackgroundParticles />
 
           {/* Grid Overlay */}
-          <div className="absolute inset-0 z-0 opacity-30 pointer-events-none bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_50%,#000_40%,transparent_100%)]" />
+          <div className="absolute inset-0 z-0 opacity-50 pointer-events-none bg-[linear-gradient(var(--grid-color)_1px,transparent_1px),linear-gradient(90deg,var(--grid-color)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_50%,#000_40%,transparent_100%)]" />
 
           {/* 3D Background */}
           <div className="absolute inset-0 z-0 blur-[0.5px]">
@@ -185,7 +185,7 @@ export function Hero({ onRegisterClick, user, hideCanvas = false }: HeroProps) {
 
         <motion.div 
           variants={itemVariants}
-          className="grid grid-cols-2 lg:flex gap-4 lg:gap-16 mt-12 lg:mt-0 p-6 lg:p-0 rounded-3xl bg-black/40 lg:bg-transparent backdrop-blur-md lg:backdrop-blur-none border border-white/5 lg:border-none"
+          className="grid grid-cols-2 lg:flex gap-4 lg:gap-16 mt-12 lg:mt-0 p-6 lg:p-0 rounded-3xl bg-background-surface/40 lg:bg-transparent backdrop-blur-md lg:backdrop-blur-none border border-border-default lg:border-none"
         >
           <div className="flex flex-col gap-1">
             <div className="font-tight text-[28px] lg:text-[32px] font-medium text-text-primary tracking-[-1px]">

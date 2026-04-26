@@ -22,7 +22,7 @@ interface HomePageProps {
  */
 export function HomePage({ onRegisterClick, user }: HomePageProps) {
   return (
-    <main className="min-h-screen bg-black">
+    <main className="min-h-screen bg-background-primary">
       <HeroScene onRegisterClick={onRegisterClick} user={user} />
       <SectionDivider />
       <AboutSection />

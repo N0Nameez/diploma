@@ -52,9 +52,8 @@ export function CharacterSection() {
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-          className="relative aspect-square lg:aspect-auto lg:h-[600px] bg-gradient-to-b from-white/[0.03] to-transparent rounded-[40px] border border-white/[0.05] overflow-hidden group"
+          className="relative aspect-square lg:aspect-auto lg:h-[600px] bg-gradient-to-b from-background-surface to-transparent rounded-[40px] border border-border-default overflow-hidden group shadow-xl shadow-accent/20"
         >
-          <div className="absolute inset-0 z-10 pointer-events-none bg-gradient-to-t from-black/40 to-transparent" />
           
           <div className="absolute inset-0 cursor-grab active:cursor-grabbing">
             <Canvas shadows camera={{ position: [0, 0, 10], fov: 40 }}>
@@ -75,7 +74,7 @@ export function CharacterSection() {
             </Canvas>
           </div>
 
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 font-mono text-[10px] text-text-muted uppercase tracking-widest bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 font-mono text-[10px] text-accent uppercase tracking-widest bg-background-primary/80 backdrop-blur-md px-4 py-2 rounded-full border border-accent opacity-0 group-hover:opacity-100 transition-opacity">
             Интерактивная 3D-модель
           </div>
         </motion.div>
