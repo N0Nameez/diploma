@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import Section from "../components/Section";
-import Button from "../components/Button";
+import { Button } from "@/components/Button";
 import FilterSidebar from "../components/catalog/FilterSidebar";
 import ModelCard from "../components/ModelCard";
 import ModelListItem from "../components/catalog/ModelListItem";
@@ -11,7 +11,10 @@ import { useCatalog } from "../hooks/useCatalog";
 
 const ITEMS_PER_PAGE = 24;
 
-function CatalogPage() {
+/**
+ * Catalog page displaying a searchable and filterable list of 3D models and animations.
+ */
+export function CatalogPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const {
     items,
@@ -323,4 +326,3 @@ function CatalogPage() {
   );
 }
 
-export default CatalogPage;

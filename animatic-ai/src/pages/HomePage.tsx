@@ -1,33 +1,42 @@
-import Hero from "../components/home/Hero"
-import CategoriesSection from "../components/home/CategoriesSection"
-import ModelsSection from "../components/home/ModelSection"
-import FeaturesSection from "../components/home/FeaturesSection"
-import CTABanner  from "../components/home/CTABanner"
-import Footer from '../components/Footer'
+import React from 'react';
+import { HeroScene } from '@/components/home/HeroScene';
+import { AboutSection } from '@/components/home/AboutSection';
+import { ProcessSection } from '@/components/home/ProcessSection';
+import { CharacterSection } from '@/components/home/CharacterSection';
+import { PricingSection } from '@/components/home/PricingSection';
+import { FAQSection } from '@/components/home/FAQSection';
+import { CTASection } from '@/components/home/CTASection';
+import { WorkExamples } from '@/components/home/WorkExamples';
+import { SectionDivider } from '@/components/home/SectionDivider';
 
-interface HomePageProps{
-    onRegisterClick: () => void
+import type { User } from "@supabase/supabase-js";
+
+interface HomePageProps {
+  onRegisterClick: () => void;
+  user: User | null;
 }
 
-function HomePage({ onRegisterClick }: HomePageProps) {
+/**
+ * Main landing page component assembling all home sections.
+ * All sections are optimized with Framer Motion for performance and polish.
+ */
+export function HomePage({ onRegisterClick, user }: HomePageProps) {
   return (
-    <main>
-      <Hero onRegisterClick={onRegisterClick} />
-      <div className="h-px"
-           style={{ background: 'linear-gradient(90deg,transparent,var(--accent),var(--accent2),transparent)', opacity: 0.3 }} />
-      <CategoriesSection/>
-      <div className="h-px"
-           style={{ background: 'linear-gradient(90deg,transparent,var(--accent),var(--accent2),transparent)', opacity: 0.3 }} />
-      <ModelsSection />
-      <div className="h-px"
-           style={{ background: 'linear-gradient(90deg,transparent,var(--accent),var(--accent2),transparent)', opacity: 0.3 }} />
-      <FeaturesSection/>
-
-      <CTABanner onRegisterClick={onRegisterClick} />
-      
-      <Footer />
+    <main className="min-h-screen bg-black">
+      <HeroScene onRegisterClick={onRegisterClick} user={user} />
+      <SectionDivider />
+      <AboutSection />
+      <SectionDivider className="opacity-50" />
+      <ProcessSection />
+      <SectionDivider />
+      <WorkExamples />
+      <SectionDivider />
+      <CharacterSection />
+      <SectionDivider className="opacity-50" />
+      <PricingSection onRegisterClick={onRegisterClick} />
+      <SectionDivider />
+      <FAQSection />
+      <CTASection onRegisterClick={onRegisterClick} />
     </main>
-  )
+  );
 }
-
-export default HomePage

@@ -1,6 +1,12 @@
 import { Link } from "react-router-dom";
 
-const LINKS = {
+interface LinkItem {
+  label: string;
+  href: string;
+  badge?: string;
+}
+
+const LINKS: Record<string, LinkItem[]> = {
   "Продукт": [
     { label: "3D-модели", href: "/models" },
     { label: "Анимации", href: "/animations" },

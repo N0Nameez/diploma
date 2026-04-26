@@ -13,11 +13,14 @@ import { Viewer3D } from "../components/Viewer3D";
 import CreditsPanel from "../components/generation/CreditsPanel";
 import HistoryPanel from "../components/generation/HistoryPanel";
 import Toast from "../components/model/Toast";
-import Modal from "../components/Modal";
+import { Modal } from "../components/Modal";
 import LicenseModal from "../components/model/LicenseModal";
 import { publishModel, downloadModel, fetchModel } from "../services/api";
 
-function GenerationPage() {
+/**
+ * Generation page for creating new 3D models and animations using AI.
+ */
+export function GenerationPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, signIn, signUp } = useAuth();
@@ -263,7 +266,6 @@ function GenerationPage() {
       );
       setTimeout(() => navigate(`/models/${resultModelId}`), 1500);
     } catch (err) {
-      console.error("Publish failed:", err);
       showToast("Ошибка при публикации");
     }
   };
@@ -316,7 +318,6 @@ function GenerationPage() {
       URL.revokeObjectURL(blobUrl);
       showToast(`Скачивание: ${data.name}.${data.format.toLowerCase()}`);
     } catch (err) {
-      console.error("Download failed:", err);
       showToast("Ошибка при скачивании");
     }
   };
@@ -729,4 +730,3 @@ function GenerationPage() {
   );
 }
 
-export default GenerationPage;

@@ -217,9 +217,6 @@ export function useGeneration() {
     try {
       // Запрос к API
       const res = await getGenerationStatus(genId);
-      console.log(
-        `[Generation Poll] id=${genId} status=${res.status} progress=${res.progress}`,
-      );
       
       // Обновляем состояние
       setProgress(res.progress);
@@ -234,21 +231,20 @@ export function useGeneration() {
         // Обрабатываем ошибку
         if (res.status === "failed") {
           setErrorMessage(res.error_message || "Generation failed");
-          console.error("[Generation] Failed:", res.error_message);
         }
         
         // Обрабатываем успех
         if (res.status === "completed" && res.result_model_id) {
-          console.log("[Generation] Completed! model_id=", res.result_model_id);
+
           setResultModelId(res.result_model_id);
           
           // Загружаем URL файла модели
           try {
             const model = await fetchModel(res.result_model_id);
-            console.log("[Generation] Model fetched:", model.file_url);
+
             setModelFileUrl(model.file_url);
           } catch (err) {
-            console.error("[Generation] Failed to fetch model:", err);
+            // ...
           }
           
           // Вызываем коллбэк (показывает модалку лицензии)
@@ -261,7 +257,7 @@ export function useGeneration() {
         genIdRef.current = null;
       }
     } catch (err: any) {
-      console.error("[Generation] Poll error:", err);
+      // ...
     }
   }, []);
 
@@ -356,12 +352,6 @@ export function useGeneration() {
         setResultModelId(null);
         setModelFileUrl(null);
 
-        console.log("[Generation] Starting generation...", {
-          quality: q,
-          enablePbr: settings.enablePbr,
-          polyCount: settings.polyCount,
-        });
-
         // ОТПРАВЛЯЕМ ФОТО НА BACKEND
         // Формат: multipart/form-data (потому что передаем файл)
         const result = await startGeneration(
@@ -377,7 +367,7 @@ export function useGeneration() {
             poly_count: settings.polyCount,
           },
         );
-        console.log("[Generation] Backend response:", result);
+
         
         // Сохраняем ID для polling
         genIdRef.current = result.generation_id;
@@ -390,7 +380,7 @@ export function useGeneration() {
             pollStatus(genIdRef.current);
           }
         }, POLL_INTERVAL);
-        console.log("[Generation] Polling started for", result.generation_id);
+
 
         return result;
       } catch (error: any) {
@@ -445,7 +435,6 @@ export function useGeneration() {
       });
       setHistory(items);
     } catch (err) {
-      console.error("Failed to load history:", err);
     }
   }, []);
 
@@ -463,7 +452,6 @@ export function useGeneration() {
       setCredits(data.credits);
       setCreditsResetDate(data.reset_date);
     } catch (err) {
-      console.error("Failed to load credits:", err);
     }
   }, []);
 

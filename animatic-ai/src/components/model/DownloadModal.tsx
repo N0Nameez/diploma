@@ -73,7 +73,6 @@ export function DownloadModal({
       await onDownload(fmt.id);
       handleClose();
     } catch (err) {
-      console.error("Download failed:", err);
     } finally {
       setDownloading(null);
     }

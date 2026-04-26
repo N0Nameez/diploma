@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate, Link } from "react-router-dom";
-import Button from "../components/Button";
+import { Button } from "@/components/Button";
 import ModelCard from "../components/ModelCard";
 import Pagination from "../components/catalog/Pagination";
 import Toast from "../components/model/Toast";
@@ -81,7 +81,10 @@ const COVER_PRESETS = [
 
 const ITEMS_PER_PAGE = 6;
 
-function ProfilePage() {
+/**
+ * User profile page showing models, favorites, activity and settings.
+ */
+export function ProfilePage() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabId>("models");
@@ -235,7 +238,6 @@ function ProfilePage() {
         setAvatarKey((k) => k + 1); // Update cache-busting key
         showToast("Аватарка обновлена");
       } catch (err) {
-        console.error("[Profile] Avatar upload error:", err);
         showToast("Ошибка при загрузке аватарки");
       } finally {
         setUploadingAvatar(false);
@@ -267,7 +269,6 @@ function ProfilePage() {
         setCoverKey((k) => k + 1); // Update cache-busting key
         showToast("Обложка обновлена");
       } catch (err) {
-        console.error(err);
         showToast("Ошибка при загрузке обложки");
       } finally {
         setUploadingCover(false);
@@ -1018,4 +1019,3 @@ function ProfilePage() {
   );
 }
 
-export default ProfilePage;

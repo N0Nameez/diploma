@@ -61,7 +61,6 @@ export function CropModal({
       const blob = await getCroppedImg();
       onConfirm(blob);
     } catch (err) {
-      console.error("Crop error:", err);
     }
   };
 

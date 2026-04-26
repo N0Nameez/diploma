@@ -16,7 +16,10 @@ interface ModalProps {
   ) => Promise<{ error: Error | null }>;
 }
 
-function Modal({ type, onClose, onSwitch, onSignIn, onSignUp }: ModalProps) {
+/**
+ * Authentication modal for login, registration, and password reset.
+ */
+export function Modal({ type, onClose, onSwitch, onSignIn, onSignUp }: ModalProps) {
   const isLogin = type === "login";
   const isReset = type === "reset-password";
   const [isClosing, setIsClosing] = useState(false);
@@ -340,4 +343,3 @@ function Modal({ type, onClose, onSwitch, onSignIn, onSignUp }: ModalProps) {
   );
 }
 
-export default Modal;

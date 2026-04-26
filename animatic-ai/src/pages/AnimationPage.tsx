@@ -4,7 +4,10 @@ import { fetchAnimation, type ApiAnimation } from "../services/api";
 import Toast from "../components/model/Toast";
 import { Clapperboard, Play } from "lucide-react";
 
-function AnimationPage() {
+/**
+ * Page for viewing and managing a specific animation.
+ */
+export function AnimationPage() {
   const { id } = useParams<{ id: string }>();
 
   const [animation, setAnimation] = useState<ApiAnimation | null>(null);
@@ -27,7 +30,6 @@ function AnimationPage() {
         setError(null);
       })
       .catch((err) => {
-        console.error("Failed to load animation:", err);
         setError("Анимация не найдена");
       })
       .finally(() => setLoading(false));
@@ -224,4 +226,3 @@ function AnimationPage() {
   );
 }
 
-export default AnimationPage;

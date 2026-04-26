@@ -51,7 +51,6 @@ export function LicenseModal({
     try {
       await onPublish(selected);
     } catch (err) {
-      console.error("Publish failed:", err);
     } finally {
       setPublishing(false);
     }

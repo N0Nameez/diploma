@@ -1,9 +1,9 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import Button from "../components/Button";
+import { Button } from "@/components/Button";
 import { Viewer3D } from "../components/Viewer3D";
 import DownloadModal from "../components/model/DownloadModal";
-import AuthModal from "../components/Modal";
+import { Modal as AuthModal } from "../components/Modal";
 import Toast from "../components/model/Toast";
 import {
   fetchModel,
@@ -18,7 +18,10 @@ import type { ApiModel } from "../services/api";
 import { Download, Heart, Bookmark, Gamepad2 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
-function ModelPage() {
+/**
+ * Detail page for a specific 3D model, allowing viewing, downloading, and commenting.
+ */
+export function ModelPage() {
   const { id } = useParams<{ id: string }>();
   const { user, signOut, signIn, signUp } = useAuth();
   const navigate = useNavigate();
@@ -96,13 +99,6 @@ function ModelPage() {
   // Adapt API model fields for the page
   // API возвращает данные на верхнем уровне: username, display_name, avatar_url
   const raw = displayModel as any;
-  console.log("ModelPage raw model data:", {
-    display_name: raw.display_name,
-    username: raw.username,
-    models_count: raw.models_count,
-    followers_count: raw.followers_count,
-    author_id: raw.author_id,
-  });
   const authorName = raw.display_name || raw.username || "Автор";
   const authorUsername = raw.username || "unknown";
   const dm = {
@@ -170,7 +166,6 @@ function ModelPage() {
       // Refresh model to get updated downloads count
       fetchModel(id!).then(setDisplayModel);
     } catch (err) {
-      console.error("Download failed:", err);
       showToast("Ошибка при скачивании");
     }
   };
@@ -786,7 +781,7 @@ function ModelPage() {
         <AuthModal
           type={authModalOpen}
           onClose={() => setAuthModalOpen(null)}
-          onSwitch={(type) => setAuthModalOpen(type === "reset-password" ? "login" : type)}
+          onSwitch={(type: "login" | "register" | "reset-password") => setAuthModalOpen(type === "reset-password" ? "login" : type)}
           onSignIn={signIn}
           onSignUp={signUp}
         />
@@ -809,4 +804,3 @@ function ModelPage() {
   );
 }
 
-export default ModelPage;

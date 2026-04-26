@@ -270,7 +270,7 @@ export async function updateUserProfile(
     cover_preset?: string;
   },
 ) {
-  console.log("[updateUserProfile] Called with:", data);
+
 
   const res = await fetch(`${API_BASE}/api/users/${userId}`, {
     method: "PUT",
@@ -280,12 +280,11 @@ export async function updateUserProfile(
 
   if (!res.ok) {
     const text = await res.text();
-    console.error("[updateUserProfile] Error response:", res.status, text);
     throw new Error(`Update profile failed: ${res.status}`);
   }
 
   const result = await res.json();
-  console.log("[updateUserProfile] Success, avatar_url:", result?.avatar_url);
+
   return result as Promise<ApiUser>;
 }
 
@@ -303,18 +302,9 @@ export async function fetchUserActivity(userId: string, days = 90) {
 }
 
 export async function uploadAvatar(userId: string, file: File) {
-  console.log(
-    "[uploadAvatar] Starting upload for user:",
-    userId,
-    "file:",
-    file.name,
-    file.type,
-    file.size,
-  );
-
   const ext = file.name.split(".").pop() || "png";
   const path = `${userId}/avatar.${ext}`;
-  console.log("[uploadAvatar] Path:", path);
+
 
   const { createClient } = await import("@supabase/supabase-js");
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -326,33 +316,23 @@ export async function uploadAvatar(userId: string, file: File) {
     .upload(path, file, { cacheControl: "3600", upsert: true });
 
   if (error) {
-    console.error("[uploadAvatar] Upload error:", error.message, error);
     throw error;
   }
 
-  console.log("[uploadAvatar] Upload success:", data);
+
 
   const {
     data: { publicUrl },
   } = client.storage.from("avatars").getPublicUrl(path);
-  console.log("[uploadAvatar] Public URL:", publicUrl);
+
 
   return updateUserProfile(userId, { avatar_url: publicUrl });
 }
 
 export async function uploadCover(userId: string, file: File) {
-  console.log(
-    "[uploadCover] Starting upload for user:",
-    userId,
-    "file:",
-    file.name,
-    file.type,
-    file.size,
-  );
-
   const ext = file.name.split(".").pop() || "png";
   const path = `${userId}/cover.${ext}`;
-  console.log("[uploadCover] Path:", path);
+
 
   const { createClient } = await import("@supabase/supabase-js");
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -364,16 +344,15 @@ export async function uploadCover(userId: string, file: File) {
     .upload(path, file, { cacheControl: "3600", upsert: true });
 
   if (error) {
-    console.error("[uploadCover] Upload error:", error.message, error);
     throw error;
   }
 
-  console.log("[uploadCover] Upload success:", data);
+
 
   const {
     data: { publicUrl },
   } = client.storage.from("covers").getPublicUrl(path);
-  console.log("[uploadCover] Public URL:", publicUrl);
+
 
   return updateUserProfile(userId, { cover_url: publicUrl });
 }
