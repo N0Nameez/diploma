@@ -63,6 +63,7 @@ export default {
           tag: 'var(--border-default)',
           grid: 'var(--grid-color)',
           selection: 'var(--accent-shadow)',
+          glass: 'var(--glass-bg)',
         },
         text: {
           primary: 'var(--text-primary)',
@@ -88,6 +89,7 @@ export default {
         border: {
           DEFAULT: 'var(--border-default)',
           elevated: 'var(--border-elevated)',
+          glass: 'var(--glass-border)',
         },
         btn: {
           primary: {
@@ -111,6 +113,9 @@ export default {
       },
       backdropBlur: {
         '20': '20px',
+        'xl': '24px',
+        '2xl': '40px',
+        '3xl': '64px',
       },
       boxShadow: {
         'glass': '0 4px 30px rgba(0,0,0,0.1), inset 0 1px 0 var(--glass-border)',

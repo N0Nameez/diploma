@@ -7,7 +7,6 @@ interface ModelCardProps {
 }
 
 function ModelCard({ model }: ModelCardProps) {
-  // API возвращает username/display_name на верхнем уровне
   const m = model as any;
   const authorName = m.display_name || m.username || "Автор";
   const authorInitial = authorName[0]?.toUpperCase() || "А";
@@ -15,7 +14,7 @@ function ModelCard({ model }: ModelCardProps) {
   return (
     <Link
       to={`/models/${model.id}`}
-      className="group block bg-bg border border-border
+      className="group block bg-background-primary border border-border
                  rounded-2xl overflow-hidden cursor-pointer
                  transition-all duration-200
                  hover:-translate-y-1 hover:border-accent/30
@@ -30,7 +29,7 @@ function ModelCard({ model }: ModelCardProps) {
             className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
           />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-accent/10 to-accent2/10 flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
+          <div className="absolute inset-0 bg-gradient-to-br from-accent/10 to-accent/5 flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
             <div className="text-center">
               <Box className="w-10 h-10 text-accent/40 mx-auto mb-1" />
               <div className="text-[9px] text-text-secondary font-medium px-1">
@@ -62,19 +61,19 @@ function ModelCard({ model }: ModelCardProps) {
 
       {/* Info */}
       <div className="p-3.5">
-        <div className="font-semibold text-sm mb-1.5 text-text truncate">
+        <div className="font-semibold text-sm mb-1.5 text-text-primary truncate">
           {model.name}
         </div>
         <div className="flex items-center justify-between">
           {/* Author */}
-          <div className="flex items-center gap-1.5 text-xs text-textSecondary">
+          <div className="flex items-center gap-1.5 text-xs text-text-secondary">
             <div className="w-5 h-5 rounded-full bg-accent/20 flex items-center justify-center text-[10px] text-accent font-bold">
               {authorInitial}
             </div>
             {authorName}
           </div>
           {/* Likes & Downloads */}
-          <div className="text-xs text-textSecondary flex items-center gap-2">
+          <div className="text-xs text-text-secondary flex items-center gap-2">
             <span className="flex items-center gap-0.5">
               <Heart className="w-3 h-3" /> {model.likes}
             </span>

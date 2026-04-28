@@ -10,20 +10,39 @@ import { ModelPage } from "./pages/ModelPage";
 import { AnimationPage } from "./pages/AnimationPage";
 import { useAuth } from "./hooks/useAuth";
 import { SearchProvider, SearchModal } from "./components/SearchAutocomplete";
+import { supabase } from "./lib/supabase";
+import { AuthGuard } from "./components/AuthGuard/AuthGuard";
 
 /**
  * Root Application component handling routing, global state, and layout.
  */
 export function App() {
-  const { user, signUp, signIn, signOut } = useAuth();
-  const [currentTheme, setTheme] = useState<"dark" | "light">("dark");
+  const { user, signUp, signIn, signOut, updatePassword, resetPassword, resendEmail, signInWithOAuth } = useAuth();
+  const [currentTheme, setTheme] = useState<"dark" | "light">(() => {
+    // Sync with index.html script
+    const attr = document.documentElement.getAttribute("data-theme") as "dark" | "light";
+    return attr || "dark";
+  });
   const [modal, setModal] = useState<
-    "login" | "register" | "reset-password" | null
+    "login" | "register" | "reset-password" | "update-password" | null
   >(null);
 
   useEffect(() => {
+    localStorage.setItem("theme", currentTheme);
     document.documentElement.setAttribute("data-theme", currentTheme);
+    document.documentElement.classList.remove("light", "dark");
+    document.documentElement.classList.add(currentTheme);
   }, [currentTheme]);
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setModal("update-password");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const links = [
     { label: "Главная", href: "/" },
@@ -52,17 +71,35 @@ export function App() {
         <Route path="/models" element={<CatalogPage />} />
         <Route path="/models/:id" element={<ModelPage />} />
         <Route path="/animations/:id" element={<AnimationPage />} />
-        <Route path="/generation" element={<GenerationPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
+        <Route 
+          path="/generation" 
+          element={
+            <AuthGuard onAccessDenied={() => setModal("login")}>
+              <GenerationPage />
+            </AuthGuard>
+          } 
+        />
+        <Route 
+          path="/profile" 
+          element={
+            <AuthGuard onAccessDenied={() => setModal("login")}>
+              <ProfilePage />
+            </AuthGuard>
+          } 
+        />
       </Routes>
 
       {modal && (
         <Modal
           type={modal}
           onClose={() => setModal(null)}
-          onSwitch={setModal}
+          onSwitch={(t) => setModal(t)}
           onSignIn={signIn}
           onSignUp={signUp}
+          onUpdatePassword={updatePassword}
+          onResetPassword={resetPassword}
+          onResendEmail={resendEmail}
+          onOAuthSignIn={signInWithOAuth}
         />
       )}
     </SearchProvider>

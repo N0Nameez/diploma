@@ -139,18 +139,18 @@ export function CatalogPage() {
               <select
                 value={filters.sort}
                 onChange={(e) => updateFilter("sort", e.target.value)}
-                className="px-3.5 py-2 bg-surface2 border border-border rounded-[10px]
-                           text-text text-sm outline-none cursor-pointer transition-colors duration-200"
+                className="px-3.5 py-2 bg-background-secondary border border-border rounded-[10px]
+                           text-text-primary text-sm outline-none cursor-pointer transition-colors duration-200"
               >
                 {meta.sortOptions.map((o) => (
                   <option key={o}>{o}</option>
                 ))}
               </select>
-              <div className="flex bg-surface2 border border-border rounded-[10px] overflow-hidden">
+              <div className="flex bg-background-secondary border border-border rounded-[10px] overflow-hidden">
                 <button
                   onClick={() => setViewMode("grid")}
                   className={`w-9 h-9 flex items-center justify-center transition-all duration-200
-                    ${viewMode === "grid" ? "bg-accent text-white" : "text-textSecondary hover:text-text"}`}
+                    ${viewMode === "grid" ? "bg-accent text-white" : "text-text-secondary hover:text-text-primary"}`}
                 >
                   <svg
                     width="14"
@@ -164,7 +164,7 @@ export function CatalogPage() {
                 <button
                   onClick={() => setViewMode("list")}
                   className={`w-9 h-9 flex items-center justify-center transition-all duration-200
-                    ${viewMode === "list" ? "bg-accent text-white" : "text-textSecondary hover:text-text"}`}
+                    ${viewMode === "list" ? "bg-accent text-white" : "text-text-secondary hover:text-text-primary"}`}
                 >
                   <svg
                     width="14"
@@ -186,7 +186,7 @@ export function CatalogPage() {
         {/* Search indicator */}
         {filters.search && (
           <div className="mb-4 flex items-center gap-2">
-            <span className="text-sm text-textSecondary">
+            <span className="text-sm text-text-secondary">
               Результаты поиска:
             </span>
             <span className="px-3 py-1 rounded-full bg-tag-bg border border-accent/25 text-accent text-xs font-semibold">
@@ -200,7 +200,7 @@ export function CatalogPage() {
                   return prev;
                 });
               }}
-              className="text-textSecondary hover:text-text text-sm ml-1"
+              className="text-text-secondary hover:text-text-primary text-sm ml-1"
             >
               ✕
             </button>
@@ -263,7 +263,7 @@ export function CatalogPage() {
             )}
             <button
               onClick={resetFilters}
-              className="text-xs text-textSecondary hover:text-accent ml-2"
+              className="text-xs text-text-secondary hover:text-accent ml-2"
             >
               Сбросить все
             </button>

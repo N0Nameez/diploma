@@ -78,7 +78,7 @@ export function Comments({ count = 24 }: CommentsProps) {
       id: Date.now().toString(),
       author: "Вы",
       authorInitial: "А",
-      authorColor: "linear-gradient(135deg,#1B6EF3,#7C3AED)",
+      authorColor: "linear-gradient(135deg,#EC4899,#7C3AED)",
       isAuthor: false,
       time: "только что",
       text: newComment,
@@ -93,7 +93,7 @@ export function Comments({ count = 24 }: CommentsProps) {
     <div className="pt-5">
       {/* Input */}
       <div className="flex gap-3 mb-6">
-        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent to-accent2 flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
+        <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
           А
         </div>
         <div className="flex-1">
@@ -102,7 +102,7 @@ export function Comments({ count = 24 }: CommentsProps) {
             onChange={(e) => setNewComment(e.target.value)}
             placeholder="Оставь комментарий..."
             rows={2}
-            className="w-full px-4 py-3 bg-surface2 border border-border rounded-xl text-text text-sm outline-none focus:border-accent transition-all duration-200 resize-none placeholder:text-textSecondary"
+            className="w-full px-4 py-3 bg-background-secondary border border-border rounded-xl text-text-primary text-sm outline-none focus:border-accent transition-all duration-200 resize-none placeholder:text-text-secondary"
           />
           <div className="flex justify-end gap-2 mt-2">
             <Button
@@ -133,7 +133,7 @@ export function Comments({ count = 24 }: CommentsProps) {
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap mb-1">
-                <span className="font-semibold text-sm text-text">
+                <span className="font-semibold text-sm text-text-primary">
                   {c.author}
                 </span>
                 {c.isAuthor && (
@@ -141,9 +141,9 @@ export function Comments({ count = 24 }: CommentsProps) {
                     Автор
                   </span>
                 )}
-                <span className="text-xs text-textSecondary">{c.time}</span>
+                <span className="text-xs text-text-secondary">{c.time}</span>
               </div>
-              <p className="text-sm text-textSecondary leading-relaxed">
+              <p className="text-sm text-text-secondary leading-relaxed">
                 {c.text}
               </p>
               <div className="flex gap-4 mt-2">
@@ -152,7 +152,7 @@ export function Comments({ count = 24 }: CommentsProps) {
                   className={`text-xs flex items-center gap-1 transition-colors duration-200 ${
                     c.liked
                       ? "text-[#F43F5E]"
-                      : "text-textSecondary hover:text-text"
+                      : "text-text-secondary hover:text-text-primary"
                   }`}
                 >
                   <Heart
@@ -160,7 +160,7 @@ export function Comments({ count = 24 }: CommentsProps) {
                   />{" "}
                   {c.likes}
                 </button>
-                <button className="text-xs text-textSecondary hover:text-text transition-colors duration-200">
+                <button className="text-xs text-text-secondary hover:text-text-primary transition-colors duration-200">
                   ↩ Ответить
                 </button>
               </div>

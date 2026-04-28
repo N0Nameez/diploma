@@ -19,7 +19,7 @@ interface HeroSceneProps {
  */
 export function HeroScene({ onRegisterClick, user }: HeroSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start start", "end end"]
@@ -35,7 +35,7 @@ export function HeroScene({ onRegisterClick, user }: HeroSceneProps) {
   // UI Content Animations
   const heroOpacity = useTransform(smoothProgress, [0, 0.15], [1, 0]);
   const heroY = useTransform(smoothProgress, [0, 0.15], [0, -50]);
-  
+
   const ctaOpacity = useTransform(smoothProgress, [0.6, 0.8], [0, 1]);
   const ctaScale = useTransform(smoothProgress, [0.6, 0.8], [0.9, 1]);
   const ctaY = useTransform(smoothProgress, [0.6, 0.8], [30, 0]);
@@ -49,20 +49,20 @@ export function HeroScene({ onRegisterClick, user }: HeroSceneProps) {
         {/* Persistent Background Elements */}
         <CursorGlow />
         <BackgroundParticles />
-        
+
         {/* Grid Overlay */}
         <div className="absolute inset-0 z-0 opacity-20 pointer-events-none bg-[linear-gradient(var(--grid-color)_1px,transparent_1px),linear-gradient(90deg,var(--grid-color)_1px,transparent_1px)] bg-[size:40px_40px]" />
 
         {/* 3D Scene Wrapper with Dynamic Blur */}
-        <motion.div 
-          style={{ 
+        <motion.div
+          style={{
             filter: useTransform(treeBlur, (v) => `blur(${v}px)`)
           }}
           className="absolute inset-0 z-0"
         >
-          <Canvas 
-            camera={{ position: [0, 0, 8], fov: 45 }} 
-            eventSource={document.body} 
+          <Canvas
+            camera={{ position: [0, 0, 8], fov: 45 }}
+            eventSource={document.body}
             eventPrefix="client"
             gl={{ antialias: true, alpha: true }}
           >
@@ -74,9 +74,9 @@ export function HeroScene({ onRegisterClick, user }: HeroSceneProps) {
         </motion.div>
 
         {/* Hero Section Overlay */}
-        <motion.div 
-          style={{ 
-            opacity: heroOpacity, 
+        <motion.div
+          style={{
+            opacity: heroOpacity,
             y: heroY,
             pointerEvents: useTransform(smoothProgress, (v) => v < 0.15 ? "auto" : "none") as any
           }}
@@ -86,18 +86,18 @@ export function HeroScene({ onRegisterClick, user }: HeroSceneProps) {
         </motion.div>
 
         {/* Tree CTA Section Overlay */}
-        <motion.div 
-          style={{ 
-            opacity: ctaOpacity, 
-            scale: ctaScale, 
+        <motion.div
+          style={{
+            opacity: ctaOpacity,
+            scale: ctaScale,
             y: ctaY,
             pointerEvents: useTransform(smoothProgress, (v) => v > 0.7 ? "auto" : "none") as any
           }}
           className="absolute inset-0 z-20"
         >
-           <div className="h-full flex items-center justify-center">
-              <TreeCTA onStartClick={onRegisterClick} />
-           </div>
+          <div className="h-full flex items-center justify-center">
+            <TreeCTA onStartClick={onRegisterClick} />
+          </div>
         </motion.div>
 
         {/* Bottom fog fade */}
@@ -136,7 +136,7 @@ function SceneContent({ progress }: { progress: MotionValue<number> }) {
     const startScale = isMobile ? viewport.width * 0.28 : 3;
     const midScale = isMobile ? viewport.width * 0.28 : 3;
     const endScale = isMobile ? viewport.width * 0.5 : 5.5;
-    
+
     let currentScale;
     if (p < 0.5) {
       currentScale = startScale;

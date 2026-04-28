@@ -6,21 +6,25 @@
   --accent-shadow: rgba(236, 72, 153, 0.2);
   --accent-line-start: rgba(236, 72, 153, 0.4);
   --accent-line-end: rgba(236, 72, 153, 0.6);
-  
+
   /* ── THEME: DARK (Default) ── */
   --bg-primary: #000;
   --bg-secondary: #141414;
   --bg-surface: rgba(255, 255, 255, 0.02);
   --bg-nav-scrolled: rgba(20, 20, 20, 0.65);
-  
+
   --text-primary: #fff;
   --text-secondary: rgba(255, 255, 255, 0.6);
   --text-tertiary: rgba(255, 255, 255, 0.5);
   --text-muted: rgba(255, 255, 255, 0.4);
   --text-dimmed: rgba(255, 255, 255, 0.35);
-  
+
   --border-default: rgba(255, 255, 255, 0.08);
   --border-elevated: rgba(255, 255, 255, 0.12);
+
+  --glass-bg: rgba(0, 0, 0, 0.45);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --grid-color: rgba(255, 255, 255, 0.05);
 }
 
 :root[data-theme="light"] {
@@ -28,66 +32,72 @@
   --bg-secondary: #F4F4F5;
   --bg-surface: #FFFFFF;
   --bg-nav-scrolled: rgba(250, 250, 250, 0.8);
-  
+
   --text-primary: #09090B;
   --text-secondary: #3F3F46;
   --text-tertiary: #52525B;
   --text-muted: #71717A;
   --text-dimmed: #A1A1AA;
-  
+
   --border-default: rgba(0, 0, 0, 0.08);
   --border-elevated: rgba(0, 0, 0, 0.12);
-  
+
   --accent: #EC4899;
   --accent-rgb: 236 72 153;
   --accent-glow: rgba(236, 72, 153, 0.1);
   --accent-shadow: rgba(236, 72, 153, 0.15);
 
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(0, 0, 0, 0.05);
+  --glass-bg: rgba(255, 255, 255, 0.45);
+  --glass-border: rgba(0, 0, 0, 0.08);
   --grid-color: rgba(0, 0, 0, 0.04);
 }
 
-:root[data-theme="dark"] {
-  --glass-bg: rgba(255, 255, 255, 0.03);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --grid-color: rgba(255, 255, 255, 0.05);
-}
+  @tailwind base;
+  @tailwind components;
+  @tailwind utilities;
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+  @layer base {
+    body {
+      @apply bg-background-primary text-text-primary antialiased;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
 
-@layer base {
-  body {
-    @apply bg-background-primary text-text-primary antialiased;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    overflow-x: hidden;
-    line-height: 1.6;
+    ::selection {
+      background: var(--accent-shadow);
+      color: var(--text-primary);
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-primary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-default);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--border-elevated);
+    }
   }
 
-  ::selection {
-    background: var(--accent-shadow);
-    color: var(--text-primary);
+  /* --- Scanner Effect --- */
+  @keyframes scanner {
+    0% {
+      transform: translateY(-100%);
+    }
+
+    100% {
+      transform: translateY(100%);
+    }
   }
 
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: var(--bg-primary); }
-  ::-webkit-scrollbar-thumb { 
-    background: var(--border-default); 
-    border-radius: 3px; 
+  .animate-scanner {
+    animation: scanner 6s linear infinite;
   }
-  ::-webkit-scrollbar-thumb:hover { 
-    background: var(--border-elevated); 
-  }
-}
-
-/* --- Scanner Effect --- */
-@keyframes scanner {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100%); }
-}
-
-.animate-scanner {
-  animation: scanner 6s linear infinite;
-}

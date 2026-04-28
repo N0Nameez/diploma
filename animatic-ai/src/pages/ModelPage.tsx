@@ -23,7 +23,7 @@ import { useAuth } from "../hooks/useAuth";
  */
 export function ModelPage() {
   const { id } = useParams<{ id: string }>();
-  const { user, signOut, signIn, signUp } = useAuth();
+  const { user, signOut, signIn, signUp, resendEmail, signInWithOAuth } = useAuth();
   const navigate = useNavigate();
   const [displayModel, setDisplayModel] = useState<ApiModel | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,7 +35,7 @@ export function ModelPage() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState<
-    "login" | "register" | null
+    "login" | "register" | "reset-password" | "update-password" | null
   >(null);
   const [toast, setToast] = useState<{ visible: boolean; message: string }>({
     visible: false,
@@ -83,7 +83,7 @@ export function ModelPage() {
     return (
       <div className="min-h-screen flex items-center justify-center pt-16">
         <div className="text-center">
-          <div className="text-2xl text-text font-bold mb-2">
+          <div className="text-2xl text-text-primary font-bold mb-2">
             Модель не найдена
           </div>
           <Link to="/models" className="text-accent hover:underline">
@@ -237,7 +237,7 @@ export function ModelPage() {
   return (
     <div className="pt-16 min-h-screen">
       {/* Breadcrumb */}
-      <div className="max-w-[1320px] mx-auto px-8 py-5 flex items-center gap-2 text-sm text-textSecondary">
+      <div className="max-w-[1320px] mx-auto px-8 py-5 flex items-center gap-2 text-sm text-text-secondary">
         <Link
           to="/"
           className="hover:text-accent transition-colors duration-200"
@@ -259,7 +259,7 @@ export function ModelPage() {
           {dm.category}
         </Link>
         <span className="opacity-40">/</span>
-        <span className="text-text">{dm.name}</span>
+        <span className="text-text-primary">{dm.name}</span>
       </div>
 
       {/* Main Content */}
@@ -279,8 +279,8 @@ export function ModelPage() {
           {linkedAnimations.length > 0 && (
             <div className="bg-surface border border-border rounded-2xl p-5">
               <div className="flex items-center justify-between mb-4">
-                <div className="font-extrabold text-sm text-text">Анимации</div>
-                <div className="text-xs text-textSecondary">
+                <div className="font-extrabold text-sm text-text-primary">Анимации</div>
+                <div className="text-xs text-text-secondary">
                   {linkedAnimations.length} анимации
                 </div>
               </div>
@@ -288,11 +288,10 @@ export function ModelPage() {
                 {linkedAnimations.map((anim, idx) => (
                   <div
                     key={anim.id}
-                    className={`flex-shrink-0 w-24 h-18 rounded-xl bg-surface2 border border-border flex flex-col items-center justify-center gap-1 cursor-pointer transition-all duration-200 ${
-                      idx === 0
-                        ? "border-accent bg-surface3"
-                        : "hover:border-accent hover:bg-surface3"
-                    }`}
+                    className={`flex-shrink-0 w-24 h-18 rounded-xl bg-surface2 border border-border flex flex-col items-center justify-center gap-1 cursor-pointer transition-all duration-200 ${idx === 0
+                      ? "border-accent bg-surface3"
+                      : "hover:border-accent hover:bg-surface3"
+                      }`}
                   >
                     <span className="text-[10px] text-text-secondary font-medium">
                       {anim.name}
@@ -304,8 +303,8 @@ export function ModelPage() {
                 ))}
                 {user && (
                   <div className="flex-shrink-0 w-24 h-18 rounded-xl border border-dashed border-border flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-accent hover:bg-surface2 transition-all duration-200">
-                    <span className="text-lg text-textSecondary">+</span>
-                    <span className="text-[10px] text-textSecondary">
+                    <span className="text-lg text-text-secondary">+</span>
+                    <span className="text-[10px] text-text-secondary">
                       Добавить
                     </span>
                   </div>
@@ -319,11 +318,10 @@ export function ModelPage() {
             <div className="flex gap-0 border-b border-border mb-5">
               <button
                 onClick={() => setActiveTab("comments")}
-                className={`px-5 py-3 text-sm font-semibold transition-all duration-200 border-b-2 ${
-                  activeTab === "comments"
-                    ? "text-accent border-accent"
-                    : "text-textSecondary border-transparent hover:text-text"
-                }`}
+                className={`px-5 py-3 text-sm font-semibold transition-all duration-200 border-b-2 ${activeTab === "comments"
+                  ? "text-accent border-accent"
+                  : "text-text-secondary border-transparent hover:text-text-primary"
+                  }`}
               >
                 Комментарии{" "}
                 <span className="ml-1.5 px-2 py-0.5 rounded-full bg-surface3 text-[11px]">
@@ -332,21 +330,19 @@ export function ModelPage() {
               </button>
               <button
                 onClick={() => setActiveTab("description")}
-                className={`px-5 py-3 text-sm font-semibold transition-all duration-200 border-b-2 ${
-                  activeTab === "description"
-                    ? "text-accent border-accent"
-                    : "text-textSecondary border-transparent hover:text-text"
-                }`}
+                className={`px-5 py-3 text-sm font-semibold transition-all duration-200 border-b-2 ${activeTab === "description"
+                  ? "text-accent border-accent"
+                  : "text-text-secondary border-transparent hover:text-text-primary"
+                  }`}
               >
                 Описание
               </button>
               <button
                 onClick={() => setActiveTab("tech")}
-                className={`px-5 py-3 text-sm font-semibold transition-all duration-200 border-b-2 ${
-                  activeTab === "tech"
-                    ? "text-accent border-accent"
-                    : "text-textSecondary border-transparent hover:text-text"
-                }`}
+                className={`px-5 py-3 text-sm font-semibold transition-all duration-200 border-b-2 ${activeTab === "tech"
+                  ? "text-accent border-accent"
+                  : "text-text-secondary border-transparent hover:text-text-primary"
+                  }`}
               >
                 Технические данные
               </button>
@@ -362,7 +358,7 @@ export function ModelPage() {
                       onChange={(e) => setNewComment(e.target.value)}
                       placeholder="Написать комментарий..."
                       rows={2}
-                      className="flex-1 px-4 py-3 bg-surface2 border border-border rounded-xl text-text text-sm outline-none focus:border-accent transition-all duration-200 resize-none placeholder:text-textSecondary"
+                      className="flex-1 px-4 py-3 bg-background-secondary border border-border rounded-xl text-text-primary text-sm outline-none focus:border-accent transition-all duration-200 resize-none placeholder:text-text-secondary"
                     />
                     <button
                       onClick={handleAddComment}
@@ -373,7 +369,7 @@ export function ModelPage() {
                     </button>
                   </div>
                 ) : (
-                  <div className="text-sm text-textSecondary py-4 text-center">
+                  <div className="text-sm text-text-secondary py-4 text-center">
                     <button
                       onClick={() => setAuthModalOpen("register")}
                       className="text-accent hover:underline"
@@ -392,7 +388,7 @@ export function ModelPage() {
                   comments.map((c) => (
                     <div
                       key={c.id}
-                      className="flex gap-3 p-3 rounded-xl bg-surface2 border border-border"
+                      className="flex gap-3 p-3 rounded-xl bg-background-secondary border border-border"
                     >
                       <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-[11px] text-accent font-bold flex-shrink-0">
                         {(c.display_name ||
@@ -401,10 +397,10 @@ export function ModelPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-semibold text-text">
+                          <span className="text-sm font-semibold text-text-primary">
                             {c.display_name || c.username || "Аноним"}
                           </span>
-                          <span className="text-xs text-textSecondary">
+                          <span className="text-xs text-text-secondary">
                             {new Date(c.created_at).toLocaleDateString(
                               "ru-RU",
                               { day: "numeric", month: "short" },
@@ -453,12 +449,12 @@ export function ModelPage() {
                 ].map((item) => (
                   <div
                     key={item.label}
-                    className="bg-surface2 border border-border rounded-xl p-3.5"
+                    className="bg-background-secondary border border-border rounded-xl p-3.5"
                   >
                     <div className="text-[10px] font-bold text-text-muted uppercase tracking-[0.5px] mb-1">
                       {item.label}
                     </div>
-                    <div className="text-sm font-medium text-text">
+                    <div className="text-sm font-medium text-text-primary">
                       {item.value}
                     </div>
                   </div>
@@ -472,17 +468,17 @@ export function ModelPage() {
         <div className="flex flex-col gap-4">
           {/* Model Info */}
           <div className="bg-surface border border-border rounded-2xl p-6">
-            <h1 className="font-extrabold text-2xl text-text mb-1.5 tracking-tight">
+            <h1 className="font-extrabold text-2xl text-text-primary mb-1.5 tracking-tight">
               {dm.name}
             </h1>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface2 text-textSecondary text-xs font-medium mb-4">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-background-secondary text-text-secondary text-xs font-medium mb-4">
               <Gamepad2 className="w-3.5 h-3.5" /> Разработка игр
             </div>
 
             {/* Stats */}
             <div className="flex gap-4 py-4 border-t border-b border-border mb-4">
               <div className="flex-1 text-center">
-                <div className="font-extrabold text-lg text-text">
+                <div className="font-extrabold text-lg text-text-primary">
                   {dm.likes}
                 </div>
                 <div className="text-[10px] text-text-muted uppercase tracking-[0.5px]">
@@ -490,7 +486,7 @@ export function ModelPage() {
                 </div>
               </div>
               <div className="flex-1 text-center">
-                <div className="font-extrabold text-lg text-text">
+                <div className="font-extrabold text-lg text-text-primary">
                   {dm.downloads}
                 </div>
                 <div className="text-[10px] text-text-muted uppercase tracking-[0.5px]">
@@ -498,7 +494,7 @@ export function ModelPage() {
                 </div>
               </div>
               <div className="flex-1 text-center">
-                <div className="font-extrabold text-lg text-text">
+                <div className="font-extrabold text-lg text-text-primary">
                   {comments.length}
                 </div>
                 <div className="text-[10px] text-text-muted uppercase tracking-[0.5px]">
@@ -519,14 +515,14 @@ export function ModelPage() {
             {/* Автор может скачать даже view_only, другие — только если не view_only */}
             {(dm.license !== "view_only" ||
               (user && displayModel.author_id === user.id)) && (
-              <Button
-                label="Скачать модель"
-                variant="primary"
-                onClick={() => setDownloadModalOpen(true)}
-                className="w-full py-3.5 mb-2"
-                icon={<Download className="w-4 h-4" />}
-              />
-            )}
+                <Button
+                  label="Скачать модель"
+                  variant="primary"
+                  onClick={() => setDownloadModalOpen(true)}
+                  className="w-full py-3.5 mb-2"
+                  icon={<Download className="w-4 h-4" />}
+                />
+              )}
 
             {/* Edit button for author */}
             {user &&
@@ -578,11 +574,10 @@ export function ModelPage() {
             <div className="grid grid-cols-2 gap-2 mb-2">
               <button
                 onClick={handleLike}
-                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all duration-200 ${
-                  isLiked
-                    ? "bg-danger/12 border-danger/30 text-danger"
-                    : "bg-surface2 border-border text-text hover:border-accent hover:bg-accentGlow"
-                }`}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all duration-200 ${isLiked
+                  ? "bg-danger/12 border-danger/30 text-danger"
+                  : "bg-background-secondary border-border text-text-primary hover:border-accent hover:bg-accentGlow"
+                  }`}
               >
                 <svg
                   width="14"
@@ -598,11 +593,10 @@ export function ModelPage() {
               </button>
               <button
                 onClick={handleSave}
-                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all duration-200 ${
-                  isSaved
-                    ? "bg-warning/10 border-warning/30 text-warning"
-                    : "bg-surface2 border-border text-text hover:border-accent hover:bg-accentGlow"
-                }`}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all duration-200 ${isSaved
+                  ? "bg-warning/10 border-warning/30 text-warning"
+                  : "bg-background-secondary border-border text-text-primary hover:border-accent hover:bg-accentGlow"
+                  }`}
               >
                 <svg
                   width="14"
@@ -645,108 +639,107 @@ export function ModelPage() {
           {/* Formats */}
           {(dm.license !== "view_only" ||
             (user && displayModel.author_id === user.id)) && (
-            <div className="bg-surface border border-border rounded-2xl p-5">
-              <div className="font-extrabold text-sm text-text mb-4">
-                Форматы для скачивания
-              </div>
-              <div className="flex flex-col gap-3">
-                {[
-                  {
-                    id: "glb",
-                    name: "GLB",
-                    size: "12.4 МБ",
-                    desc: "Веб, UE5",
-                    color: "rgba(27,110,243,0.15)",
-                    text: "#1B6EF3",
-                  },
-                  {
-                    id: "obj",
-                    name: "OBJ",
-                    size: "9.2 МБ",
-                    desc: "Blender, ZBrush",
-                    color: "rgba(16,185,129,0.15)",
-                    text: "#10B981",
-                  },
-                  {
-                    id: "stl",
-                    name: "STL",
-                    size: "8.5 МБ",
-                    desc: "3D-печать",
-                    color: "rgba(245,158,11,0.15)",
-                    text: "#F59E0B",
-                  },
-                ].map((fmt) => (
-                  <div
-                    key={fmt.id}
-                    className="flex items-center justify-between py-2.5 border-b border-border last:border-0 last:pb-0"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-9 h-9 rounded-lg flex items-center justify-center text-[10px] font-extrabold tracking-[0.5px]"
-                        style={{ background: fmt.color, color: fmt.text }}
-                      >
-                        {fmt.name}
-                      </div>
-                      <div>
-                        <div className="text-sm font-semibold text-text">
+              <div className="bg-surface border border-border rounded-2xl p-5">
+                <div className="font-extrabold text-sm text-text-primary mb-4">
+                  Форматы для скачивания
+                </div>
+                <div className="flex flex-col gap-3">
+                  {[
+                    {
+                      id: "glb",
+                      name: "GLB",
+                      size: "12.4 МБ",
+                      desc: "Веб, UE5",
+                      color: "rgba(27,110,243,0.15)",
+                      text: "#1B6EF3",
+                    },
+                    {
+                      id: "obj",
+                      name: "OBJ",
+                      size: "9.2 МБ",
+                      desc: "Blender, ZBrush",
+                      color: "rgba(16,185,129,0.15)",
+                      text: "#10B981",
+                    },
+                    {
+                      id: "stl",
+                      name: "STL",
+                      size: "8.5 МБ",
+                      desc: "3D-печать",
+                      color: "rgba(245,158,11,0.15)",
+                      text: "#F59E0B",
+                    },
+                  ].map((fmt) => (
+                    <div
+                      key={fmt.id}
+                      className="flex items-center justify-between py-2.5 border-b border-border last:border-0 last:pb-0"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-9 h-9 rounded-lg flex items-center justify-center text-[10px] font-extrabold tracking-[0.5px]"
+                          style={{ background: fmt.color, color: fmt.text }}
+                        >
                           {fmt.name}
                         </div>
-                        <div className="text-[10px] text-text-muted">
-                          {fmt.size} · {fmt.desc}
+                        <div>
+                          <div className="text-sm font-semibold text-text-primary">
+                            {fmt.name}
+                          </div>
+                          <div className="text-[10px] text-text-muted">
+                            {fmt.size} · {fmt.desc}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <button
-                      onClick={() => handleDownloadFormat(fmt.id)}
-                      className="px-3 py-1.5 rounded-lg bg-surface2 border border-border text-textSecondary text-xs font-semibold hover:border-accent hover:text-accent hover:bg-accentGlow transition-all duration-200 flex items-center gap-1"
-                    >
-                      <svg
-                        width="11"
-                        height="11"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        viewBox="0 0 24 24"
+                      <button
+                        onClick={() => handleDownloadFormat(fmt.id)}
+                        className="px-3 py-1.5 rounded-lg bg-background-secondary border border-border text-text-secondary text-xs font-semibold hover:border-accent hover:text-accent hover:bg-accentGlow transition-all duration-200 flex items-center gap-1"
                       >
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <polyline points="7 10 12 15 17 10" />
-                        <line x1="12" y1="15" x2="12" y2="3" />
-                      </svg>
-                      Скачать
-                    </button>
-                  </div>
-                ))}
+                        <svg
+                          width="11"
+                          height="11"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="7 10 12 15 17 10" />
+                          <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                        Скачать
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Author */}
           <div className="bg-surface border border-border rounded-2xl p-5">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-accent to-accent2 flex items-center justify-center text-lg font-bold text-white">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-accent to-accent flex items-center justify-center text-lg font-bold text-white">
                 {dm.authorInitial}
               </div>
               <div className="flex-1">
-                <div className="font-bold text-text text-sm">{dm.author}</div>
-                <div className="text-xs text-textSecondary">
+                <div className="font-bold text-text-primary text-sm">{dm.author}</div>
+                <div className="text-xs text-text-secondary">
                   @{dm.authorUsername} ·{" "}
                   {dm.aiGenerated ? "ИИ-генерация" : "Авторская работа"}
                 </div>
               </div>
               <button
                 onClick={handleFollow}
-                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
-                  isFollowing
-                    ? "bg-surface2 border border-border text-textSecondary"
-                    : "bg-accent text-white"
-                }`}
+                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${isFollowing
+                  ? "bg-background-secondary border border-border text-text-secondary"
+                  : "bg-accent text-white"
+                  }`}
               >
                 {isFollowing ? "Вы подписаны" : "Подписаться"}
               </button>
             </div>
             <div className="flex gap-5 pt-4 border-t border-border">
               <div>
-                <div className="font-extrabold text-base text-text">
+                <div className="font-extrabold text-base text-text-primary">
                   {dm.authorModelsCount}
                 </div>
                 <div className="text-[10px] text-text-muted uppercase tracking-[0.5px]">
@@ -754,7 +747,7 @@ export function ModelPage() {
                 </div>
               </div>
               <div>
-                <div className="font-extrabold text-base text-text">
+                <div className="font-extrabold text-base text-text-primary">
                   {dm.authorFollowers >= 1000
                     ? `${(dm.authorFollowers / 1000).toFixed(1)}K`
                     : dm.authorFollowers}
@@ -764,7 +757,7 @@ export function ModelPage() {
                 </div>
               </div>
               <div>
-                <div className="font-extrabold text-base text-text">
+                <div className="font-extrabold text-base text-text-primary">
                   {dm.likes}
                 </div>
                 <div className="text-[10px] text-text-muted uppercase tracking-[0.5px]">
@@ -781,9 +774,11 @@ export function ModelPage() {
         <AuthModal
           type={authModalOpen}
           onClose={() => setAuthModalOpen(null)}
-          onSwitch={(type: "login" | "register" | "reset-password") => setAuthModalOpen(type === "reset-password" ? "login" : type)}
+          onSwitch={(type) => setAuthModalOpen(type)}
           onSignIn={signIn}
           onSignUp={signUp}
+          onResendEmail={resendEmail}
+          onOAuthSignIn={signInWithOAuth}
         />
       )}
 

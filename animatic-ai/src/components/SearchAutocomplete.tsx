@@ -35,7 +35,7 @@ export function SearchInput() {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Поиск моделей..."
-        className="w-full pl-9 pr-4 py-2 bg-surface2 border border-border rounded-xl text-text text-sm outline-none focus:border-accent transition-all duration-200 placeholder:text-text-secondary"
+        className="w-full pl-9 pr-4 py-2 bg-background-secondary border border-border rounded-xl text-text-primary text-sm outline-none focus:border-accent transition-all duration-200 placeholder:text-text-secondary"
       />
     </div>
   );
@@ -126,28 +126,28 @@ export function SearchModal() {
 
   return (
     <div
-      className="fixed top-16 left-0 right-0 bottom-0 bg-black/60 z-[60] flex items-start justify-center pt-12 px-8"
+      className="fixed top-16 left-0 right-0 bottom-0 bg-background-primary/60 backdrop-blur-md z-[60] flex items-start justify-center pt-12 px-8"
       onClick={() => setQuery("")}
     >
       <div
-        className="w-full max-w-4xl bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden max-h-[75vh] flex flex-col"
+        className="w-full max-w-4xl bg-background-glass backdrop-blur-3xl border border-border-glass rounded-[32px] shadow-2xl overflow-hidden max-h-[75vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Заголовок */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface2/50">
+        <div className="flex items-center justify-between px-8 py-5 border-b border-border-glass bg-background-surface/5">
           <div>
-            <p className="text-sm font-semibold text-text">
+            <p className="text-base font-medium text-text-primary">
               Результаты поиска: «{query}»
             </p>
-            <p className="text-[11px] text-text-secondary mt-0.5">
+            <p className="text-[11px] font-mono uppercase tracking-wider text-text-muted mt-1">
               {loading ? "Ищем..." : `Найдено: ${results.length}`}
             </p>
           </div>
           <button
             onClick={() => setQuery("")}
-            className="w-8 h-8 rounded-lg bg-surface2 border border-border flex items-center justify-center text-textSecondary hover:text-text transition-colors"
+            className="w-10 h-10 rounded-xl bg-background-secondary/50 border border-border-glass flex items-center justify-center text-text-secondary hover:text-text-primary transition-colors"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -158,12 +158,12 @@ export function SearchModal() {
               {Array.from({ length: 8 }).map((_, i) => (
                 <div
                   key={i}
-                  className="bg-surface2 rounded-xl overflow-hidden animate-pulse"
+                  className="bg-background-secondary rounded-xl overflow-hidden animate-pulse"
                 >
-                  <div className="aspect-square bg-surface" />
+                  <div className="aspect-square bg-background-surface" />
                   <div className="p-3">
-                    <div className="h-3 bg-surface2 rounded w-3/4 mb-2" />
-                    <div className="h-2.5 bg-surface2 rounded w-1/2" />
+                    <div className="h-3 bg-background-secondary rounded w-3/4 mb-2" />
+                    <div className="h-2.5 bg-background-secondary rounded w-1/2" />
                   </div>
                 </div>
               ))}
@@ -174,9 +174,9 @@ export function SearchModal() {
                 <button
                   key={item.id}
                   onClick={() => handleResultClick(item)}
-                  className="group bg-surface2 border border-border rounded-xl overflow-hidden hover:border-accent/50 transition-all duration-200 text-left"
+                  className="group bg-background-secondary border border-border rounded-xl overflow-hidden hover:border-accent/50 transition-all duration-200 text-left"
                 >
-                  <div className="aspect-square bg-surface relative overflow-hidden">
+                  <div className="aspect-square bg-background-surface relative overflow-hidden">
                     {item.preview_url ? (
                       <img
                         src={item.preview_url}
@@ -201,7 +201,7 @@ export function SearchModal() {
                     </span>
                   </div>
                   <div className="p-3">
-                    <p className="text-sm font-medium text-text truncate group-hover:text-accent transition-colors">
+                    <p className="text-sm font-medium text-text-primary truncate group-hover:text-accent transition-colors">
                       {item.name}
                     </p>
                     {item.category && (
@@ -220,10 +220,10 @@ export function SearchModal() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-16 h-16 rounded-full bg-surface2 flex items-center justify-center mb-4">
-                <Search className="w-6 h-6 text-textSecondary/50" />
+              <div className="w-16 h-16 rounded-full bg-background-secondary flex items-center justify-center mb-4">
+                <Search className="w-6 h-6 text-text-secondary/50" />
               </div>
-              <p className="text-sm font-medium text-text">Ничего не найдено</p>
+              <p className="text-sm font-medium text-text-primary">Ничего не найдено</p>
               <p className="text-[11px] text-text-secondary mt-1">
                 Попробуйте другой запрос
               </p>
@@ -233,7 +233,7 @@ export function SearchModal() {
 
         {/* Footer */}
         {results.length > 0 && (
-          <div className="px-6 py-3 border-t border-border bg-surface2/30">
+          <div className="px-6 py-3 border-t border-border bg-background-secondary/30">
             <button
               onClick={() => {
                 setQuery("");

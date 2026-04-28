@@ -264,7 +264,7 @@ export function PricingSection({ onRegisterClick }: { onRegisterClick: () => voi
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          className="mt-20 text-center text-[13px] text-text-dimmed font-mono uppercase tracking-[1px] flex items-center justify-center gap-4 before:h-px before:flex-grow before:bg-border-default after:h-px after:flex-grow after:bg-border-default"
+          className="mt-20 text-center text-[13px] text-text-muted font-mono uppercase tracking-[1px] flex items-center justify-center gap-4 before:h-px before:flex-grow before:bg-border after:h-px after:flex-grow after:bg-border"
         >
           Безопасные платежи через <span className="text-text-secondary">ЮKassa Sandbox</span>
         </motion.div>

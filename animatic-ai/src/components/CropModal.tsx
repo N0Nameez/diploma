@@ -68,21 +68,21 @@ export function CropModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-8"
+      className="fixed inset-0 bg-background-primary/60 backdrop-blur-md z-[9999] flex items-center justify-center p-8"
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-border rounded-2xl overflow-hidden max-w-2xl w-full"
+        className="bg-background-glass border border-border-glass rounded-[32px] overflow-hidden max-w-2xl w-full backdrop-blur-3xl shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface2/50">
-          <h3 className="text-sm font-semibold text-text">{title}</h3>
+        <div className="flex items-center justify-between px-6 py-5 border-b border-border-glass bg-background-surface/5">
+          <h3 className="text-base font-medium text-text-primary">{title}</h3>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-surface2 border border-border flex items-center justify-center text-textSecondary hover:text-text transition-colors"
+            className="w-10 h-10 rounded-xl bg-background-secondary/50 border border-border-glass flex items-center justify-center text-text-secondary hover:text-text-primary transition-colors"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -103,9 +103,9 @@ export function CropModal({
         </div>
 
         {/* Controls */}
-        <div className="px-6 py-4 border-t border-border">
-          <div className="flex items-center gap-4 mb-4">
-            <span className="text-xs text-textSecondary">Масштаб</span>
+        <div className="px-8 py-6 border-t border-border-glass bg-background-surface/5">
+          <div className="flex items-center gap-6 mb-6">
+            <span className="text-xs font-mono uppercase tracking-wider text-text-muted">Масштаб</span>
             <input
               type="range"
               min={1}
@@ -113,22 +113,22 @@ export function CropModal({
               step={0.1}
               value={zoom}
               onChange={(e) => setZoom(Number(e.target.value))}
-              className="flex-1 accent-accent"
+              className="flex-1 accent-accent h-1.5 rounded-full bg-background-secondary appearance-none cursor-pointer"
             />
-            <span className="text-xs text-textSecondary w-8 text-right">
+            <span className="text-xs font-mono text-text-secondary w-8 text-right">
               {zoom.toFixed(1)}x
             </span>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-4">
             <button
               onClick={handleConfirm}
-              className="flex-1 py-2.5 rounded-xl bg-accent text-white text-sm font-semibold hover:brightness-108 transition-all"
+              className="flex-1 py-3 rounded-2xl bg-accent text-white text-sm font-semibold shadow-[0_0_20px_rgba(236,72,153,0.3)] hover:brightness-110 transition-all hover:-translate-y-0.5 active:translate-y-0"
             >
               Применить
             </button>
             <button
               onClick={onClose}
-              className="px-6 py-2.5 rounded-xl bg-surface2 border border-border text-textSecondary text-sm hover:text-text transition-colors"
+              className="px-8 py-3 rounded-2xl bg-background-secondary/50 border border-border-glass text-text-secondary text-sm font-medium hover:text-text-primary hover:bg-background-secondary transition-colors"
             >
               Отмена
             </button>

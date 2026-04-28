@@ -23,7 +23,7 @@ import { publishModel, downloadModel, fetchModel } from "../services/api";
 export function GenerationPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, signIn, signUp } = useAuth();
+  const { user, signIn, signUp, resendEmail, signInWithOAuth } = useAuth();
   const {
     mode,
     setMode,
@@ -81,7 +81,7 @@ export function GenerationPage() {
 
   // Модальное окно авторизации
   const [authModal, setAuthModal] = useState<
-    "login" | "register" | "reset-password" | null
+    "login" | "register" | "reset-password" | "update-password" | null
   >(null);
 
   // Модалка выбора лицензии
@@ -165,7 +165,7 @@ export function GenerationPage() {
         setEditorFileUrl(model.file_url);
         setEditorPreviewUrl(model.preview_url);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [editorMode, editorModelId]);
 
   /* Save edited model */
@@ -216,7 +216,7 @@ export function GenerationPage() {
           setEditorFileUrl(model.file_url);
           setEditorPreviewUrl(model.preview_url);
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [searchParams, user]);
 
@@ -332,7 +332,7 @@ export function GenerationPage() {
       <div className="max-w-[1320px] mx-auto px-10 pt-20 pb-0">
         {editorMode ? (
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-text flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2">
               <Edit3 className="w-6 h-6 text-accent" />
               Редактирование модели
             </h1>
@@ -364,48 +364,48 @@ export function GenerationPage() {
             />
 
             {/* Editor Fields */}
-            <div className="bg-surface border border-border rounded-2xl p-6">
-              <h2 className="text-lg font-bold text-text mb-4">
+            <div className="bg-background-surface border border-border rounded-2xl p-6">
+              <h2 className="text-lg font-bold text-text-primary mb-4">
                 Параметры модели
               </h2>
 
               {/* Name */}
               <div className="mb-4">
-                <label className="block text-sm font-semibold text-text mb-2">
+                <label className="block text-sm font-semibold text-text-primary mb-2">
                   Название
                 </label>
                 <input
                   type="text"
                   value={editorName}
                   onChange={(e) => setEditorName(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-surface2 border border-border rounded-xl text-text text-sm outline-none focus:border-accent transition-all"
+                  className="w-full px-4 py-2.5 bg-background-secondary border border-border rounded-xl text-text-primary text-sm outline-none focus:border-accent transition-all"
                   placeholder="Введите название..."
                 />
               </div>
 
               {/* Description */}
               <div className="mb-4">
-                <label className="block text-sm font-semibold text-text mb-2">
+                <label className="block text-sm font-semibold text-text-primary mb-2">
                   Описание
                 </label>
                 <textarea
                   value={editorDescription}
                   onChange={(e) => setEditorDescription(e.target.value)}
                   rows={3}
-                  className="w-full px-4 py-2.5 bg-surface2 border border-border rounded-xl text-text text-sm outline-none focus:border-accent transition-all resize-none"
+                  className="w-full px-4 py-2.5 bg-background-secondary border border-border rounded-xl text-text-primary text-sm outline-none focus:border-accent transition-all resize-none"
                   placeholder="Опишите модель..."
                 />
               </div>
 
               {/* Category */}
               <div className="mb-4">
-                <label className="block text-sm font-semibold text-text mb-2">
+                <label className="block text-sm font-semibold text-text-primary mb-2">
                   Категория
                 </label>
                 <select
                   value={editorCategory}
                   onChange={(e) => setEditorCategory(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-surface2 border border-border rounded-xl text-text text-sm outline-none focus:border-accent transition-all"
+                  className="w-full px-4 py-2.5 bg-background-secondary border border-border rounded-xl text-text-primary text-sm outline-none focus:border-accent transition-all"
                 >
                   <option value="Персонажи">Персонажи</option>
                   <option value="Архитектура">Архитектура</option>
@@ -418,8 +418,8 @@ export function GenerationPage() {
               </div>
 
               {/* Locked Fields Notice */}
-              <div className="p-3 rounded-xl bg-surface2 border border-border mb-4">
-                <p className="text-xs text-textSecondary">
+              <div className="p-3 rounded-xl bg-background-secondary border border-border mb-4">
+                <p className="text-xs text-text-secondary">
                   🔒 Фото и параметры генерации заблокированы. Для изменения
                   создайте новую генерацию.
                 </p>
@@ -527,11 +527,10 @@ export function GenerationPage() {
               disabled={!canGenerate}
               className={`w-full py-4 rounded-[14px] font-extrabold text-[16px] flex items-center justify-center gap-2.5
                         transition-all duration-200 relative overflow-hidden text-white
-                        ${
-                          mode === "model"
-                            ? "bg-gradient-to-br from-accent to-accentDark shadow-[0_6px_28px_var(--accent-glow)]"
-                            : "bg-gradient-to-br from-accent2 to-accent2Dark shadow-[0_6px_28px_var(--accent2-glow)]"
-                        }
+                        ${mode === "model"
+                  ? "bg-gradient-to-br from-accent to-accent shadow-[0_6px_28px_var(--accent-glow)]"
+                  : "bg-gradient-to-br from-accent to-accent shadow-[0_6px_28px_var(--accent-glow)]"
+                }
                         ${!canGenerate ? "opacity-50 cursor-not-allowed" : "hover:-translate-y-0.5 hover:brightness-108"}
                         ${generating ? "loading" : ""}`}
             >
@@ -576,7 +575,7 @@ export function GenerationPage() {
 
             {/* Queue indicator */}
             {status === "queued" && queuePosition && (
-              <div className="bg-surface border border-border rounded-[14px] p-4">
+              <div className="bg-background-surface border border-border rounded-[14px] p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
                     <svg
@@ -593,16 +592,16 @@ export function GenerationPage() {
                     </svg>
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-text">
+                    <div className="text-sm font-semibold text-text-primary">
                       Вы {queuePosition}-й в очереди
                     </div>
-                    <div className="text-xs text-textSecondary">
+                    <div className="text-xs text-text-secondary">
                       Ожидают ещё {queueLength - 1} задач
                     </div>
                   </div>
                 </div>
                 {/* Queue progress bar */}
-                <div className="w-full h-2 bg-surface2 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-background-secondary rounded-full overflow-hidden">
                   <div
                     className="h-full bg-accent rounded-full transition-all duration-500"
                     style={{
@@ -610,7 +609,7 @@ export function GenerationPage() {
                     }}
                   />
                 </div>
-                <div className="text-xs text-textSecondary mt-2">
+                <div className="text-xs text-text-secondary mt-2">
                   ⏳ Примерно ~{queuePosition * 3} мин
                 </div>
               </div>
@@ -621,7 +620,7 @@ export function GenerationPage() {
               <button
                 onClick={handleDownloadModel}
                 className="w-full py-3 rounded-[14px] font-semibold text-[15px] flex items-center justify-center gap-2
-                         transition-all duration-200 bg-surface2 border border-border text-text
+                         transition-all duration-200 bg-background-secondary border border-border text-text-primary
                          hover:-translate-y-0.5 hover:border-accent hover:text-accent"
               >
                 <Download className="w-4 h-4" />
@@ -640,8 +639,8 @@ export function GenerationPage() {
             {user ? (
               <CreditsPanel credits={credits} resetDate={creditsResetDate} />
             ) : (
-              <div className="bg-surface border border-border rounded-[18px] p-[18px_20px] text-center transition-colors duration-200">
-                <div className="flex items-center justify-center gap-2 font-extrabold text-[14px] text-text mb-2">
+              <div className="bg-background-surface border border-border rounded-[18px] p-[18px_20px] text-center transition-colors duration-200">
+                <div className="flex items-center justify-center gap-2 font-extrabold text-[14px] text-text-primary mb-2">
                   <Gem className="w-4 h-4 text-accent" />
                   Кредиты
                 </div>
@@ -724,6 +723,8 @@ export function GenerationPage() {
           onSwitch={setAuthModal}
           onSignIn={signIn}
           onSignUp={signUp}
+          onResendEmail={resendEmail}
+          onOAuthSignIn={signInWithOAuth}
         />
       )}
     </div>

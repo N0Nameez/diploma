@@ -43,7 +43,7 @@ export function Navbar({
       <div
         className={`mx-auto transition-all duration-500 flex items-center justify-between px-6 lg:px-8 ${
           scrolled
-            ? 'bg-background-surface/80 backdrop-blur-xl border border-border rounded-2xl shadow-lg max-w-[1200px] h-14'
+            ? 'bg-background-glass backdrop-blur-3xl border border-border-glass rounded-2xl shadow-xl max-w-[1200px] h-14'
             : 'bg-transparent max-w-[1400px] h-20 border-transparent'
         }`}
       >
@@ -79,11 +79,19 @@ export function Navbar({
                 to="/profile"
                 className="flex items-center gap-2 px-3 py-1.5 rounded-[10px] bg-background-secondary border border-border hover:border-accent transition-all duration-200"
               >
-                <div className="w-6 h-6 rounded-full bg-accent flex items-center justify-center text-white text-xs font-bold">
-                  {user.email?.[0].toUpperCase()}
+                <div className="w-6 h-6 rounded-full bg-accent flex items-center justify-center text-white text-[10px] font-bold overflow-hidden">
+                  {(user.user_metadata?.avatar_url || user.user_metadata?.picture) ? (
+                    <img 
+                      src={user.user_metadata.avatar_url || user.user_metadata.picture} 
+                      alt="Avatar" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    user.email?.[0].toUpperCase()
+                  )}
                 </div>
                 <span className="text-sm font-medium text-text-primary max-w-[100px] truncate">
-                  {user.user_metadata?.username ?? user.email}
+                  {user.user_metadata?.display_name ?? user.user_metadata?.username ?? user.user_metadata?.full_name ?? user.email}
                 </span>
               </Link>
               <button
@@ -126,7 +134,7 @@ export function Navbar({
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="absolute top-full left-4 right-4 mt-2 p-6 bg-background-secondary/95 backdrop-blur-2xl border border-border rounded-2xl shadow-2xl lg:hidden flex flex-col gap-6"
+            className="absolute top-full left-4 right-4 mt-2 p-6 bg-background-glass backdrop-blur-3xl border border-border-glass rounded-2xl shadow-2xl lg:hidden flex flex-col gap-6"
           >
             <div className="flex flex-col gap-4">
               {links.map((link) => (
@@ -151,11 +159,21 @@ export function Navbar({
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center gap-3 p-3 rounded-xl bg-background-surface border border-border"
                   >
-                    <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-white font-bold">
-                      {user.email?.[0].toUpperCase()}
+                    <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-white font-bold overflow-hidden">
+                      {(user.user_metadata?.avatar_url || user.user_metadata?.picture) ? (
+                        <img 
+                          src={user.user_metadata.avatar_url || user.user_metadata.picture} 
+                          alt="Avatar" 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        user.email?.[0].toUpperCase()
+                      )}
                     </div>
                     <div className="flex flex-col">
-                      <span className="font-medium text-text-primary">Профиль</span>
+                      <span className="font-medium text-text-primary">
+                        {user.user_metadata?.display_name ?? user.user_metadata?.username ?? user.user_metadata?.full_name ?? "Профиль"}
+                      </span>
                       <span className="text-xs text-text-muted">{user.email}</span>
                     </div>
                   </Link>

@@ -33,13 +33,23 @@ export function useAuth() {
   }, []);
 
   const signUp = async (email: string, password: string, username: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { username },
+        data: { 
+          username: username,
+          display_name: username // Set as initial display name too
+        },
       },
     });
+    
+    // Only log in automatically if session is returned (confirmation disabled)
+    if (!error && data.session && data.user) {
+      userIdRef.current = data.user.id;
+      setUser(data.user);
+    }
+    
     return { error };
   };
 
@@ -55,5 +65,38 @@ export function useAuth() {
     await supabase.auth.signOut();
   };
 
-  return { user, loading, signUp, signIn, signOut };
+  const resetPassword = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/`,
+    });
+    return { error };
+  };
+
+  const updatePassword = async (password: string) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    return { error };
+  };
+
+  const resendEmail = async (email: string, type: 'signup' | 'email_change' = 'signup') => {
+    const { error } = await supabase.auth.resend({
+      type,
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/`,
+      },
+    });
+    return { error };
+  };
+
+  const signInWithOAuth = async (provider: 'google' | 'github') => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/`,
+      },
+    });
+    return { error };
+  };
+
+  return { user, loading, signUp, signIn, signOut, resetPassword, updatePassword, resendEmail, signInWithOAuth };
 }

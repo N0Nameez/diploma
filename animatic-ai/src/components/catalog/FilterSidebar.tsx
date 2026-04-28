@@ -58,14 +58,14 @@ function FilterSidebar({
       {/* Overlay for mobile */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-background-primary/60 backdrop-blur-md z-40 lg:hidden"
           onClick={onClose}
         />
       )}
 
       <aside
         className={`
-        w-[260px] flex-shrink-0 bg-surface border-r border-border
+        w-[260px] flex-shrink-0 bg-background-primary/80 backdrop-blur-2xl border-r border-border
         px-5 py-7 h-[calc(100vh-64px)] overflow-y-auto 
         transition-color duration-200
         fixed lg:fixed top-16 left-0 z-50
@@ -77,8 +77,8 @@ function FilterSidebar({
         <button
           onClick={onClose}
           className="lg:hidden absolute top-2 right-2 w-8 h-8 rounded-lg
-                     bg-surface2 border border-border
-                     text-textSecondary hover:text-text
+                     bg-background-secondary border border-border-glass
+                     text-text-secondary hover:text-text-primary
                      flex items-center justify-center transition-all duration-200 text-lg"
         >
           ×
@@ -88,8 +88,8 @@ function FilterSidebar({
         <button
           onClick={onToggle}
           className="hidden lg:flex absolute top-2 right-2 w-8 h-8 rounded-lg
-                     bg-surface2 border border-border
-                     text-textSecondary hover:text-text
+                     bg-background-secondary border border-border
+                     text-text-secondary hover:text-text-primary
                      flex items-center justify-center transition-all duration-200"
           title={isOpen ? "Скрыть панель" : "Показать панель"}
         >
@@ -107,7 +107,7 @@ function FilterSidebar({
 
         {/* Content type */}
         <div className="mb-5">
-          <p className="text-[11px] font-bold tracking-[1.5px] uppercase text-textSecondary mb-3">
+          <p className="text-[11px] font-bold tracking-[1.5px] uppercase text-text-secondary mb-3">
             Тип контента
           </p>
           <div className="flex gap-2 mb-3">
@@ -117,7 +117,7 @@ function FilterSidebar({
                 ${
                   contentType === "3d"
                     ? "bg-accent text-white border-accent"
-                    : "bg-transparent border-border text-textSecondary hover:border-accent"
+                    : "bg-transparent border-border text-text-secondary hover:border-accent"
                 }`}
             >
               3D-модели
@@ -128,7 +128,7 @@ function FilterSidebar({
                 ${
                   contentType === "animation"
                     ? "bg-accent text-white border-accent"
-                    : "bg-transparent border-border text-textSecondary hover:border-accent"
+                    : "bg-transparent border-border text-text-secondary hover:border-accent"
                 }`}
             >
               Анимации
@@ -139,7 +139,7 @@ function FilterSidebar({
 
         {/* Category */}
         <div className="mb-5">
-          <p className="text-[11px] font-bold tracking-[1.5px] uppercase text-textSecondary mb-3">
+          <p className="text-[11px] font-bold tracking-[1.5px] uppercase text-text-secondary mb-3">
             Категория
           </p>
           {CATEGORIES.map((c) => (
@@ -162,7 +162,7 @@ function FilterSidebar({
 
         {/* Format */}
         <div className="mb-5">
-          <p className="text-[11px] font-bold tracking-[1.5px] uppercase text-textSecondary mb-3">
+          <p className="text-[11px] font-bold tracking-[1.5px] uppercase text-text-secondary mb-3">
             Формат файла
           </p>
           {FORMATS.map((f) => (
@@ -185,7 +185,7 @@ function FilterSidebar({
 
         {/* Source */}
         <div className="mb-5">
-          <p className="text-[11px] font-bold tracking-[1.5px] uppercase text-textSecondary mb-3">
+          <p className="text-[11px] font-bold tracking-[1.5px] uppercase text-text-secondary mb-3">
             Источник
           </p>
           <FilterCheckbox
@@ -204,7 +204,7 @@ function FilterSidebar({
             onAIChange(false);
           }}
           className="w-full py-2.5 rounded-[10px] bg-transparent border border-border
-                     text-textSecondary text-sm cursor-pointer
+                     text-text-secondary text-sm cursor-pointer
                      hover:border-accent hover:text-accent transition-all duration-200"
         >
           ✕ Сбросить фильтры

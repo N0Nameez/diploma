@@ -83,7 +83,7 @@ export function AboutSection() {
             })}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-left pt-12 border-t border-border-default">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-left pt-12 border-t border-border">
             {[
               { label: 'Скорость', value: '10x', desc: 'Ускорение рабочего процесса' },
               { label: 'Инновации', value: 'ИИ', desc: 'Собственные ИИ-алгоритмы' },

@@ -142,9 +142,36 @@ export function ProfilePage() {
     if (!user) return;
     setLoading(true);
     fetchUser(user.id)
-      .then((p) => {
+      .then(async (p) => {
         setProfile(p);
-        setDisplayName(p.display_name || p.username || "");
+        const metaName = user.user_metadata?.display_name || user.user_metadata?.username || user.user_metadata?.full_name || user.user_metadata?.name;
+        
+        // If the DB has the default 'Аноним', try to use the name from metadata first
+        let initialName = (p.display_name && p.display_name !== "Аноним") 
+          ? p.display_name 
+          : (metaName || p.username || "");
+
+        // Auto-sync name to DB if it's currently 'Аноним' but we have a better name from OAuth
+        if ((!p.display_name || p.display_name === "Аноним") && metaName && metaName !== "Аноним") {
+          try {
+            await updateUserProfile(user.id, { display_name: metaName });
+            initialName = metaName;
+          } catch (e) {
+            console.error("Failed to auto-sync profile name", e);
+          }
+        }
+
+        // Auto-sync avatar if missing but available in OAuth
+        const metaAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture;
+        if (!p.avatar_url && metaAvatar) {
+          try {
+            await updateUserProfile(user.id, { avatar_url: metaAvatar });
+          } catch (e) {
+            console.error("Failed to auto-sync profile avatar", e);
+          }
+        }
+        
+        setDisplayName(initialName);
         setBio(p.bio || "");
       })
       .catch(() => setProfile(null))
@@ -324,7 +351,7 @@ export function ProfilePage() {
     return (
       <div className="pt-16 min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="text-2xl text-text font-bold mb-2">
+          <div className="text-2xl text-text-primary font-bold mb-2">
             Войдите в аккаунт
           </div>
           <Link to="/" className="text-accent hover:underline">
@@ -358,7 +385,7 @@ export function ProfilePage() {
     : undefined;
   const avatarSrc = p?.avatar_url
     ? `${p.avatar_url}?v=${avatarKey}`
-    : undefined;
+    : (user?.user_metadata?.avatar_url || user?.user_metadata?.picture);
 
   // Activity helpers
   const formatDateAgo = (dateStr: string | null) => {
@@ -485,7 +512,7 @@ export function ProfilePage() {
             );
           })}
         </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-bg" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background-primary" />
         <button
           onClick={() => setShowCoverModal(true)}
           className="absolute top-4 right-4 px-3.5 py-2 rounded-[9px] bg-black/45 backdrop-blur border border-white/15 text-white/80 text-xs font-semibold cursor-pointer hover:bg-black/65 hover:text-white transition-all duration-200 flex items-center gap-1.5"
@@ -512,10 +539,10 @@ export function ProfilePage() {
           onClick={() => setShowCoverModal(false)}
         >
           <div
-            className="bg-surface border border-border rounded-2xl p-6 max-w-lg w-full mx-4"
+            className="bg-background-surface border border-border rounded-2xl p-6 max-w-lg w-full mx-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold text-text mb-4">
+            <h3 className="text-lg font-bold text-text-primary mb-4">
               Выберите обложку
             </h3>
             <div className="grid grid-cols-2 gap-3 mb-4">
@@ -523,7 +550,7 @@ export function ProfilePage() {
                 <button
                   key={preset.id}
                   onClick={() => handleCoverPreset(preset.id)}
-                  className={`h-20 rounded-xl border-2 transition-all duration-200 ${coverPreset === preset.id ? "border-accent" : "border-transparent hover:border-border2"}`}
+                  className={`h-20 rounded-xl border-2 transition-all duration-200 ${coverPreset === preset.id ? "border-accent" : "border-transparent hover:border-border-elevated"}`}
                   style={{ background: preset.gradient }}
                 >
                   <span className="text-white text-xs font-semibold drop-shadow">
@@ -538,7 +565,7 @@ export function ProfilePage() {
                   setShowCoverModal(false);
                   handleCoverClick();
                 }}
-                className="w-full py-2.5 rounded-xl bg-surface2 border border-border text-text text-sm hover:border-accent hover:text-accent transition-colors flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-xl bg-background-secondary border border-border text-text-primary hover:border-accent hover:text-accent transition-colors flex items-center justify-center gap-2"
               >
                 <svg
                   width="14"
@@ -557,7 +584,7 @@ export function ProfilePage() {
             </div>
             <button
               onClick={() => setShowCoverModal(false)}
-              className="w-full py-2 rounded-xl bg-surface2 border border-border text-textSecondary text-sm hover:text-text transition-colors"
+              className="w-full py-2 rounded-xl bg-background-secondary border border-border text-text-secondary text-sm hover:text-text-primary transition-colors"
             >
               Отмена
             </button>
@@ -573,16 +600,16 @@ export function ProfilePage() {
               <img
                 src={avatarSrc}
                 alt={authorName}
-                className="w-[100px] h-[100px] rounded-full object-cover border-4 border-bg shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+                className="w-[100px] h-[100px] rounded-full object-cover border-4 border-background-primary shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
               />
             ) : (
-              <div className="w-[100px] h-[100px] rounded-full bg-gradient-to-br from-accent to-accent2 flex items-center justify-center text-[40px] font-extrabold text-white border-4 border-bg shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+              <div className="w-[100px] h-[100px] rounded-full bg-gradient-to-br from-accent to-accent flex items-center justify-center text-[40px] font-extrabold text-white border-4 border-background-primary shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
                 {authorInitial}
               </div>
             )}
             <button
               onClick={handleAvatarClick}
-              className="absolute bottom-1 right-1 w-7 h-7 rounded-full bg-accent border-2 border-bg flex items-center justify-center text-xs text-white cursor-pointer hover:scale-110 transition-transform duration-200"
+              className="absolute bottom-1 right-1 w-7 h-7 rounded-full bg-accent border-2 border-background-primary flex items-center justify-center text-xs text-white cursor-pointer hover:scale-110 transition-transform duration-200"
             >
               <Edit className="w-3 h-3" />
             </button>
@@ -591,7 +618,7 @@ export function ProfilePage() {
             <div className="font-extrabold text-[24px] tracking-[-0.5px] mb-1">
               {authorName}
             </div>
-            <div className="text-sm text-textSecondary mb-2">
+            <div className="text-sm text-text-secondary mb-2">
               @{p?.username} · {joinYear}
               {p?.credits !== undefined && (
                 <span className="ml-3 text-accent">
@@ -600,7 +627,7 @@ export function ProfilePage() {
               )}
             </div>
             {p?.bio && (
-              <div className="text-sm text-textSecondary font-light leading-relaxed max-w-[480px]">
+              <div className="text-sm text-text-secondary font-light leading-relaxed max-w-[480px]">
                 {p.bio}
               </div>
             )}
@@ -608,7 +635,7 @@ export function ProfilePage() {
           <div className="flex gap-2 pb-1.5 flex-shrink-0">
             <button
               onClick={() => setActiveTab("settings")}
-              className="px-5 py-2.5 rounded-[10px] bg-surface2 border border-border2 text-text text-sm font-semibold cursor-pointer hover:border-accent hover:bg-tag-bg hover:text-accent transition-all duration-200 flex items-center gap-2"
+              className="px-5 py-2.5 rounded-[10px] bg-background-secondary border border-border-elevated text-text-primary text-sm font-semibold cursor-pointer hover:border-accent hover:bg-accent/10 hover:text-accent transition-all duration-200 flex items-center gap-2"
             >
               <svg
                 width="14"
@@ -625,7 +652,7 @@ export function ProfilePage() {
             </button>
             <button
               onClick={handleLogout}
-              className="px-4 py-2.5 rounded-[10px] bg-surface2 border border-border text-textSecondary text-sm font-medium hover:border-red-500/30 hover:text-red-400 transition-all duration-200"
+              className="px-4 py-2.5 rounded-[10px] bg-background-secondary border border-border text-text-secondary text-sm font-medium hover:border-red-500/30 hover:text-red-400 transition-all duration-200"
             >
               Выйти
             </button>
@@ -633,7 +660,7 @@ export function ProfilePage() {
         </div>
 
         {/* Stats */}
-        <div className="flex bg-surface border border-border rounded-2xl overflow-hidden mb-7">
+        <div className="flex bg-background-surface border border-border rounded-2xl overflow-hidden mb-7">
           {[
             { num: p?.models_count ?? 0, lbl: "Модели" },
             { num: p?.animations_count ?? 0, lbl: "Анимации" },
@@ -641,12 +668,12 @@ export function ProfilePage() {
           ].map((stat, i) => (
             <div
               key={i}
-              className="flex-1 p-4 border-r border-border last:border-0 hover:bg-surface2 transition-colors duration-200 cursor-default text-center"
+              className="flex-1 p-4 border-r border-border last:border-0 hover:bg-background-secondary transition-colors duration-200 cursor-default text-center"
             >
               <div className="font-extrabold text-[22px] tracking-[-0.5px]">
                 {stat.num}
               </div>
-              <div className="text-[11px] text-textSecondary font-medium uppercase tracking-[0.8px]">
+              <div className="text-[11px] text-text-secondary font-medium uppercase tracking-[0.8px]">
                 {stat.lbl}
               </div>
             </div>
@@ -659,7 +686,7 @@ export function ProfilePage() {
         {/* Left */}
         <div className="min-w-0">
           {/* Tabs */}
-          <div className="flex gap-0.5 bg-surface border border-border rounded-[14px] p-1 mb-5">
+          <div className="flex gap-0.5 bg-background-surface border border-border rounded-[14px] p-1 mb-5">
             {[
               {
                 id: "models" as TabId,
@@ -702,12 +729,12 @@ export function ProfilePage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 py-2.5 rounded-[10px] text-sm font-semibold cursor-pointer border-none flex items-center justify-center gap-2 transition-all duration-200 ${activeTab === tab.id ? "bg-accent text-white shadow-[0_3px_12px_var(--accent-glow)]" : "text-textSecondary hover:text-text hover:bg-surface2"}`}
+                className={`flex-1 py-2.5 rounded-[10px] text-sm font-semibold cursor-pointer border-none flex items-center justify-center gap-2 transition-all duration-200 ${activeTab === tab.id ? "bg-accent text-white shadow-[0_3px_12px_var(--accent-glow)]" : "text-text-secondary hover:text-text-primary hover:bg-background-secondary"}`}
               >
                 {tab.label}
                 {"count" in tab && tab.count !== undefined && (
                   <span
-                    className={`rounded-full px-1.5 py-0.5 text-[11px] ${activeTab === tab.id ? "bg-white/20" : "bg-surface3 text-text-muted"}`}
+                    className={`rounded-full px-1.5 py-0.5 text-[11px] ${activeTab === tab.id ? "bg-white/20" : "bg-background-surface text-text-muted"}`}
                   >
                     {tab.count}
                   </span>
@@ -734,7 +761,7 @@ export function ProfilePage() {
                 <select
                   value={modelSort}
                   onChange={(e) => setModelSort(e.target.value)}
-                  className="ml-auto px-3 py-1.5 rounded-[9px] bg-surface2 border border-border text-text text-xs cursor-pointer outline-none"
+                  className="ml-auto px-3 py-1.5 rounded-[9px] bg-background-secondary border border-border text-text-primary text-xs cursor-pointer outline-none"
                 >
                   <option>Новые сначала</option>
                   <option>По лайкам</option>
@@ -770,11 +797,11 @@ export function ProfilePage() {
                   />
                 </>
               ) : (
-                <div className="text-center py-16 text-textSecondary">
+                <div className="text-center py-16 text-text-secondary">
                   <div className="text-4xl mb-3">
                     <Package className="w-10 h-10 mx-auto" />
                   </div>
-                  <div className="text-lg font-medium text-text mb-1">
+                  <div className="text-lg font-medium text-text-primary mb-1">
                     Пока нет моделей
                   </div>
                   <Button
@@ -790,11 +817,11 @@ export function ProfilePage() {
 
           {/* Animations */}
           {activeTab === "anims" && (
-            <div className="text-center py-16 text-textSecondary">
+            <div className="text-center py-16 text-text-secondary">
               <div className="text-4xl mb-3">
                 <Clapperboard className="w-10 h-10 mx-auto" />
               </div>
-              <div className="text-lg font-medium text-text mb-1">
+              <div className="text-lg font-medium text-text-primary mb-1">
                 Пока нет анимаций
               </div>
             </div>

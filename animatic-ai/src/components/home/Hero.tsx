@@ -70,8 +70,8 @@ export function Hero({ onRegisterClick, user, hideCanvas = false }: HeroProps) {
 
   const itemVariants: Variants = {
     hidden: { opacity: 0, y: 20 },
-    visible: { 
-      opacity: 1, 
+    visible: {
+      opacity: 1,
       y: 0,
       transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] }
     },
@@ -79,7 +79,7 @@ export function Hero({ onRegisterClick, user, hideCanvas = false }: HeroProps) {
 
   const titleLineVariants: Variants = {
     hidden: { y: "100%" },
-    visible: { 
+    visible: {
       y: 0,
       transition: { duration: 1, ease: [0.16, 1, 0.3, 1] }
     },
@@ -141,21 +141,21 @@ export function Hero({ onRegisterClick, user, hideCanvas = false }: HeroProps) {
       )}
 
       {/* Hero Content */}
-      <motion.div 
+      <motion.div
         className="relative z-10 w-full max-w-[1280px] mx-auto px-10"
         initial="hidden"
         animate="visible"
         variants={containerVariants}
       >
 
-        <motion.div 
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  className="font-mono text-[12px] font-normal text-text-muted tracking-[1px] flex items-center gap-3 mb-16 before:content-[''] before:w-8 before:h-px before:bg-accent/30 uppercase"
-                >
-                  ИИ-платформа для создания 3D-моделей
-          </motion.div>
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true }}
+          className="font-mono text-[12px] font-normal text-text-muted tracking-[1px] flex items-center gap-3 mb-16 before:content-[''] before:w-8 before:h-px before:bg-accent/30 uppercase"
+        >
+          ИИ-платформа для создания 3D-моделей
+        </motion.div>
 
         <h1 className="font-tight text-[clamp(40px,8vw,88px)] font-medium leading-[1.05] tracking-[-1px] lg:tracking-[-2.5px] mb-12 max-w-[900px]">
           <span className="block overflow-hidden">
@@ -173,8 +173,8 @@ export function Hero({ onRegisterClick, user, hideCanvas = false }: HeroProps) {
 
         <motion.div variants={itemVariants} className="mb-16 lg:mb-24">
           <Magnetic strength={0.1}>
-            <Button 
-              label="Попробовать бесплатно" 
+            <Button
+              label="Попробовать бесплатно"
               onClick={onRegisterClick}
               variant="hero-primary"
               icon={<ArrowRight className="w-5 h-5 ml-2" />}
@@ -183,9 +183,9 @@ export function Hero({ onRegisterClick, user, hideCanvas = false }: HeroProps) {
           </Magnetic>
         </motion.div>
 
-        <motion.div 
+        <motion.div
           variants={itemVariants}
-          className="grid grid-cols-2 lg:flex gap-4 lg:gap-16 mt-12 lg:mt-0 p-6 lg:p-0 rounded-3xl bg-background-surface/40 lg:bg-transparent backdrop-blur-md lg:backdrop-blur-none border border-border-default lg:border-none"
+          className="grid grid-cols-2 lg:flex gap-4 lg:gap-16 mt-12 lg:mt-0 p-6 lg:p-0 rounded-3xl bg-background-surface/40 lg:bg-transparent backdrop-blur-md lg:backdrop-blur-none border border-border lg:border-none"
         >
           <div className="flex flex-col gap-1">
             <div className="font-tight text-[28px] lg:text-[32px] font-medium text-text-primary tracking-[-1px]">
@@ -193,17 +193,17 @@ export function Hero({ onRegisterClick, user, hideCanvas = false }: HeroProps) {
             </div>
             <div className="font-mono text-[10px] lg:text-[11px] font-normal text-text-muted tracking-[0.5px]">3D-моделей создано</div>
           </div>
-            <div className="flex flex-col gap-1">
-              <div className="font-tight text-[28px] lg:text-[32px] font-medium text-text-primary tracking-[-1px]">
-                <Counter value={99} suffix=".8%" />
-              </div>
-              <div className="font-mono text-[10px] lg:text-[11px] font-normal text-text-muted tracking-[0.5px]">точность генерации</div>
-            </div>
           <div className="flex flex-col gap-1">
-              <div className="font-tight text-[28px] lg:text-[32px] font-medium text-text-primary tracking-[-1px]">
-                <Counter value={5} prefix="<" suffix=" мин" />
-              </div>
-              <div className="font-mono text-[10px] lg:text-[11px] font-normal text-text-muted tracking-[0.5px]">на одну модель</div>
+            <div className="font-tight text-[28px] lg:text-[32px] font-medium text-text-primary tracking-[-1px]">
+              <Counter value={99} suffix=".8%" />
+            </div>
+            <div className="font-mono text-[10px] lg:text-[11px] font-normal text-text-muted tracking-[0.5px]">точность генерации</div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <div className="font-tight text-[28px] lg:text-[32px] font-medium text-text-primary tracking-[-1px]">
+              <Counter value={5} prefix="<" suffix=" мин" />
+            </div>
+            <div className="font-mono text-[10px] lg:text-[11px] font-normal text-text-muted tracking-[0.5px]">на одну модель</div>
           </div>
         </motion.div>
       </motion.div>
