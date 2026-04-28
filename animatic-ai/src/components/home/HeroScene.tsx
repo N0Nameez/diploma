@@ -1,11 +1,14 @@
-import React, { useRef } from 'react';
+import React, { useRef, Suspense } from 'react';
 import { useScroll, useTransform, motion, useSpring, MotionValue } from 'framer-motion';
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { AdaptiveDpr, AdaptiveEvents, Preload } from "@react-three/drei";
 import { SakuraModel } from "@/components/home/SakuraModel";
 import { Hero } from "@/components/home/Hero";
 import { TreeCTA } from "@/components/home/TreeCTA";
 import CursorGlow from "@/components/CursorGlow";
 import { BackgroundParticles } from "@/components/home/BackgroundParticles";
+// Module-level preloads are triggered by importing this file
+import '@/components/home/ModelPreloader';
 import type { User } from "@supabase/supabase-js";
 
 interface HeroSceneProps {
@@ -19,6 +22,7 @@ interface HeroSceneProps {
  */
 export function HeroScene({ onRegisterClick, user }: HeroSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -48,30 +52,41 @@ export function HeroScene({ onRegisterClick, user }: HeroSceneProps) {
       <div className="sticky top-0 h-screen w-full overflow-hidden">
         {/* Persistent Background Elements */}
         <CursorGlow />
-        <BackgroundParticles />
+        <BackgroundParticles count={isMobile ? 8 : 50} />
 
         {/* Grid Overlay */}
         <div className="absolute inset-0 z-0 opacity-20 pointer-events-none bg-[linear-gradient(var(--grid-color)_1px,transparent_1px),linear-gradient(90deg,var(--grid-color)_1px,transparent_1px)] bg-[size:40px_40px]" />
 
-        {/* 3D Scene Wrapper with Dynamic Blur */}
-        <motion.div
-          style={{
-            filter: useTransform(treeBlur, (v) => `blur(${v}px)`)
-          }}
-          className="absolute inset-0 z-0"
-        >
+        {/* 3D Scene Wrapper */}
+        <div className="absolute inset-0 z-0 overflow-hidden">
           <Canvas
             camera={{ position: [0, 0, 8], fov: 45 }}
             eventSource={document.body}
             eventPrefix="client"
-            gl={{ antialias: true, alpha: true }}
+            dpr={isMobile ? [1, 1] : [1, 1.5]}
+            performance={{ min: 0.5 }} // Allow quality scaling
+            gl={{ 
+              antialias: false, // Disable for mobile performance
+              alpha: true,
+              powerPreference: "high-performance",
+              stencil: false,
+              depth: true
+            }}
           >
-            <ambientLight intensity={1.5} />
-            <directionalLight position={[10, 10, 5]} intensity={1} />
-            <directionalLight position={[-10, -10, -5]} intensity={0.5} color="#EC4899" />
-            <SceneContent progress={smoothProgress} />
+            <Suspense fallback={null}>
+              <ambientLight intensity={1.5} />
+              <directionalLight position={[10, 10, 5]} intensity={1.5} />
+              <directionalLight position={[-10, -10, -5]} intensity={1} color="#EC4899" />
+              
+              <SceneContent progress={smoothProgress} />
+              
+              {/* Performance optimization helpers */}
+              <AdaptiveDpr pixelated />
+              <AdaptiveEvents />
+              <Preload all />
+            </Suspense>
           </Canvas>
-        </motion.div>
+        </div>
 
         {/* Hero Section Overlay */}
         <motion.div

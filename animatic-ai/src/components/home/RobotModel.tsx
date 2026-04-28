@@ -32,7 +32,8 @@ function Model() {
   const groupRef = useRef<THREE.Group>(null);
   
   // Loading robot model
-  const { scene } = useGLTF('/models/robot.glb');
+  // Using Draco compressed model for performance
+  const { scene } = useGLTF('/models/robot_draco.glb', 'https://www.gstatic.com/draco/versioned/decoders/1.5.5/');
 
   useFrame(() => {
     if (!groupRef.current) return;
@@ -92,4 +93,4 @@ export function RobotModel() {
   );
 }
 
-useGLTF.preload('/models/robot.glb');
+useGLTF.preload('/models/robot_draco.glb', 'https://www.gstatic.com/draco/versioned/decoders/1.5.5/');

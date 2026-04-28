@@ -40,12 +40,12 @@ export function AboutSection() {
       {/* Side Models */}
       <SideRobot 
         side="left" 
-        modelPath="/models/blot.glb" 
+        modelPath="/models/blot_draco.glb" 
         progress={sectionProgress}
       />
       <SideRobot 
         side="right" 
-        modelPath="/models/heart.glb" 
+        modelPath="/models/heart_draco.glb" 
         progress={sectionProgress}
       />
 

@@ -96,8 +96,15 @@ export function Hero({ onRegisterClick, user, hideCanvas = false }: HeroProps) {
           <div className="absolute inset-0 z-0 opacity-50 pointer-events-none bg-[linear-gradient(var(--grid-color)_1px,transparent_1px),linear-gradient(90deg,var(--grid-color)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_50%,#000_40%,transparent_100%)]" />
 
           {/* 3D Background */}
-          <div className="absolute inset-0 z-0 blur-[0.5px]">
-            <Canvas camera={{ position: [0, 0, 8], fov: 45 }} eventSource={document.body} eventPrefix="client">
+          <div className="absolute inset-0 z-0">
+            <Canvas 
+              camera={{ position: [0, 0, 8], fov: 45 }} 
+              eventSource={document.body} 
+              eventPrefix="client"
+              dpr={[1, 2]}
+              performance={{ min: 0.5 }}
+              gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+            >
               <ambientLight intensity={2} />
               <directionalLight position={[10, 10, 5]} intensity={1.5} />
               <directionalLight position={[-10, -10, -5]} intensity={1} color="#EC4899" />
@@ -106,11 +113,11 @@ export function Hero({ onRegisterClick, user, hideCanvas = false }: HeroProps) {
           </div>
 
           {/* Falling Leaves overlay */}
-          <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden blur-[3px]">
+          <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
             {LEAVES.map((leaf) => (
               <div
                 key={leaf.id}
-                className="absolute -top-10 animate-leaf-fall"
+                className="absolute -top-10 animate-leaf-fall will-change-transform"
                 style={{
                   left: leaf.left,
                   animationDuration: leaf.animationDurationFall,
@@ -118,12 +125,11 @@ export function Hero({ onRegisterClick, user, hideCanvas = false }: HeroProps) {
                 }}
               >
                 <div
-                  className="animate-leaf-sway rounded-full opacity-70"
+                  className="animate-leaf-sway rounded-full opacity-60"
                   style={{
                     width: leaf.size,
                     height: leaf.size,
                     backgroundColor: '#ffb7c5',
-                    boxShadow: '0 0 10px rgba(255, 183, 197, 0.5)',
                     animationDuration: leaf.animationDurationSway,
                     animationDelay: leaf.animationDelaySway,
                   }}

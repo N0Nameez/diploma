@@ -36,7 +36,8 @@ interface ModelProps {
 function Model({ position, scale, rotation }: ModelProps) {
   const groupRef = useRef<THREE.Group>(null);
 
-  const { scene } = useGLTF('/models/sakura.glb');
+  // Using Draco compressed model for performance
+  const { scene } = useGLTF('/models/sakura_draco.glb', 'https://www.gstatic.com/draco/versioned/decoders/1.5.5/');
 
   const materialsWithTime = useRef<THREE.ShaderMaterial[]>([]);
 
@@ -166,4 +167,4 @@ export function SakuraModel(props: ModelProps) {
 }
 
 
-useGLTF.preload('/models/sakura.glb');
+useGLTF.preload('/models/sakura_draco.glb', 'https://www.gstatic.com/draco/versioned/decoders/1.5.5/');

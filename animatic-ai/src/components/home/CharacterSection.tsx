@@ -1,16 +1,26 @@
-import React, { Suspense } from 'react';
+import { Suspense } from 'react';
 import { motion } from 'framer-motion';
 import { RobotModel } from './RobotModel';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stage } from '@react-three/drei';
+import { useInView } from 'react-intersection-observer';
+
+const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 768;
 
 /**
  * Section featuring the interactive robot character.
  * Uses ID "character" for scroll-based rotation trigger in RobotModel.
+ * On mobile, Canvas quality is reduced and shadows are disabled.
  */
 export function CharacterSection() {
+  const { ref, inView } = useInView({
+    threshold: 0.05,
+    triggerOnce: true,       // Keep Canvas alive once mounted
+    rootMargin: '400px 0px', // Pre-mount before visible
+  });
+
   return (
-    <section className="py-[160px] px-10 max-w-[1280px] mx-auto relative overflow-hidden" id="character">
+    <section ref={ref} className="py-[160px] px-10 max-w-[1280px] mx-auto relative overflow-hidden" id="character">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
         <motion.div
           initial={{ opacity: 0, x: -30 }}
@@ -56,22 +66,34 @@ export function CharacterSection() {
         >
           
           <div className="absolute inset-0 cursor-grab active:cursor-grabbing">
-            <Canvas shadows camera={{ position: [0, 0, 10], fov: 40 }}>
-              <ambientLight intensity={0.5} />
-              <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} />
-              <pointLight position={[-10, -10, -10]} />
-              <Suspense fallback={null}>
-                <Stage environment="city" intensity={0.6}>
-                  <RobotModel />
-                </Stage>
-              </Suspense>
-              <OrbitControls 
-                enableZoom={false} 
-                enablePan={false}
-                minPolarAngle={Math.PI / 2.5}
-                maxPolarAngle={Math.PI / 1.5}
-              />
-            </Canvas>
+            {inView && (
+              <Canvas 
+                shadows={!IS_MOBILE}
+                camera={{ position: [0, 0, 10], fov: 40 }}
+                dpr={IS_MOBILE ? [1, 1] : [1, 1.5]}
+                performance={{ min: 0.5 }}
+                gl={{ 
+                  antialias: false, 
+                  powerPreference: 'high-performance',
+                  stencil: false,
+                }}
+              >
+                <ambientLight intensity={0.5} />
+                <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} castShadow={!IS_MOBILE} />
+                <pointLight position={[-10, -10, -10]} />
+                <Suspense fallback={null}>
+                  <Stage environment="city" intensity={0.6}>
+                    <RobotModel />
+                  </Stage>
+                </Suspense>
+                <OrbitControls 
+                  enableZoom={false} 
+                  enablePan={false}
+                  minPolarAngle={Math.PI / 2.5}
+                  maxPolarAngle={Math.PI / 1.5}
+                />
+              </Canvas>
+            )}
           </div>
 
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 font-mono text-[10px] text-accent uppercase tracking-widest bg-background-primary/80 backdrop-blur-md px-4 py-2 rounded-full border border-accent opacity-0 group-hover:opacity-100 transition-opacity">

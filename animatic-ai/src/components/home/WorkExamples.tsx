@@ -1,15 +1,22 @@
-import React, { useRef, Suspense } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { useRef, Suspense } from 'react';
+import { motion, useScroll, useTransform, MotionValue } from 'framer-motion';
 import { ArrowUpRight } from 'lucide-react';
 import { Canvas } from '@react-three/fiber';
 import { useGLTF, OrbitControls, Environment, Center, Float } from '@react-three/drei';
+import { useInView } from 'react-intersection-observer';
+
+const DRACO_URL = 'https://www.gstatic.com/draco/versioned/decoders/1.5.5/';
+const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 768;
 
 interface ModelProps {
   path: string;
 }
 
+/**
+ * Lightweight 3D model renderer for portfolio cards.
+ */
 function Model({ path }: ModelProps) {
-  const { scene } = useGLTF(path);
+  const { scene } = useGLTF(path, DRACO_URL);
   return <primitive object={scene} />;
 }
 
@@ -21,34 +28,56 @@ interface ExampleCardProps {
   modelPath?: string;
   index: number;
   total: number;
-  progress: any;
+  progress: MotionValue<number>;
 }
 
-const ExampleCard = ({ title, category, description, image, modelPath, index, total, progress }: ExampleCardProps) => {
+/**
+ * Individual work example card with optional 3D model viewer.
+ * On mobile, 3D is disabled for performance — only the image is shown.
+ */
+function ExampleCard({ title, category, description, image, modelPath, index, total, progress }: ExampleCardProps) {
+  const { ref, inView } = useInView({
+    threshold: 0.05,
+    triggerOnce: true,       // Keep Canvas alive once mounted
+    rootMargin: '400px 0px', // Start mounting 400px before visible
+  });
+  
   const start = index / total;
   const scale = useTransform(progress, [start, (index + 1) / total], [1, 0.95]);
 
+  const show3D = modelPath && !IS_MOBILE;
+
   return (
     <motion.div
+      ref={ref}
       style={{
         top: `calc(10% + ${index * 40}px)`,
         scale,
         zIndex: index,
       }}
-      className="sticky w-full max-w-6xl mx-auto h-[75vh] md:h-[70vh] mb-[10vh] overflow-hidden border border-text-primary bg-background-primary rounded-[40px]  flex flex-col md:flex-row group"
+      className="sticky w-full max-w-6xl mx-auto h-[75vh] md:h-[70vh] mb-[10vh] overflow-hidden border border-text-primary bg-background-primary rounded-[40px] flex flex-col md:flex-row group"
     >
       <div className="w-full md:w-1/2 h-[45%] md:h-full overflow-hidden relative bg-[#050505]">
-        {/* Always show image as base/fallback */}
         <img
           src={image}
           alt={title}
-          className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${modelPath ? 'opacity-30 blur-sm scale-105' : 'opacity-100 group-hover:scale-110'
-            }`}
+          className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${
+            show3D ? 'opacity-30 blur-sm scale-105' : 'opacity-100 group-hover:scale-110'
+          }`}
         />
 
-        {modelPath && (
+        {show3D && inView && (
           <div className="absolute inset-0 z-10 cursor-grab active:cursor-grabbing">
-            <Canvas camera={{ position: [0, 0, 6], fov: 40 }}>
+            <Canvas 
+              camera={{ position: [0, 0, 6], fov: 40 }}
+              dpr={[1, 1.5]}
+              performance={{ min: 0.5 }}
+              gl={{ 
+                antialias: false, 
+                powerPreference: 'high-performance',
+                stencil: false,
+              }}
+            >
               <ambientLight intensity={0.7} />
               <pointLight position={[10, 10, 10]} intensity={1} />
               <spotLight position={[-10, 10, 10]} angle={0.15} penumbra={1} intensity={1} />
@@ -98,8 +127,13 @@ const ExampleCard = ({ title, category, description, image, modelPath, index, to
       </div>
     </motion.div>
   );
-};
+}
 
+/**
+ * Work examples / portfolio section with sticky scrolling cards.
+ * On desktop: interactive 3D models with orbit controls.
+ * On mobile: static images only for performance.
+ */
 export function WorkExamples() {
   const container = useRef<HTMLDivElement>(null);
   const examples = [
@@ -108,31 +142,30 @@ export function WorkExamples() {
       category: "Модели",
       description: "Создавайте сложные объекты с идеальной геометрией и фотореалистичными текстурами за считанные минуты.",
       image: "/images/dron_bg.png",
-      modelPath: "/models/dron.glb"
+      modelPath: "/models/dron_draco.glb"
     },
     {
       title: "Архитектурная визуализация",
       category: "Архитектура",
       description: "Генерация интерьеров и экстерьеров по вашим чертежам. Идеально для архитекторов и дизайнеров.",
       image: "/images/building_bg.png",
-      modelPath: "/models/building.glb"
+      modelPath: "/models/building_draco.glb"
     },
     {
       title: "Мебель и предметы интерьера",
       category: "Мебель или объекты",
       description: "От уникальных стульев до сложных декоративных элементов. Наполняйте свои сцены уникальным контентом.",
       image: "/images/chair_bg.png",
-      modelPath: "/models/chair.glb"
+      modelPath: "/models/chair_draco.glb"
     },
     {
       title: "Персонажи и существа",
       category: "Персонажи",
       description: "Воплощайте самых смелых героев в 3D. Наш ИИ понимает анатомию и сложные формы.",
       image: "/images/samurai_bg.png",
-      modelPath: "/models/samurai.glb"
+      modelPath: "/models/samurai_draco.glb"
     }
   ];
-
 
   const { scrollYProgress } = useScroll({
     target: container,
@@ -151,14 +184,14 @@ export function WorkExamples() {
           Портфолио
         </motion.div>
 
-        <h2 className="text-4xl lg:text-7xl font-medium text-white tracking-tighter leading-[0.9]">
+        <h2 className="text-4xl lg:text-7xl font-medium text-text-primary tracking-tighter leading-[0.9]">
           Результаты нашей <br />
           <span className="text-accent italic font-light">нейросети</span>
         </h2>
       </div>
 
       <div className="relative px-6 lg:px-10">
-        <div className="flex flex-col gap-[30vh]"> {/* Dummy height to allow scrolling between sticky cards */}
+        <div className="flex flex-col gap-[30vh]">
           {examples.map((example, i) => (
             <ExampleCard
               key={i}
@@ -174,4 +207,7 @@ export function WorkExamples() {
   );
 }
 
-
+useGLTF.preload("/models/dron_draco.glb", DRACO_URL);
+useGLTF.preload("/models/building_draco.glb", DRACO_URL);
+useGLTF.preload("/models/chair_draco.glb", DRACO_URL);
+useGLTF.preload("/models/samurai_draco.glb", DRACO_URL);
