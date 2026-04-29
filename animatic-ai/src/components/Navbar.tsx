@@ -12,6 +12,7 @@ interface NavbarProps {
   onLoginClick: () => void;
   onRegisterClick: () => void;
   onLogout: () => void;
+  fullWidth?: boolean;
 }
 
 /**
@@ -24,6 +25,7 @@ export function Navbar({
   onLoginClick,
   onRegisterClick,
   onLogout,
+  fullWidth = false,
 }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -36,15 +38,15 @@ export function Navbar({
 
   return (
     <nav
-      className={`fixed z-50 transition-all duration-500 ${
+      className={`fixed z-[60] transition-all duration-500 ${
         scrolled ? 'top-4 left-4 right-4' : 'top-0 left-0 right-0'
       }`}
     >
       <div
         className={`mx-auto transition-all duration-500 flex items-center justify-between px-6 lg:px-8 ${
           scrolled
-            ? 'bg-background-glass backdrop-blur-3xl border border-border-glass rounded-2xl shadow-xl max-w-[1200px] h-14'
-            : 'bg-transparent max-w-[1400px] h-20 border-transparent'
+            ? `bg-background-glass backdrop-blur-3xl border border-border-glass rounded-2xl shadow-xl ${fullWidth ? 'max-w-full' : 'max-w-[1200px]'} h-14`
+            : `bg-background-primary/50 backdrop-blur-md ${fullWidth ? 'max-w-full border-b' : 'max-w-[1400px] border-transparent'} h-20 border-border/10`
         }`}
       >
         {/* Logo */}

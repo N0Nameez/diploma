@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { Navbar } from "./components/Navbar";
 import { HomePage } from "./pages/HomePage";
 import { CatalogPage } from "./pages/CatalogPage";
@@ -19,6 +19,7 @@ import { LoadingScreen } from "./components/LoadingScreen/LoadingScreen";
  */
 export function App() {
   const { user, signUp, signIn, signOut, updatePassword, resetPassword, resendEmail, signInWithOAuth } = useAuth();
+  const location = useLocation();
   const [currentTheme, setTheme] = useState<"dark" | "light">(() => {
     // Sync with index.html script
     const attr = document.documentElement.getAttribute("data-theme") as "dark" | "light";
@@ -27,6 +28,8 @@ export function App() {
   const [modal, setModal] = useState<
     "login" | "register" | "reset-password" | "update-password" | null
   >(null);
+
+  const isCatalog = location.pathname.startsWith("/models") || location.pathname.startsWith("/animations");
 
   useEffect(() => {
     localStorage.setItem("theme", currentTheme);
@@ -61,6 +64,7 @@ export function App() {
         onThemeToggle={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
         onLoginClick={() => setModal("login")}
         onRegisterClick={() => setModal("register")}
+        fullWidth={isCatalog}
       />
 
       <SearchModal />
