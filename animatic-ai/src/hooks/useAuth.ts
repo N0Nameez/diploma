@@ -41,6 +41,7 @@ export function useAuth() {
           username: username,
           display_name: username // Set as initial display name too
         },
+        emailRedirectTo: `${window.location.origin}/`,
       },
     });
     
@@ -92,7 +93,7 @@ export function useAuth() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: window.location.origin + '/',
       },
     });
     return { error };

@@ -93,6 +93,7 @@ export function App() {
             </AuthGuard>
           } 
         />
+        <Route path="/profile/:id" element={<ProfilePage />} />
       </Routes>
 
       {modal && (

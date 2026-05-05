@@ -57,7 +57,7 @@ export default {
         background: {
           primary: 'var(--bg-primary)',
           secondary: 'var(--bg-secondary)',
-          surface: 'var(--bg-surface)',
+          surface: 'var(--bg-background-surface)',
           'nav-scrolled': 'var(--bg-nav-scrolled)',
           icon: 'var(--border-default)',
           tag: 'var(--border-default)',

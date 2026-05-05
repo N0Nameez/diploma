@@ -13,10 +13,9 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5173,
     allowedHosts: [
-      "gown-dandelion-recount.ngrok-free.dev",
-      ".ngrok-free.dev",
-      ".ngrok.io",
-      ".trycloudflare.com",
+      "animaticai.online",
+      "animaticai.ru",
+      "localhost",
     ],
   },
 });
