@@ -173,6 +173,9 @@ export function useGeneration() {
   /** Дата следующего сброса кредитов */
   const [creditsResetDate, setCreditsResetDate] = useState<string | null>(null);
   
+  /** Флаг скорого истечения подписки */
+  const [creditsExpiringSoon, setCreditsExpiringSoon] = useState<boolean>(false);
+  
   /** История генераций пользователя */
   const [history, setHistory] = useState<GenerationHistory[]>([]);
   
@@ -451,6 +454,7 @@ export function useGeneration() {
       const data = await getUserCredits(userId);
       setCredits(data.credits);
       setCreditsResetDate(data.reset_date);
+      setCreditsExpiringSoon(!!data.expiring_soon);
     } catch (err) {
     }
   }, []);
@@ -519,6 +523,7 @@ export function useGeneration() {
     errorMessage,
     credits,
     creditsResetDate,
+    creditsExpiringSoon,
     history,
     resultModelId,
     modelFileUrl,

@@ -11,6 +11,7 @@ import QualitySettings from "../components/generation/QualitySettings";
 import PreviewPanel from "../components/generation/PreviewPanel";
 import { Viewer3D } from "../components/Viewer3D";
 import CreditsPanel from "../components/generation/CreditsPanel";
+import { PaymentModal } from "../components/generation/PaymentModal";
 import HistoryPanel from "../components/generation/HistoryPanel";
 import Toast from "../components/model/Toast";
 import { Modal } from "../components/Modal";
@@ -36,6 +37,7 @@ export function GenerationPage() {
     errorMessage,
     credits,
     creditsResetDate,
+    creditsExpiringSoon,
     history,
     resultModelId,
     modelFileUrl,
@@ -86,6 +88,9 @@ export function GenerationPage() {
 
   // Модалка выбора лицензии
   const [licenseModalOpen, setLicenseModalOpen] = useState(false);
+
+  // Модалка оплаты
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
   // Hide settings panels when generating or after completion
   const showSettings =
@@ -637,7 +642,11 @@ export function GenerationPage() {
 
             {/* Credits Panel - показываем только авторизованным */}
             {user ? (
-              <CreditsPanel credits={credits} resetDate={creditsResetDate} />
+              <CreditsPanel expiringSoon={creditsExpiringSoon} 
+                credits={credits} 
+                resetDate={creditsResetDate} 
+                onBuyCredits={() => setPaymentModalOpen(true)}
+              />
             ) : (
               <div className="bg-background-surface border border-border rounded-[18px] p-[18px_20px] text-center transition-colors duration-200">
                 <div className="flex items-center justify-center gap-2 font-extrabold text-[14px] text-text-primary mb-2">
@@ -727,7 +736,15 @@ export function GenerationPage() {
           onOAuthSignIn={signInWithOAuth}
         />
       )}
+
+      {/* Payment Modal */}
+      {user && (
+        <PaymentModal
+          isOpen={paymentModalOpen}
+          onClose={() => setPaymentModalOpen(false)}
+          userId={user.id}
+        />
+      )}
     </div>
   );
 }
-

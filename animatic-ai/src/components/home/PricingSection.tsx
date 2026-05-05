@@ -3,6 +3,8 @@ import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { Check, Zap } from 'lucide-react';
 import { Button } from '@/components/Button';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 
 /**
  * Pricing section with interactive 3D pricing cards.
@@ -183,7 +185,17 @@ function PricingCard({ plan, index, isHovered, isAnyHovered, onHover, onRegister
 }
 
 export function PricingSection({ onRegisterClick }: { onRegisterClick: () => void }) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  const handleAction = () => {
+    if (user) {
+      navigate('/pricing');
+    } else {
+      onRegisterClick();
+    }
+  };
 
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
@@ -254,7 +266,7 @@ export function PricingSection({ onRegisterClick }: { onRegisterClick: () => voi
                 isHovered={hoveredIndex === index}
                 isAnyHovered={hoveredIndex !== null}
                 onHover={setHoveredIndex}
-                onRegisterClick={onRegisterClick}
+                onRegisterClick={handleAction}
               />
             </motion.div>
           ))}

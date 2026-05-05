@@ -5,6 +5,8 @@ interface CreditsPanelProps {
   maxCredits?: number;
   usedCredits?: number;
   resetDate?: string | null; /* ISO date string from backend */
+  onBuyCredits?: () => void;
+  expiringSoon?: boolean;
 }
 
 export function CreditsPanel({
@@ -12,9 +14,11 @@ export function CreditsPanel({
   maxCredits = 15,
   usedCredits,
   resetDate,
+  onBuyCredits,
+  expiringSoon,
 }: CreditsPanelProps) {
-  const used = usedCredits || maxCredits - credits;
-  const percentage = (credits / maxCredits) * 100;
+  const used = usedCredits !== undefined ? usedCredits : Math.max(0, maxCredits - credits);
+  const percentage = Math.min(100, (credits / maxCredits) * 100);
 
   // Calculate days until reset
   const daysUntilReset = resetDate
@@ -53,9 +57,24 @@ export function CreditsPanel({
         </span>
         <span>Сброс через {daysUntilReset} дн.</span>
       </div>
+      
+      {/* Expiration Warning */}
+      {expiringSoon && (
+        <div className="mb-3 p-2.5 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-yellow-500/20 flex items-center justify-center shrink-0">
+            <Zap className="w-3.5 h-3.5 text-yellow-500" />
+          </div>
+          <div className="text-[10px] text-text leading-tight font-medium">
+            Подписка истекает менее чем через 24 часа
+          </div>
+        </div>
+      )}
 
       {/* Upgrade Button */}
-      <button className="w-full py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-[12px] font-semibold hover:bg-yellow-500/18 transition-all duration-200 flex items-center justify-center gap-1.5">
+      <button 
+        onClick={onBuyCredits}
+        className="w-full py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-[12px] font-semibold hover:bg-yellow-500/18 transition-all duration-200 flex items-center justify-center gap-1.5"
+      >
         <Zap className="w-3.5 h-3.5" />
         Получить больше кредитов
       </button>
