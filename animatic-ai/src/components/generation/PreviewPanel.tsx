@@ -68,7 +68,7 @@ export function PreviewPanel({
   };
 
   return (
-    <div className="bg-surface border border-border rounded-[18px] overflow-hidden transition-colors duration-200">
+    <div className="bg-background-surface border border-border rounded-[18px] overflow-hidden transition-colors duration-200">
       {/* Preview Scene */}
       <div
         className="aspect-[4/3] relative overflow-hidden transition-colors duration-200"
@@ -93,7 +93,7 @@ export function PreviewPanel({
         {/* IDLE STATE */}
         {!status || status === "queued" ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-5 text-center z-10">
-            <div className="w-[64px] h-[64px] rounded-[18px] bg-surface2 border border-border flex items-center justify-center">
+            <div className="w-[64px] h-[64px] rounded-[18px] bg-background-secondary border border-border flex items-center justify-center">
               {isModel ? (
                 <Image className="w-[28px] h-[28px] text-text-secondary" />
               ) : (
@@ -204,7 +204,7 @@ export function PreviewPanel({
                           ? "bg-green-500 text-white"
                           : stepStatus === "active"
                             ? "bg-accent text-white"
-                            : "bg-surface3 text-text-muted"
+                            : "bg-background-primary text-text-muted"
                       }`}
                     >
                       {stepStatus === "done" ? (
@@ -284,7 +284,7 @@ export function PreviewPanel({
           {(status === "completed" || status === "failed") && (
             <button
               onClick={onRetry}
-              className="px-[14px] py-2 rounded-lg bg-surface2 border border-border text-text-secondary text-[12px] font-semibold hover:border-border2 hover:text-text transition-all duration-200 flex items-center gap-1.5"
+              className="px-[14px] py-2 rounded-lg bg-background-secondary border border-border text-text-secondary text-[12px] font-semibold hover:border-border2 hover:text-text transition-all duration-200 flex items-center gap-1.5"
             >
               <svg
                 width="12"

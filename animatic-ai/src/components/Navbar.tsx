@@ -46,7 +46,7 @@ export function Navbar({
         className={`mx-auto transition-all duration-500 flex items-center justify-between px-6 lg:px-8 ${
           scrolled
             ? `bg-background-glass backdrop-blur-3xl border border-border-glass rounded-2xl shadow-xl ${fullWidth ? 'max-w-full' : 'max-w-[1200px]'} h-14`
-            : `bg-background-primary/50 backdrop-blur-md ${fullWidth ? 'max-w-full border-b' : 'max-w-[1400px] border-transparent'} h-20 border-border/10`
+            : `  ${fullWidth ? 'max-w-full' : 'max-w-[1400px] border-transparent'} h-20 `
         }`}
       >
         {/* Logo */}

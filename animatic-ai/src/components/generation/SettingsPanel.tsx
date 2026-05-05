@@ -34,13 +34,13 @@ export function SettingsPanel({
   const isModel = mode === "model";
 
   return (
-    <div className="bg-surface border border-border rounded-[18px] p-6 transition-colors duration-200">
+    <div className="bg-background-surface border border-border rounded-[18px] p-6 transition-colors duration-200">
       <div className="flex items-center gap-[10px] mb-4">
         <Settings className="w-[18px] h-[18px] text-text" />
         <span className="font-extrabold text-[15px] text-text">
           {isModel ? "Настройки модели" : "Настройки анимации"}
         </span>
-        <span className="px-[10px] py-[3px] rounded-[100px] bg-surface2 text-text-muted text-[10px] font-bold tracking-[0.8px] uppercase">
+        <span className="px-[10px] py-[3px] rounded-[100px] bg-background-primary text-text-muted text-[10px] font-bold tracking-[0.8px] uppercase">
           Опционально
         </span>
       </div>
@@ -57,8 +57,8 @@ export function SettingsPanel({
               onSettingsChange({ ...settings, name: e.target.value })
             }
             placeholder={isModel ? "Мой персонаж" : "Анимация ходьбы"}
-            className={`px-[14px] py-[11px] bg-surface2 border rounded-[11px]
-                       text-text text-[14px] outline-none focus:border-accent transition-all duration-200
+            className={`px-[14px] py-[11px] bg-background-secondary border rounded-[11px]
+                       text-text text-[14px] outline-none focus:border-accent hover:border-accent-glow transition-all duration-200
                        placeholder:text-text-muted
                        ${nameError ? "border-red-500 bg-red-500/5" : "border-border"}`}
           />
@@ -78,8 +78,8 @@ export function SettingsPanel({
             onChange={(e) =>
               onSettingsChange({ ...settings, category: e.target.value })
             }
-            className="px-[14px] py-[11px] bg-surface2 border border-border rounded-[11px]
-                       text-text text-[14px] outline-none focus:border-accent transition-all duration-200
+            className="px-[14px] py-[11px] bg-background-secondary border border-border rounded-[11px]
+                       text-text text-[14px] outline-none focus:border-accent hover:border-accent-glow transition-all duration-200
                        cursor-pointer appearance-none"
           >
             {(isModel ? CATEGORIES : ANIMATION_TYPES).map((cat) => (
@@ -105,8 +105,8 @@ export function SettingsPanel({
                 : "Опиши движение или действие..."
             }
             rows={3}
-            className="px-[14px] py-[11px] bg-surface2 border border-border rounded-[11px]
-                       text-text text-[14px] outline-none focus:border-accent transition-all duration-200
+            className="px-[14px] py-[11px] bg-background-secondary border border-border rounded-[11px]
+                       text-text text-[14px] outline-none focus:border-accent hover:border-accent-glow transition-all duration-200
                        placeholder:text-text-muted resize-none"
           />
         </div>
@@ -117,7 +117,7 @@ export function SettingsPanel({
               Выбрать 3D-модель для анимации
             </label>
             <select
-              className="px-[14px] py-[11px] bg-surface2 border border-border rounded-[11px]
+              className="px-[14px] py-[11px] bg-background-secondary hover:border-accent-glow border border-border rounded-[11px]
                          text-text text-[14px] outline-none focus:border-accent transition-all duration-200
                          cursor-pointer"
             >

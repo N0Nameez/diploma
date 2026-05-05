@@ -27,7 +27,7 @@ export function CreditsPanel({
     : 0;
 
   return (
-    <div className="bg-surface border border-border rounded-[18px] p-[18px_20px] transition-colors duration-200">
+    <div className="bg-background-surface border border-border rounded-[18px] p-[18px_20px] transition-colors duration-200">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 font-extrabold text-[14px] text-text">
           <Gem className="w-4 h-4 text-accent" />
@@ -39,7 +39,7 @@ export function CreditsPanel({
       </div>
 
       {/* Progress Bar */}
-      <div className="h-[6px] bg-surface3 rounded-[3px] overflow-hidden mb-2">
+      <div className="h-[6px] bg-background-primary rounded-[3px] overflow-hidden mb-2">
         <div
           className="h-full bg-gradient-to-r from-green-500 to-green-600 rounded-[3px] transition-all duration-500"
           style={{ width: `${percentage}%` }}

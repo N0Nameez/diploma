@@ -13,9 +13,11 @@ import {
   addComment,
   toggleInteraction,
   getInteractions,
+  toggleFollow,
+  checkFollowing,
 } from "../services/api";
 import type { ApiModel } from "../services/api";
-import { Download, Heart, Bookmark, Gamepad2 } from "lucide-react";
+import { Download, Heart, Bookmark, Gamepad2, Box } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
 /**
@@ -44,6 +46,7 @@ export function ModelPage() {
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [viewMode, setViewMode] = useState<"3d" | "photo">("3d");
 
   useEffect(() => {
     if (!id) return;
@@ -57,6 +60,10 @@ export function ModelPage() {
             setIsLiked(interactions.is_liked);
             setIsSaved(interactions.is_favorited);
           });
+          // Check following
+          if (model.author_id) {
+            checkFollowing(model.author_id, user.id).then(res => setIsFollowing(res.is_following));
+          }
         }
         // Load comments
         getComments(id).then((res) => setComments(res.items));
@@ -185,13 +192,28 @@ export function ModelPage() {
       setAuthModalOpen("register");
       return;
     }
+    // Optimistic update
+    const previousLiked = isLiked;
+    const previousLikes = displayModel?.likes || 0;
+    
+    setIsLiked(!previousLiked);
+    if (displayModel) {
+      setDisplayModel({
+        ...displayModel,
+        likes: previousLiked ? previousLikes - 1 : previousLikes + 1
+      });
+    }
+
     try {
       const res = await toggleInteraction(id!, user.id, "like");
       setIsLiked(res.is_active);
-      // Refresh model to get updated likes count
+      // Final sync with backend
       fetchModel(id!).then(setDisplayModel);
       showToast(res.is_active ? "Добавлено в лайки" : "Лайк убран");
     } catch (err) {
+      // Rollback on error
+      setIsLiked(previousLiked);
+      fetchModel(id!).then(setDisplayModel);
       showToast("Ошибка при лайке");
     }
   };
@@ -210,9 +232,25 @@ export function ModelPage() {
     }
   };
 
-  const handleFollow = () => {
-    setIsFollowing(!isFollowing);
-    showToast(isFollowing ? "Подписка отменена" : "Подписка оформлена");
+  const handleFollow = async () => {
+    if (!user) {
+      setAuthModalOpen("register");
+      return;
+    }
+    if (!displayModel?.author_id) return;
+    
+    // Optimistic update
+    const previousFollowing = isFollowing;
+    setIsFollowing(!previousFollowing);
+
+    try {
+      const res = await toggleFollow(displayModel.author_id, user.id);
+      setIsFollowing(res.is_subscribed);
+      showToast(res.is_subscribed ? "Подписка оформлена" : "Подписка отменена");
+    } catch (err) {
+      setIsFollowing(previousFollowing);
+      showToast("Ошибка при подписке");
+    }
   };
 
   const handleAddComment = async () => {
@@ -266,18 +304,89 @@ export function ModelPage() {
       <div className="max-w-[1320px] mx-auto px-8 pb-20 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-7">
         {/* Left Column */}
         <div className="flex flex-col gap-5">
-          {/* 3D Viewer */}
-          <Viewer3D
-            variant="full"
-            modelUrl={dm.fileUrl || undefined}
-            showToolbar={true}
-            showBadge={true}
-            autoRotate={true}
-          />
+          {/* Viewer / Photo Toggle */}
+          <div className="flex justify-center mb-1">
+            <div className="inline-flex p-1 bg-background-secondary/50 backdrop-blur-md border border-border/30 rounded-2xl shadow-inner">
+              <button
+                onClick={() => setViewMode("3d")}
+                className={`flex items-center gap-2 px-6 py-2 rounded-[11px] text-xs font-bold transition-all duration-300 ${
+                  viewMode === "3d"
+                    ? "bg-accent text-white shadow-lg shadow-accent/20"
+                    : "text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                <Box size={14} /> 3D-модель
+              </button>
+              <button
+                onClick={() => setViewMode("photo")}
+                className={`flex items-center gap-2 px-6 py-2 rounded-[11px] text-xs font-bold transition-all duration-300 ${
+                  viewMode === "photo"
+                    ? "bg-accent text-white shadow-lg shadow-accent/20"
+                    : "text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  viewBox="0 0 24 24"
+                >
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <path d="M21 15l-5-5L5 21" />
+                </svg>
+                Фото-оригинал
+              </button>
+            </div>
+          </div>
+
+          {/* Viewer / Photo Area */}
+          <div className="relative aspect-video lg:aspect-[16/9] min-h-[400px] bg-background-surface border border-border rounded-2xl overflow-hidden group">
+            {viewMode === "3d" ? (
+              <Viewer3D
+                variant="full"
+                modelUrl={dm.fileUrl || undefined}
+                showToolbar={true}
+                showBadge={true}
+                autoRotate={true}
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center bg-background-secondary/30">
+                {displayModel.source_image_url ? (
+                  <img
+                    src={displayModel.source_image_url}
+                    alt="Original photo"
+                    className="max-w-full max-h-full object-contain animate-in fade-in zoom-in duration-500"
+                  />
+                ) : (
+                  <div className="text-center p-10">
+                    <div className="w-16 h-16 rounded-full bg-background-secondary flex items-center justify-center mx-auto mb-4 border border-border">
+                      <svg
+                        width="24"
+                        height="24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        viewBox="0 0 24 24"
+                        className="text-text-muted"
+                      >
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                        <line x1="9" y1="9" x2="15" y2="15" />
+                        <line x1="15" y1="9" x2="9" y2="15" />
+                      </svg>
+                    </div>
+                    <p className="text-sm text-text-secondary">Фото-оригинал недоступен для этой модели</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Animations Preview - only show if there are real animations */}
           {linkedAnimations.length > 0 && (
-            <div className="bg-surface border border-border rounded-2xl p-5">
+            <div className="bg-background-surface border border-border rounded-2xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="font-extrabold text-sm text-text-primary">Анимации</div>
                 <div className="text-xs text-text-secondary">
@@ -288,9 +397,9 @@ export function ModelPage() {
                 {linkedAnimations.map((anim, idx) => (
                   <div
                     key={anim.id}
-                    className={`flex-shrink-0 w-24 h-18 rounded-xl bg-surface2 border border-border flex flex-col items-center justify-center gap-1 cursor-pointer transition-all duration-200 ${idx === 0
-                      ? "border-accent bg-surface3"
-                      : "hover:border-accent hover:bg-surface3"
+                    className={`flex-shrink-0 w-24 h-18 rounded-xl bg-background-secondary border border-border flex flex-col items-center justify-center gap-1 cursor-pointer transition-all duration-200 ${idx === 0
+                      ? "border-accent bg-background-primary"
+                      : "hover:border-accent hover:bg-background-primary"
                       }`}
                   >
                     <span className="text-[10px] text-text-secondary font-medium">
@@ -302,7 +411,7 @@ export function ModelPage() {
                   </div>
                 ))}
                 {user && (
-                  <div className="flex-shrink-0 w-24 h-18 rounded-xl border border-dashed border-border flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-accent hover:bg-surface2 transition-all duration-200">
+                  <div className="flex-shrink-0 w-24 h-18 rounded-xl border border-dashed border-border flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-accent hover:bg-background-secondary transition-all duration-200">
                     <span className="text-lg text-text-secondary">+</span>
                     <span className="text-[10px] text-text-secondary">
                       Добавить
@@ -314,7 +423,7 @@ export function ModelPage() {
           )}
 
           {/* Tabs */}
-          <div className="bg-surface border border-border rounded-2xl p-5">
+          <div className="bg-background-surface border border-border rounded-2xl p-5">
             <div className="flex gap-0 border-b border-border mb-5">
               <button
                 onClick={() => setActiveTab("comments")}
@@ -324,7 +433,7 @@ export function ModelPage() {
                   }`}
               >
                 Комментарии{" "}
-                <span className="ml-1.5 px-2 py-0.5 rounded-full bg-surface3 text-[11px]">
+                <span className="ml-1.5 px-2 py-0.5 rounded-full bg-background-primary text-[11px]">
                   {comments.length}
                 </span>
               </button>
@@ -381,33 +490,43 @@ export function ModelPage() {
                 )}
                 {/* Comments list */}
                 {comments.length === 0 ? (
-                  <div className="text-sm text-textSecondary py-8 text-center">
+                  <div className="text-sm text-text-secondary py-8 text-center font-medium">
                     Пока нет комментариев. Будьте первым!
                   </div>
                 ) : (
                   comments.map((c) => (
                     <div
                       key={c.id}
-                      className="flex gap-3 p-3 rounded-xl bg-background-secondary border border-border"
+                      className="flex gap-4 p-4 rounded-2xl bg-background-secondary/40 border border-border/40 hover:border-border/80 transition-all duration-300"
                     >
-                      <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-[11px] text-accent font-bold flex-shrink-0">
-                        {(c.display_name ||
-                          c.username ||
-                          "А")[0]?.toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-semibold text-text-primary">
-                            {c.display_name || c.username || "Аноним"}
+                      <Link 
+                        to={`/profile/${c.author_id}`}
+                        className="w-10 h-10 rounded-full overflow-hidden bg-accent/10 border border-accent/20 flex items-center justify-center flex-shrink-0 transition-transform duration-200 hover:scale-105"
+                      >
+                        {c.avatar_url ? (
+                          <img src={c.avatar_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-xs text-accent font-bold">
+                            {(c.display_name || c.username || "А")[0]?.toUpperCase()}
                           </span>
-                          <span className="text-xs text-text-secondary">
+                        )}
+                      </Link>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <Link 
+                            to={`/profile/${c.author_id}`}
+                            className="text-sm font-bold text-text-primary hover:text-accent transition-colors duration-200"
+                          >
+                            {c.display_name || c.username || "Аноним"}
+                          </Link>
+                          <span className="text-[10px] font-medium text-text-muted uppercase tracking-wider">
                             {new Date(c.created_at).toLocaleDateString(
                               "ru-RU",
                               { day: "numeric", month: "short" },
                             )}
                           </span>
                         </div>
-                        <p className="text-sm text-textSecondary leading-relaxed">
+                        <p className="text-[13px] text-text-secondary leading-relaxed font-medium">
                           {c.content}
                         </p>
                       </div>
@@ -467,7 +586,7 @@ export function ModelPage() {
         {/* Right Sidebar */}
         <div className="flex flex-col gap-4">
           {/* Model Info */}
-          <div className="bg-surface border border-border rounded-2xl p-6">
+          <div className="bg-background-surface border border-border rounded-2xl p-6">
             <h1 className="font-extrabold text-2xl text-text-primary mb-1.5 tracking-tight">
               {dm.name}
             </h1>
@@ -551,7 +670,7 @@ export function ModelPage() {
 
             {/* View-only badge */}
             {dm.license === "view_only" && (
-              <div className="w-full py-3 rounded-xl bg-surface2 border border-border flex items-center justify-center gap-2 mb-2">
+              <div className="w-full py-3 rounded-xl bg-background-secondary border border-border flex items-center justify-center gap-2 mb-2">
                 <svg
                   width="16"
                   height="16"
@@ -639,7 +758,7 @@ export function ModelPage() {
           {/* Formats */}
           {(dm.license !== "view_only" ||
             (user && displayModel.author_id === user.id)) && (
-              <div className="bg-surface border border-border rounded-2xl p-5">
+              <div className="bg-background-surface border border-border rounded-2xl p-5">
                 <div className="font-extrabold text-sm text-text-primary mb-4">
                   Форматы для скачивания
                 </div>
@@ -715,13 +834,27 @@ export function ModelPage() {
             )}
 
           {/* Author */}
-          <div className="bg-surface border border-border rounded-2xl p-5">
+          <div className="bg-background-surface border border-border rounded-2xl p-5">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-accent to-accent flex items-center justify-center text-lg font-bold text-white">
-                {dm.authorInitial}
-              </div>
+              <Link 
+                to={`/profile/${displayModel.author_id}`}
+                className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-accent to-accent/80 border border-accent/20 flex items-center justify-center transition-transform duration-300 hover:scale-105"
+              >
+                {raw.avatar_url ? (
+                  <img src={raw.avatar_url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-lg font-bold text-white">
+                    {dm.authorInitial}
+                  </span>
+                )}
+              </Link>
               <div className="flex-1">
-                <div className="font-bold text-text-primary text-sm">{dm.author}</div>
+                <Link 
+                  to={`/profile/${displayModel.author_id}`}
+                  className="font-bold text-text-primary text-sm hover:text-accent transition-colors duration-200 block"
+                >
+                  {dm.author}
+                </Link>
                 <div className="text-xs text-text-secondary">
                   @{dm.authorUsername} ·{" "}
                   {dm.aiGenerated ? "ИИ-генерация" : "Авторская работа"}
@@ -731,7 +864,7 @@ export function ModelPage() {
                 onClick={handleFollow}
                 className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${isFollowing
                   ? "bg-background-secondary border border-border text-text-secondary"
-                  : "bg-accent text-white"
+                  : "bg-accent text-white hover:brightness-110"
                   }`}
               >
                 {isFollowing ? "Вы подписаны" : "Подписаться"}

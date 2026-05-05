@@ -34,7 +34,7 @@ export function QualitySettings({
   onToggle,
 }: QualitySettingsProps) {
   return (
-    <div className="bg-surface border border-border rounded-[18px] p-6 transition-colors duration-200">
+    <div className="bg-background-surface border border-border rounded-[18px] p-6 transition-colors duration-200">
       <div className="flex items-center gap-[10px] mb-4">
         <Sliders className="w-[18px] h-[18px] text-text" />
         <span className="font-extrabold text-[15px] text-text">
@@ -71,7 +71,7 @@ export function QualitySettings({
                 val === "1" ? "draft" : val === "2" ? "high" : "ultra",
               );
             }}
-            className="w-full h-1 bg-surface3 rounded appearance-none cursor-pointer
+            className="w-full h-1 bg-background-secondary rounded appearance-none cursor-pointer
                        [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-[18px]
                        [&::-webkit-slider-thumb]:h-[18px] [&::-webkit-slider-thumb]:rounded-[50%]
                        [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:cursor-pointer
@@ -87,13 +87,13 @@ export function QualitySettings({
           {/* Show actual params for current quality */}
           {QUALITY_INFO[qualityLevel] && (
             <div className="mt-2 flex gap-2 text-[10px] text-text-secondary">
-              <span className="px-2 py-1 rounded bg-surface2">
+              <span className="px-2 py-1 rounded bg-background-secondary">
                 Res: {QUALITY_INFO[qualityLevel].res}
               </span>
-              <span className="px-2 py-1 rounded bg-surface2">
+              <span className="px-2 py-1 rounded bg-background-secondary">
                 Steps: {QUALITY_INFO[qualityLevel].steps}
               </span>
-              <span className="px-2 py-1 rounded bg-surface2">
+              <span className="px-2 py-1 rounded bg-background-secondary">
                 CFG: {QUALITY_INFO[qualityLevel].guidance}
               </span>
             </div>
@@ -121,7 +121,7 @@ export function QualitySettings({
             onChange={(e) =>
               onPolyChange(POLY_LABELS[parseInt(e.target.value) - 1])
             }
-            className="w-full h-1 bg-surface3 rounded appearance-none cursor-pointer
+            className="w-full h-1 bg-background-secondary rounded appearance-none cursor-pointer
                        [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-[18px] 
                        [&::-webkit-slider-thumb]:h-[18px] [&::-webkit-slider-thumb]:rounded-[50%] 
                        [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:cursor-pointer
@@ -155,7 +155,7 @@ export function QualitySettings({
             />
             <span
               className={`absolute inset-0 rounded-[11px] cursor-pointer transition-colors duration-200
-                             ${enablePbr ? "bg-accent" : "bg-surface2"}`}
+                             ${enablePbr ? "bg-accent" : "bg-background-secondary"}`}
             />
             <span
               className={`absolute w-4 h-4 rounded-[50%] bg-white top-1 left-1
@@ -181,7 +181,7 @@ export function QualitySettings({
             />
             <span
               className={`absolute inset-0 rounded-[11px] cursor-pointer transition-colors duration-200
-                             ${enableRig ? "bg-accent" : "bg-surface2"}`}
+                             ${enableRig ? "bg-accent" : "bg-background-secondary"}`}
             />
             <span
               className={`absolute w-4 h-4 rounded-[50%] bg-white top-1 left-1
@@ -207,7 +207,7 @@ export function QualitySettings({
             />
             <span
               className={`absolute inset-0 rounded-[11px] cursor-pointer transition-colors duration-200
-                             ${autoPublish ? "bg-accent" : "bg-surface2"}`}
+                             ${autoPublish ? "bg-accent" : "bg-background-secondary"}`}
             />
             <span
               className={`absolute w-4 h-4 rounded-[50%] bg-white top-1 left-1

@@ -15,7 +15,7 @@ export function ModelListItem({ model }: ModelListItemProps) {
   return (
     <Link
       to={`/models/${model.id}`}
-      className="flex items-center gap-4 bg-surface border border-border
+      className="flex items-center gap-4 bg-background-surface border border-border
                  rounded-xl overflow-hidden hover:border-accent/30
                  hover:shadow-md
                  transition-all duration-200 group"
@@ -56,8 +56,12 @@ export function ModelListItem({ model }: ModelListItemProps) {
 
         {/* Author */}
         <div className="flex items-center gap-1.5 text-xs text-textSecondary">
-          <div className="w-4 h-4 rounded-full bg-accent/20 flex items-center justify-center text-[9px] text-accent font-bold">
-            {authorInitial}
+          <div className="w-4 h-4 rounded-full overflow-hidden bg-accent/20 flex items-center justify-center text-[9px] text-accent font-bold">
+            {m.avatar_url ? (
+              <img src={m.avatar_url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              authorInitial
+            )}
           </div>
           {authorName}
         </div>
@@ -73,7 +77,7 @@ export function ModelListItem({ model }: ModelListItemProps) {
         </div>
 
         {/* Format Badge */}
-        <span className="text-[10px] font-bold text-textSecondary bg-surface2 px-2 py-0.5 rounded">
+        <span className="text-[10px] font-bold text-textSecondary bg-background-secondary px-2 py-0.5 rounded">
           {model.format}
         </span>
       </div>

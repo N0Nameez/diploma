@@ -5,7 +5,7 @@ interface ModeSwitcherProps {
 
 export function ModeSwitcher({ mode, onModeChange }: ModeSwitcherProps) {
   return (
-    <div className="inline-flex bg-surface border border-border rounded-[14px] p-[5px] gap-[4px] mb-8">
+    <div className="inline-flex bg-background-surface border border-border rounded-[14px] p-[5px] gap-[4px] mb-8">
       <button
         onClick={() => onModeChange("model")}
         className={`px-[22px] py-[10px] rounded-[10px] text-[14px] font-semibold
@@ -13,7 +13,7 @@ export function ModeSwitcher({ mode, onModeChange }: ModeSwitcherProps) {
                    ${
                      mode === "model"
                        ? "bg-accent text-white shadow-[0_4px_16px_var(--accent-glow)]"
-                       : "text-textSecondary hover:text-text hover:bg-surface2"
+                       : "text-textSecondary hover:text-text hover:bg-background-secondary"
                    }`}
       >
         <svg
@@ -34,8 +34,8 @@ export function ModeSwitcher({ mode, onModeChange }: ModeSwitcherProps) {
                    flex items-center gap-2 transition-all duration-200
                    ${
                      mode === "animation"
-                       ? "bg-accent2 text-white shadow-[0_4px_16px_var(--accent2-glow)]"
-                       : "text-textSecondary hover:text-text hover:bg-surface2"
+                       ? "bg-accent text-white shadow-[0_4px_16px_var(--accent-glow)]"
+                       : "text-textSecondary hover:text-text hover:bg-background-secondary"
                    }`}
       >
         <svg

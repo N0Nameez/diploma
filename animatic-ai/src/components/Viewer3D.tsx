@@ -151,7 +151,7 @@ export function Viewer3D({
 
       {/* Badge */}
       {isHero && (
-        <div className="z-10 absolute top-3 left-3 bg-surface2 backdrop-blur border border-border rounded-lg px-3 py-1.5 text-[9px] text-success font-bold tracking-[0.5px] flex items-center gap-2">
+        <div className="z-10 absolute top-3 left-3 bg-background-secondary backdrop-blur border border-border rounded-lg px-3 py-1.5 text-[9px] text-success font-bold tracking-[0.5px] flex items-center gap-2">
           <span className="w-1 h-1 bg-success rounded-full animate-pulse" />
           LIVE
         </div>
@@ -161,7 +161,7 @@ export function Viewer3D({
       <div className="absolute bottom-4 right-4 z-10 flex gap-1.5">
           <button
             onClick={handleReset}
-            className="w-9 h-9 rounded-lg flex items-center justify-center bg-surface2 border border-border text-textSecondary hover:bg-accentGlow hover:text-accent transition-all duration-200 text-xs backdrop-blur-sm"
+            className="w-9 h-9 rounded-lg flex items-center justify-center bg-background-secondary border border-border text-textSecondary hover:bg-accentGlow hover:text-accent transition-all duration-200 text-xs backdrop-blur-sm"
           >
             ⟳
           </button>
@@ -169,8 +169,8 @@ export function Viewer3D({
             onClick={() => setAutoRotate(!autoRotate)}
             className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-all duration-200 text-xs backdrop-blur-sm ${
               autoRotate
-                ? "bg-surface border-accent text-accent hover:bg-accentGlow hover:text-accent"
-                : "bg-surface2 border-border text-textSecondary hover:bg-accentGlow hover:text-accent"
+                ? "bg-background-surface border-accent text-accent hover:bg-accentGlow hover:text-accent"
+                : "bg-background-secondary border-border text-textSecondary hover:bg-accentGlow hover:text-accent"
             }`}
           >
             ↻

@@ -10,7 +10,7 @@
   /* ── THEME: DARK (Default) ── */
   --bg-primary: #000;
   --bg-secondary: #141414;
-  --bg-surface: rgba(255, 255, 255, 0.02);
+  --bg-background-surface: rgba(255, 255, 255, 0.02);
   --bg-nav-scrolled: rgba(20, 20, 20, 0.65);
 
   --text-primary: #fff;
@@ -30,7 +30,7 @@
 :root[data-theme="light"] {
   --bg-primary: #FAFAFA;
   --bg-secondary: #F4F4F5;
-  --bg-surface: #FFFFFF;
+  --bg-background-surface: #FFFFFF;
   --bg-nav-scrolled: rgba(250, 250, 250, 0.8);
 
   --text-primary: #09090B;

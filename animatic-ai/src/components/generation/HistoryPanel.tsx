@@ -37,7 +37,7 @@ export function HistoryPanel({
       case "failed":
         return { text: "Ошибка", class: "bg-red-500/10 text-red-500" };
       default:
-        return { text: status, class: "bg-surface2 text-text-secondary" };
+        return { text: status, class: "bg-background-secondary text-text-secondary" };
     }
   };
 
@@ -72,7 +72,7 @@ export function HistoryPanel({
   const displayHistory = history.slice(0, 5);
 
   return (
-    <div className="bg-surface border border-border rounded-[18px] p-5">
+    <div className="bg-background-surface border border-border rounded-[18px] p-5">
       <div className="flex items-center justify-between mb-3.5">
         <div className="flex items-center gap-2 font-extrabold text-[14px] text-text">
           <History className="w-4 h-4 text-text-secondary" />
@@ -99,9 +99,9 @@ export function HistoryPanel({
               <div
                 key={item.id}
                 onClick={() => onSelectItem(item.id, item.status)}
-                className="flex items-center gap-2.5 p-2 rounded-xl cursor-pointer hover:bg-surface2 transition-all duration-200"
+                className="flex items-center gap-2.5 p-2 rounded-xl cursor-pointer hover:bg-background-secondary transition-all duration-200"
               >
-                <div className="w-11 h-11 rounded-lg flex-shrink-0 overflow-hidden relative bg-surface">
+                <div className="w-11 h-11 rounded-lg flex-shrink-0 overflow-hidden relative bg-background-surface">
                   {item.thumbnail ? (
                     <img
                       src={item.thumbnail}
@@ -109,7 +109,7 @@ export function HistoryPanel({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-surface2">
+                    <div className="w-full h-full flex items-center justify-center bg-background-secondary">
                       {icon || <Box className="w-4 h-4 text-text-secondary" />}
                     </div>
                   )}

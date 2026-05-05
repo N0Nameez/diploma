@@ -61,7 +61,7 @@ export function StyleSelector({
   onSelectStyle,
 }: StyleSelectorProps) {
   return (
-    <div className="bg-surface border border-border rounded-[18px] p-6">
+    <div className="bg-background-surface border border-border rounded-[18px] p-6">
       <div className="flex items-center gap-[10px] mb-4">
         <span className="font-extrabold text-[15px] text-text flex items-center gap-2">
           <Palette className="w-4 h-4" /> Стиль персонажа
@@ -89,7 +89,7 @@ export function StyleSelector({
             >
               {style.emoji}
             </div>
-            <div className="py-1.5 px-2 bg-surface2 text-center">
+            <div className="py-1.5 px-2 bg-background-secondary text-center">
               <div className="text-[11px] font-semibold">{style.name}</div>
             </div>
             {selectedStyle === style.id && (

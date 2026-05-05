@@ -14,7 +14,6 @@ function FilterCheckbox({
   count,
   checked,
   onChange,
-  isAIGen = false,
 }: FilterCheckboxProps) {
   return (
     <motion.div
@@ -49,7 +48,6 @@ function FilterCheckbox({
         <span className={`text-sm font-medium transition-colors duration-300 flex items-center gap-2 ${
           checked ? "text-text-primary" : "text-text-secondary group-hover:text-text-primary"
         }`}>
-          {isAIGen && <Sparkles size={14} className="text-accent" />}
           {label}
         </span>
       </div>

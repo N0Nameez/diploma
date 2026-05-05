@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, X, Layers, Layout, Zap, Filter } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Layers, Layout, Zap, Filter, Sparkles } from "lucide-react";
 import FilterCheckbox from "./FilterCheckbox";
 
 interface FilterSidebarProps {
@@ -78,13 +78,13 @@ export function FilterSidebar({
         }}
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
         className={`
-          fixed top-0 left-0 z-50 w-[260px] h-screen
+          fixed top-[80px] left-0 z-50 w-[260px] h-[calc(100vh-80px)]
           bg-background-primary/80 backdrop-blur-2xl border-r border-border/50
           flex flex-col shadow-2xl
         `}
       >
         {/* Header/Spacer for Navbar */}
-        <div className="h-20 flex-shrink-0 border-b border-border/5" />
+        <div className="flex-shrink-0 border-b border-border/5" />
 
         <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-6">
           {/* Toggle button (inside for mobile, fixed for desktop) */}
@@ -179,15 +179,14 @@ export function FilterSidebar({
 
           {/* Source */}
           <div className="mb-8">
-            <p className="text-[10px] font-bold tracking-[2px] uppercase text-text-muted mb-4">
-              Источник
-            </p>
+            <p className="text-[10px] font-bold tracking-[2px] uppercase text-text-muted mb-4 flex items-center gap-2">
+              <Sparkles size={12} /> Источник
+            </p> 
             <FilterCheckbox
-              label="✦ Сгенерировано ИИ"
+              label="Сгенерировано ИИ"
               count="8.9K"
               checked={onlyAI}
               onChange={() => onAIChange(!onlyAI)}
-              isAIGen
             />
           </div>
         </div>

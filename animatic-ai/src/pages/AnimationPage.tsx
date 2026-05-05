@@ -94,7 +94,7 @@ export function AnimationPage() {
 
       <div className="max-w-[1320px] mx-auto px-8 pb-20 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-7">
         <div className="flex flex-col gap-5">
-          <div className="relative w-full border border-border rounded-2xl overflow-hidden bg-surface shadow-[0_24px_80px_rgba(0,0,0,0.4)] aspect-video">
+          <div className="relative w-full border border-border rounded-2xl overflow-hidden bg-background-surface shadow-[0_24px_80px_rgba(0,0,0,0.4)] aspect-video">
             {animation.preview_url ? (
               <img
                 src={animation.preview_url}
@@ -102,17 +102,17 @@ export function AnimationPage() {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center bg-surface2">
+              <div className="absolute inset-0 flex items-center justify-center bg-background-secondary">
                 <Play className="w-16 h-16 text-textSecondary" />
               </div>
             )}
-            <div className="absolute top-4 left-4 bg-surface2/80 backdrop-blur border border-border rounded-lg px-3 py-1.5 text-[11px] text-accent2 font-bold tracking-[0.5px] flex items-center gap-2">
+            <div className="absolute top-4 left-4 bg-background-secondary/80 backdrop-blur border border-border rounded-lg px-3 py-1.5 text-[11px] text-accent2 font-bold tracking-[0.5px] flex items-center gap-2">
               <span className="w-2 h-2 bg-accent2 rounded-full animate-pulse-dot" />
               ANIMATION PREVIEW
             </div>
           </div>
 
-          <div className="bg-surface border border-border rounded-2xl p-5">
+          <div className="bg-background-surface border border-border rounded-2xl p-5">
             <div className="font-extrabold text-sm text-text mb-3">
               Описание
             </div>
@@ -123,11 +123,11 @@ export function AnimationPage() {
         </div>
 
         <div className="flex flex-col gap-4">
-          <div className="bg-surface border border-border rounded-2xl p-6">
+          <div className="bg-background-surface border border-border rounded-2xl p-6">
             <h1 className="font-extrabold text-2xl text-text mb-1.5 tracking-tight">
               {animation.name}
             </h1>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface2 text-textSecondary text-xs font-medium mb-4">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-background-secondary text-textSecondary text-xs font-medium mb-4">
               <Play className="w-3.5 h-3.5" /> Анимация
             </div>
 
@@ -167,7 +167,7 @@ export function AnimationPage() {
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all duration-200 ${
                   isLiked
                     ? "bg-[#F43F5E]/12 border-[#F43F5E]/30 text-[#F43F5E]"
-                    : "bg-surface2 border-border text-text hover:border-accent hover:bg-accentGlow"
+                    : "bg-background-secondary border-border text-text hover:border-accent hover:bg-accentGlow"
                 }`}
               >
                 <svg
@@ -190,7 +190,7 @@ export function AnimationPage() {
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all duration-200 ${
                   isSaved
                     ? "bg-[#F59E0B]/10 border-[#F59E0B]/30 text-[#F59E0B]"
-                    : "bg-surface2 border-border text-text hover:border-accent hover:bg-accentGlow"
+                    : "bg-background-secondary border-border text-text hover:border-accent hover:bg-accentGlow"
                 }`}
               >
                 <svg

@@ -53,7 +53,7 @@ function Pagination({
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
         className="w-9 h-9 flex items-center justify-center rounded-lg
-                   bg-surface2 border border-border
+                   bg-background-secondary border border-border
                    text-textSecondary text-sm font-medium
                    disabled:opacity-40 disabled:cursor-not-allowed
                    hover:border-accent hover:text-accent transition-all duration-200"
@@ -88,7 +88,7 @@ function Pagination({
                         ${
                           currentPage === page
                             ? "bg-accent border-accent text-white"
-                            : "bg-surface2 border-border text-textSecondary hover:border-accent hover:text-accent"
+                            : "bg-background-secondary border-border text-textSecondary hover:border-accent hover:text-accent"
                         }`}
           >
             {page}
@@ -101,7 +101,7 @@ function Pagination({
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
         className="w-9 h-9 flex items-center justify-center rounded-lg
-                   bg-surface2 border border-border
+                   bg-background-secondary border border-border
                    text-textSecondary text-sm font-medium
                    disabled:opacity-40 disabled:cursor-not-allowed
                    hover:border-accent hover:text-accent transition-all duration-200"

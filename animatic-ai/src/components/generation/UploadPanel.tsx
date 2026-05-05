@@ -42,7 +42,6 @@ export function UploadPanel({
   /* Toggle between photo and 3D viewer */
   const [viewMode, setViewMode] = useState<"photo" | "3d">("photo");
 
-  /* 🧹 Refactored: 2026-04-21 — removed dead code */
   const isCompleted = status === "completed" && modelFileUrl;
 
   const handleDrag = (e: React.DragEvent) => {
@@ -94,7 +93,7 @@ export function UploadPanel({
   };
 
   return (
-    <div className="bg-surface border border-border rounded-[18px] p-6 transition-colors duration-200">
+    <div className="bg-background-surface border border-border rounded-[18px] p-6 transition-colors duration-200">
       <div className="flex items-center gap-[10px] mb-4">
         <span className="font-extrabold text-[15px] text-text">
           {isModel ? (
@@ -125,7 +124,7 @@ export function UploadPanel({
           onClick={() => inputRef.current?.click()}
         >
           <div
-            className="w-[56px] h-[56px] rounded-[16px] bg-surface2 border border-border
+            className="w-[56px] h-[56px] rounded-[16px] bg-background-secondary border border-border
                           flex items-center justify-center mx-auto mb-4
                           transition-transform duration-200 hover:-translate-y-1"
           >
@@ -149,7 +148,7 @@ export function UploadPanel({
                 {i > 0 && <Dot className="w-3 h-3 text-text-muted" />}
                 <span
                   key={fmt}
-                  className="px-[10px] py-[3px] rounded-[6px] bg-surface2
+                  className="px-[10px] py-[3px] rounded-[6px] bg-background-secondary
                                            text-[11px] font-semibold text-text-secondary border border-border"
                 >
                   {fmt}
@@ -201,7 +200,7 @@ export function UploadPanel({
                         ? "Создание текстур..."
                         : "Финализация..."}
             </div>
-            <div className="w-3/4 h-[6px] bg-surface3 rounded-[3px] overflow-hidden">
+            <div className="w-3/4 h-[6px] bg-background-primary rounded-[3px] overflow-hidden">
               <div
                 className="h-full bg-accent rounded-[3px] transition-all duration-700 ease-out"
                 style={{ width: `${progress}%` }}
@@ -220,7 +219,7 @@ export function UploadPanel({
                 ${
                   viewMode === "photo"
                     ? "bg-accent text-white"
-                    : "bg-surface2 text-text-secondary hover:text-text border border-border"
+                    : "bg-background-secondary text-text-secondary hover:text-text border border-border"
                 }`}
             >
               <svg
@@ -243,7 +242,7 @@ export function UploadPanel({
                 ${
                   viewMode === "3d"
                     ? "bg-accent text-white"
-                    : "bg-surface2 text-text-secondary hover:text-text border border-border"
+                    : "bg-background-secondary text-text-secondary hover:text-text border border-border"
                 }`}
             >
               <svg
@@ -270,7 +269,7 @@ export function UploadPanel({
               />
               <button
                 onClick={handleRemove}
-                className="absolute top-2 right-2 w-7 h-7 rounded-[7px] bg-surface/90 backdrop-blur border border-border
+                className="absolute top-2 right-2 w-7 h-7 rounded-[7px] bg-background-surface/90 backdrop-blur border border-border
                            text-textSecondary hover:bg-red-500/20 hover:border-red-500/30
                            hover:text-red-500 transition-all duration-200 flex items-center justify-center text-[14px]"
               >
@@ -300,7 +299,7 @@ export function UploadPanel({
           />
           <button
             onClick={handleRemove}
-            className="absolute top-2 right-2 w-7 h-7 rounded-[7px] bg-surface/90 backdrop-blur border border-border
+            className="absolute top-2 right-2 w-7 h-7 rounded-[7px] bg-background-surface/90 backdrop-blur border border-border
                        text-textSecondary hover:bg-red-500/20 hover:border-red-500/30
                        hover:text-red-500 transition-all duration-200 flex items-center justify-center text-[14px]"
           >

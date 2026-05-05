@@ -61,7 +61,7 @@ export function LicenseModal({
       className="fixed inset-0 z-[1000] flex items-center justify-center"
       style={{ backgroundColor: "var(--overlay-half)" }}
     >
-      <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md mx-4 transition-all duration-200">
+      <div className="bg-background-surface border border-border rounded-2xl p-6 w-full max-w-md mx-4 transition-all duration-200">
         <div className="text-center mb-6">
           <h3 className="text-lg font-bold text-text mb-1">
             Выберите лицензию
@@ -109,7 +109,7 @@ export function LicenseModal({
           <button
             onClick={onClose}
             disabled={publishing}
-            className="flex-1 py-2.5 rounded-lg bg-surface2 border border-border text-text-secondary text-sm font-semibold hover:text-text transition-all duration-200"
+            className="flex-1 py-2.5 rounded-lg bg-background-secondary border border-border text-text-secondary text-sm font-semibold hover:text-text transition-all duration-200"
           >
             Позже
           </button>

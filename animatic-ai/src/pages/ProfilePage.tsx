@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/Button";
 import ModelCard from "../components/ModelCard";
 import Pagination from "../components/catalog/Pagination";
@@ -15,6 +15,10 @@ import {
   updateModel,
   uploadAvatar,
   uploadCover,
+  toggleFollow,
+  checkFollowing,
+  fetchUserFollowers,
+  fetchUserFollowing,
   type ApiModel,
   type ApiUser,
 } from "../services/api";
@@ -38,7 +42,7 @@ import {
   Download,
 } from "lucide-react";
 
-type TabId = "models" | "anims" | "liked" | "settings";
+type TabId = "models" | "anims" | "liked" | "followers" | "following" | "settings";
 
 const COVER_PRESETS = [
   {
@@ -85,7 +89,10 @@ const ITEMS_PER_PAGE = 6;
  * User profile page showing models, favorites, activity and settings.
  */
 export function ProfilePage() {
+  const { id } = useParams<{ id: string }>();
   const { user, signOut } = useAuth();
+  const targetId = id || user?.id;
+  const isOwner = !id || id === user?.id;
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabId>("models");
   const [modelFilter, setModelFilter] = useState<string>("Все");
@@ -118,6 +125,8 @@ export function ProfilePage() {
   const [profile, setProfile] = useState<ApiUser | null>(null);
   const [userModels, setUserModels] = useState<ApiModel[]>([]);
   const [userFavorites, setUserFavorites] = useState<ApiModel[]>([]);
+  const [userFollowers, setUserFollowers] = useState<ApiUser[]>([]);
+  const [userFollowing, setUserFollowing] = useState<ApiUser[]>([]);
   const [activity, setActivity] = useState<{
     heatmap: { date: string; count: number }[];
     feed: any[];
@@ -128,6 +137,8 @@ export function ProfilePage() {
   // Settings form
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
 
   // Cover modal
   const [showCoverModal, setShowCoverModal] = useState(false);
@@ -139,72 +150,126 @@ export function ProfilePage() {
 
   // Load profile
   useEffect(() => {
-    if (!user) return;
+    if (!targetId) return;
     setLoading(true);
-    fetchUser(user.id)
+    fetchUser(targetId)
       .then(async (p) => {
         setProfile(p);
-        const metaName = user.user_metadata?.display_name || user.user_metadata?.username || user.user_metadata?.full_name || user.user_metadata?.name;
         
-        // If the DB has the default 'Аноним', try to use the name from metadata first
-        let initialName = (p.display_name && p.display_name !== "Аноним") 
-          ? p.display_name 
-          : (metaName || p.username || "");
+        // Auto-sync only for owner
+        if (isOwner && user) {
+          const metaName = user.user_metadata?.display_name || user.user_metadata?.username || user.user_metadata?.full_name || user.user_metadata?.name;
+          
+          let initialName = (p.display_name && p.display_name !== "Аноним") 
+            ? p.display_name 
+            : (metaName || p.username || "");
 
-        // Auto-sync name to DB if it's currently 'Аноним' but we have a better name from OAuth
-        if ((!p.display_name || p.display_name === "Аноним") && metaName && metaName !== "Аноним") {
-          try {
-            await updateUserProfile(user.id, { display_name: metaName });
-            initialName = metaName;
-          } catch (e) {
-            console.error("Failed to auto-sync profile name", e);
+          if ((!p.display_name || p.display_name === "Аноним") && metaName && metaName !== "Аноним") {
+            try {
+              await updateUserProfile(user.id, { display_name: metaName });
+              initialName = metaName;
+            } catch (e) {
+              console.error("Failed to auto-sync profile name", e);
+            }
+          }
+
+          const metaAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture;
+          if (!p.avatar_url && metaAvatar) {
+            try {
+              await updateUserProfile(user.id, { avatar_url: metaAvatar });
+            } catch (e) {
+              console.error("Failed to auto-sync profile avatar", e);
+            }
+          }
+          setDisplayName(initialName);
+          setBio(p.bio || "");
+          setFollowersCount(p.followers_count || 0);
+        } else {
+          setDisplayName(p.display_name || p.username || "");
+          setBio(p.bio || "");
+          setFollowersCount(p.followers_count || 0);
+          
+          if (user && targetId) {
+            checkFollowing(targetId, user.id)
+              .then(res => setIsFollowing(res.is_following))
+              .catch(console.error);
           }
         }
-
-        // Auto-sync avatar if missing but available in OAuth
-        const metaAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture;
-        if (!p.avatar_url && metaAvatar) {
-          try {
-            await updateUserProfile(user.id, { avatar_url: metaAvatar });
-          } catch (e) {
-            console.error("Failed to auto-sync profile avatar", e);
-          }
-        }
-        
-        setDisplayName(initialName);
-        setBio(p.bio || "");
       })
       .catch(() => setProfile(null))
       .finally(() => setLoading(false));
-  }, [user]);
+  }, [targetId, user, isOwner]);
 
   // Load user models
   useEffect(() => {
-    if (!user || activeTab !== "models") return;
-    fetchUserModels(user.id, 50)
+    if (!targetId || activeTab !== "models") return;
+    fetchUserModels(targetId, 50)
       .then((res) => setUserModels(res.items))
       .catch(() => setUserModels([]));
-  }, [user, activeTab]);
+  }, [targetId, activeTab]);
 
   // Load favorites immediately (not just on tab switch)
   useEffect(() => {
-    if (!user) return;
-    fetchUserFavorites(user.id, 50)
+    if (!targetId) return;
+    fetchUserFavorites(targetId, 50)
       .then((res) => setUserFavorites(res.items))
       .catch(() => setUserFavorites([]));
-  }, [user]);
+  }, [targetId]);
 
   // Load activity
   useEffect(() => {
-    if (!user) return;
-    fetchUserActivity(user.id, 90)
+    if (!targetId) return;
+    fetchUserActivity(targetId, 90)
       .then(setActivity)
       .catch(() => setActivity(null));
-  }, [user]);
+  }, [targetId]);
+
+  // Load followers
+  useEffect(() => {
+    if (!targetId || activeTab !== "followers") return;
+    fetchUserFollowers(targetId)
+      .then(res => setUserFollowers(res.items))
+      .catch(() => setUserFollowers([]));
+  }, [targetId, activeTab]);
+
+  // Load following
+  useEffect(() => {
+    if (!targetId || activeTab !== "following") return;
+    fetchUserFollowing(targetId)
+      .then(res => setUserFollowing(res.items))
+      .catch(() => setUserFollowing([]));
+  }, [targetId, activeTab]);
 
   const handleLogout = async () => {
     await signOut();
     navigate("/");
+  };
+
+  const handleToggleFollow = async () => {
+    if (!user || !targetId) return;
+    
+    // Optimistic update
+    const previousFollowing = isFollowing;
+    const previousFollowersCount = followersCount;
+    
+    setIsFollowing(!previousFollowing);
+    setFollowersCount(previousFollowing ? previousFollowersCount - 1 : previousFollowersCount + 1);
+
+    try {
+      const res = await toggleFollow(targetId, user.id);
+      setIsFollowing(res.is_subscribed);
+      // Backend returns total subscribers count
+      if (res.subscribers_count !== undefined) {
+        setFollowersCount(res.subscribers_count);
+      }
+      showToast(res.is_subscribed ? "Вы подписались на автора" : "Вы отписались от автора");
+    } catch (err) {
+      // Rollback
+      setIsFollowing(previousFollowing);
+      setFollowersCount(previousFollowersCount);
+      console.error("Follow error:", err);
+      showToast("Ошибка при подписке");
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -633,29 +698,35 @@ export function ProfilePage() {
             )}
           </div>
           <div className="flex gap-2 pb-1.5 flex-shrink-0">
-            <button
-              onClick={() => setActiveTab("settings")}
-              className="px-5 py-2.5 rounded-[10px] bg-background-secondary border border-border-elevated text-text-primary text-sm font-semibold cursor-pointer hover:border-accent hover:bg-accent/10 hover:text-accent transition-all duration-200 flex items-center gap-2"
-            >
-              <svg
-                width="14"
-                height="14"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
+            {isOwner ? (
+              <>
+                <button
+                  onClick={() => setActiveTab("settings")}
+                  className="px-5 py-2.5 rounded-[10px] bg-background-secondary border border-border-elevated text-text-primary text-sm font-semibold cursor-pointer hover:border-accent hover:bg-accent/10 hover:text-accent transition-all duration-200 flex items-center gap-2"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                  Редактировать
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="px-5 py-2.5 rounded-[10px] bg-background-secondary border border-border-elevated text-text-secondary text-sm font-semibold cursor-pointer hover:bg-red-500/10 hover:text-red-500 hover:border-red-500 transition-all duration-200 flex items-center gap-2"
+                >
+                  <Play className="w-3.5 h-3.5 rotate-180" />
+                  Выйти
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={handleToggleFollow}
+                className={`px-8 py-2.5 rounded-[10px] text-sm font-bold cursor-pointer transition-all duration-300 shadow-lg ${
+                  isFollowing 
+                  ? "bg-background-secondary border border-border-elevated text-text-secondary hover:bg-red-500/10 hover:text-red-500 hover:border-red-500" 
+                  : "bg-accent text-white hover:bg-accent-hover hover:scale-[1.02] active:scale-[0.98]"
+                }`}
               >
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-              </svg>
-              Редактировать
-            </button>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2.5 rounded-[10px] bg-background-secondary border border-border text-text-secondary text-sm font-medium hover:border-red-500/30 hover:text-red-400 transition-all duration-200"
-            >
-              Выйти
-            </button>
+                {isFollowing ? "Отписаться" : "Подписаться"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -664,7 +735,8 @@ export function ProfilePage() {
           {[
             { num: p?.models_count ?? 0, lbl: "Модели" },
             { num: p?.animations_count ?? 0, lbl: "Анимации" },
-            { num: p?.credits ?? 0, lbl: "Кредиты" },
+            { num: followersCount, lbl: "Подписчики" },
+            { num: p?.total_rating ?? 0, lbl: "Рейтинг" },
           ].map((stat, i) => (
             <div
               key={i}
@@ -718,13 +790,31 @@ export function ProfilePage() {
                 count: userFavorites.length,
               },
               {
+                id: "followers" as TabId,
+                label: (
+                  <>
+                    <Users className="w-4 h-4" /> Подписчики
+                  </>
+                ),
+                count: followersCount,
+              },
+              {
+                id: "following" as TabId,
+                label: (
+                  <>
+                    <Users className="w-4 h-4 rotate-180" /> Подписки
+                  </>
+                ),
+                count: p?.following_count ?? 0,
+              },
+              ...(isOwner ? [{
                 id: "settings" as TabId,
                 label: (
                   <>
                     <Settings className="w-4 h-4" /> Настройки
                   </>
                 ),
-              },
+              }] : []),
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -860,10 +950,112 @@ export function ProfilePage() {
             </div>
           )}
 
+          {/* Followers */}
+          {activeTab === "followers" && (
+            <div>
+              {userFollowers.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {userFollowers.map((f) => (
+                    <Link
+                      key={f.id}
+                      to={`/profile/${f.id}`}
+                      className="flex items-center gap-4 p-4 bg-background-surface border border-border rounded-2xl hover:border-accent transition-all duration-200 group"
+                    >
+                      <div className="w-12 h-12 rounded-full overflow-hidden bg-background-secondary border border-border group-hover:border-accent/30 transition-colors">
+                        {f.avatar_url ? (
+                          <img src={f.avatar_url} alt={f.username} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-text-secondary">
+                            <User className="w-6 h-6" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-text-primary truncate">
+                          {f.display_name || f.username}
+                        </div>
+                        <div className="text-xs text-text-secondary truncate">
+                          @{f.username}
+                        </div>
+                      </div>
+                      <div className="text-xs text-text-secondary font-medium">
+                        {f.followers_count} подп.
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16 text-text-secondary">
+                  <div className="text-4xl mb-3">
+                    <Users className="w-10 h-10 mx-auto" />
+                  </div>
+                  <div className="text-lg font-medium text-text-primary mb-1">
+                    Пока нет подписчиков
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Following */}
+          {activeTab === "following" && (
+            <div>
+              {userFollowing.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {userFollowing.map((f) => (
+                    <Link
+                      key={f.id}
+                      to={`/profile/${f.id}`}
+                      className="flex items-center gap-4 p-4 bg-background-surface border border-border rounded-2xl hover:border-accent transition-all duration-200 group"
+                    >
+                      <div className="w-12 h-12 rounded-full overflow-hidden bg-background-secondary border border-border group-hover:border-accent/30 transition-colors">
+                        {f.avatar_url ? (
+                          <img src={f.avatar_url} alt={f.username} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-text-secondary">
+                            <User className="w-6 h-6" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-text-primary truncate">
+                          {f.display_name || f.username}
+                        </div>
+                        <div className="text-xs text-text-secondary truncate">
+                          @{f.username}
+                        </div>
+                      </div>
+                      <div className="text-xs text-text-secondary font-medium">
+                        {f.followers_count} подп.
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16 text-text-secondary">
+                  <div className="text-4xl mb-3">
+                    <Users className="w-10 h-10 mx-auto rotate-180" />
+                  </div>
+                  <div className="text-lg font-medium text-text-primary mb-1">
+                    Пока нет подписок
+                  </div>
+                  {isOwner && (
+                    <Button
+                      label="Найти авторов"
+                      variant="primary"
+                      onClick={() => navigate("/models")}
+                      className="mt-4"
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Settings */}
           {activeTab === "settings" && (
             <div className="max-w-xl">
-              <div className="bg-surface border border-border rounded-[18px] p-6">
+              <div className="bg-background-surface border border-border rounded-[18px] p-6">
                 <div className="font-extrabold text-base mb-5 flex items-center gap-2.5">
                   <span className="w-8 h-8 rounded-[9px] bg-accent/12 flex items-center justify-center text-base">
                     <User className="w-4 h-4" />
@@ -875,7 +1067,7 @@ export function ProfilePage() {
                     Отображаемое имя
                   </label>
                   <input
-                    className="px-3.5 py-2.5 bg-surface2 border border-border rounded-[10px] text-text text-sm outline-none focus:border-accent transition-all duration-200"
+                    className="px-3.5 py-2.5 bg-background-secondary border border-border rounded-[10px] text-text text-sm outline-none focus:border-accent transition-all duration-200"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                   />
@@ -885,7 +1077,7 @@ export function ProfilePage() {
                     Email
                   </label>
                   <input
-                    className="px-3.5 py-2.5 bg-surface2 border border-border rounded-[10px] text-textSecondary text-sm outline-none cursor-not-allowed opacity-60"
+                    className="px-3.5 py-2.5 bg-background-secondary border border-border rounded-[10px] text-textSecondary text-sm outline-none cursor-not-allowed opacity-60"
                     value={user.email || ""}
                     readOnly
                   />
@@ -895,7 +1087,7 @@ export function ProfilePage() {
                     О себе
                   </label>
                   <textarea
-                    className="px-3.5 py-2.5 bg-surface2 border border-border rounded-[10px] text-text text-sm outline-none focus:border-accent transition-all duration-200 resize-y min-h-[72px] leading-relaxed"
+                    className="px-3.5 py-2.5 bg-background-secondary border border-border rounded-[10px] text-text text-sm outline-none focus:border-accent transition-all duration-200 resize-y min-h-[72px] leading-relaxed"
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
                     rows={3}
@@ -925,7 +1117,7 @@ export function ProfilePage() {
         {/* Right Sidebar */}
         <div className="flex flex-col gap-4">
           {/* Heatmap */}
-          <div className="bg-surface border border-border rounded-2xl p-5">
+          <div className="bg-background-surface border border-border rounded-2xl p-5">
             <div className="font-extrabold text-sm text-text mb-3 flex items-center gap-2">
               <Calendar className="w-4 h-4" /> Активность
             </div>
@@ -958,7 +1150,7 @@ export function ProfilePage() {
 
           {/* Activity Feed */}
           {activity?.feed && activity.feed.length > 0 && (
-            <div className="bg-surface border border-border rounded-2xl p-5">
+            <div className="bg-background-surface border border-border rounded-2xl p-5">
               <div className="font-extrabold text-sm text-text mb-3 flex items-center gap-2">
                 <Zap className="w-4 h-4" /> Последнее
               </div>
@@ -968,10 +1160,10 @@ export function ProfilePage() {
                   return (
                     <div
                       key={i}
-                      className="flex gap-2.5 items-start p-2 rounded-lg hover:bg-surface2 transition-colors cursor-default"
+                      className="flex gap-2.5 items-start p-2 rounded-lg hover:bg-background-secondary transition-colors cursor-default"
                     >
                       <div
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 bg-surface2`}
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 bg-background-secondary`}
                       >
                         {icon.icon}
                       </div>

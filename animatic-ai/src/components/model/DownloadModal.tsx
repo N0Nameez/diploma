@@ -88,14 +88,14 @@ export function DownloadModal({
       }`}
     >
       <div
-        className={`relative w-[480px] max-w-[95vw] bg-surface border border-border rounded-3xl p-9 ${
+        className={`relative w-[480px] max-w-[95vw] bg-background-surface border border-border rounded-3xl p-9 ${
           isClosing ? "animate-fade-out" : "animate-fade"
         }`}
       >
         {/* Close button */}
         <button
           onClick={handleClose}
-          className="absolute top-5 right-5 w-8 h-8 rounded-lg bg-surface2 border border-border text-textSecondary hover:text-text flex items-center justify-center transition-all duration-200 text-lg"
+          className="absolute top-5 right-5 w-8 h-8 rounded-lg bg-background-secondary border border-border text-textSecondary hover:text-text flex items-center justify-center transition-all duration-200 text-lg"
         >
           ×
         </button>
@@ -114,7 +114,7 @@ export function DownloadModal({
             <div
               key={fmt.id}
               onClick={() => handleFormatClick(fmt)}
-              className={`flex items-center gap-4 p-4 rounded-xl bg-surface2 border border-border cursor-pointer hover:border-accent hover:bg-accentGlow/30 transition-all duration-200 ${
+              className={`flex items-center gap-4 p-4 rounded-xl bg-background-secondary border border-border cursor-pointer hover:border-accent hover:bg-accentGlow/30 transition-all duration-200 ${
                 downloading === fmt.id ? "opacity-60 pointer-events-none" : ""
               }`}
             >

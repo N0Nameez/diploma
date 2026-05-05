@@ -67,10 +67,14 @@ function ModelCard({ model }: ModelCardProps) {
         <div className="flex items-center justify-between">
           {/* Author */}
           <div className="flex items-center gap-1.5 text-xs text-text-secondary">
-            <div className="w-5 h-5 rounded-full bg-accent/20 flex items-center justify-center text-[10px] text-accent font-bold">
-              {authorInitial}
+            <div className="w-5 h-5 rounded-full overflow-hidden bg-accent/20 flex items-center justify-center text-[10px] text-accent font-bold">
+              {m.avatar_url ? (
+                <img src={m.avatar_url} alt="" className="w-full h-full object-cover" />
+              ) : (
+                authorInitial
+              )}
             </div>
-            {authorName}
+            <span className="truncate">{authorName}</span>
           </div>
           {/* Likes & Downloads */}
           <div className="text-xs text-text-secondary flex items-center gap-2">

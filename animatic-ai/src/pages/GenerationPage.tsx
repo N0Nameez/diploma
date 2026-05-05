@@ -378,7 +378,7 @@ export function GenerationPage() {
                   type="text"
                   value={editorName}
                   onChange={(e) => setEditorName(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-background-secondary border border-border rounded-xl text-text-primary text-sm outline-none focus:border-accent transition-all"
+                  className="w-full px-4 py-2.5 bg-background-primary border border-border rounded-xl text-text-primary text-sm outline-none focus:border-accent hover:border-accent-glow transition-all"
                   placeholder="Введите название..."
                 />
               </div>
@@ -392,7 +392,7 @@ export function GenerationPage() {
                   value={editorDescription}
                   onChange={(e) => setEditorDescription(e.target.value)}
                   rows={3}
-                  className="w-full px-4 py-2.5 bg-background-secondary border border-border rounded-xl text-text-primary text-sm outline-none focus:border-accent transition-all resize-none"
+                  className="w-full px-4 py-2.5 bg-background-primary border border-border rounded-xl text-text-primary text-sm outline-none focus:border-accent hover:border-accent-glow transition-all resize-none"
                   placeholder="Опишите модель..."
                 />
               </div>
@@ -405,7 +405,7 @@ export function GenerationPage() {
                 <select
                   value={editorCategory}
                   onChange={(e) => setEditorCategory(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-background-secondary border border-border rounded-xl text-text-primary text-sm outline-none focus:border-accent transition-all"
+                  className="w-full px-4 py-2.5 bg-background-primary border border-border rounded-xl text-text-primary text-sm outline-none focus:border-accent hover:border-accent-glow transition-all"
                 >
                   <option value="Персонажи">Персонажи</option>
                   <option value="Архитектура">Архитектура</option>
