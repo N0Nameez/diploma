@@ -42,3 +42,13 @@ PORT = int(os.environ.get("PORT", "8000"))
 
 # -- Generation --
 GENERATION_PYTHON = os.environ.get("GENERATION_PYTHON", "python")
+
+# -- Yookassa --
+YOOKASSA_SHOP_ID = os.environ.get("YOOKASSA_SHOP_ID")
+YOOKASSA_SECRET_KEY = os.environ.get("YOOKASSA_SECRET_KEY")
+
+# -- SMTP --
+SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.yandex.ru")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "465"))
+SMTP_USER = os.environ.get("SMTP_USER")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")

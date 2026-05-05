@@ -742,6 +742,24 @@ def refund_credits(user_id: str, amount: int = 3) -> dict:
             return {"success": False, "credits": 0}
 
 
+def add_credits(user_id: str, amount: int) -> dict:
+    """
+    Add credits to user profile (on successful payment).
+    """
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE public.user_profiles
+                SET credits = credits + %s
+                WHERE id = %s
+                RETURNING credits
+            """, (amount, user_id))
+            result = cur.fetchone()
+            if result:
+                return {"success": True, "credits": result[0]}
+            return {"success": False, "credits": 0}
+
+
 def record_download(model_id: str, user_id: str) -> bool:
     """
     Record a download. Returns True if download was counted (new),

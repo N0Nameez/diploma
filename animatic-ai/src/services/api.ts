@@ -1,6 +1,7 @@
 /* API client for the FastAPI backend */
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_BASE = API_URL;
 
 /* ── Generic fetch wrapper ── */
 async function api<T>(path: string, options?: RequestInit): Promise<T> {

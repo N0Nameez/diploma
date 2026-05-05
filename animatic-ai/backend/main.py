@@ -7,11 +7,15 @@ import shutil
 import tempfile
 import asyncio
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 class UserProfileUpdate(BaseModel):
     display_name: str | None = None
@@ -33,9 +37,23 @@ sys.path.insert(0, str(HUNYUAN_DIR / "hy3dgen" / "texgen" / "custom_rasterizer")
 import config
 import database
 import storage
+import payments
+from yookassa.domain.notification import WebhookNotificationFactory
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Start the expiration checker in the background
+    task = asyncio.create_task(check_expiring_subscriptions_loop())
+    yield
+    # Cleanup
+    task.cancel()
 
 # ── App ──
-app = FastAPI(title="AnimaticAI API", version="0.1.0")
+app = FastAPI(
+    title="AnimaticAI API", 
+    version="0.1.0",
+    lifespan=lifespan
+)
 
 from fastapi import Request
 import time
@@ -85,6 +103,20 @@ class GenerationStatus(BaseModel):
     queue_length: int | None = None
 
 
+class PaymentCreateRequest(BaseModel):
+    user_id: str
+    amount: float
+    credits_amount: int
+    plan_id: str | None = None
+    description: str | None = None
+
+class ContactRequest(BaseModel):
+    user_id: str | None = None
+    email: str
+    message: str
+    plan_id: str = "studio"
+
+
 # ── Endpoints ──
 
 @app.get("/api/health")
@@ -92,11 +124,213 @@ def health_check():
     return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
 
 
+def send_purchase_confirmation(email: str, item_name: str, amount: int = None):
+    """Send a confirmation email to the user after purchase."""
+    if not config.SMTP_USER or not config.SMTP_PASSWORD:
+        return
+
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = config.SMTP_USER
+        msg['To'] = email
+        msg['Subject'] = "Успешная оплата - AnimaticAI"
+
+        if amount:
+            text = f"Здравствуйте!\n\nВаш баланс успешно пополнен на {amount} кредитов.\nСпасибо, что выбираете AnimaticAI!"
+        else:
+            text = f"Здравствуйте!\n\nВаша подписка {item_name} успешно активирована на 30 дней.\nТеперь вам доступны все PRO-возможности!"
+        
+        msg.attach(MIMEText(text, 'plain'))
+        server = smtplib.SMTP_SSL(config.SMTP_HOST, config.SMTP_PORT)
+        server.login(config.SMTP_USER, config.SMTP_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+    except Exception as e:
+        print(f"CONFIRMATION EMAIL ERROR: {e}")
+
+
+def send_expiration_warning(email: str, days_left: int):
+    """Send a warning email when subscription is about to expire."""
+    if not config.SMTP_USER or not config.SMTP_PASSWORD:
+        return
+
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = config.SMTP_USER
+        msg['To'] = email
+        msg['Subject'] = "Ваша подписка AnimaticAI скоро истекает"
+
+        text = f"Здравствуйте!\n\nНапоминаем, что ваша подписка истекает через {days_left} дн.\nВы можете продлить её в личном кабинете, чтобы сохранить доступ к PRO-функциям.\n\nКоманда AnimaticAI"
+        
+        msg.attach(MIMEText(text, 'plain'))
+        server = smtplib.SMTP_SSL(config.SMTP_HOST, config.SMTP_PORT)
+        server.login(config.SMTP_USER, config.SMTP_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        print(f"EXPIRATION WARNING SENT to {email}")
+    except Exception as e:
+        print(f"EXPIRATION EMAIL ERROR: {e}")
+
+
+async def check_expiring_subscriptions_loop():
+    """Background loop that checks for expiring subscriptions every 24 hours."""
+    while True:
+        print("CRON: Checking for expiring subscriptions...")
+        try:
+            with database._get_pg_connection() as conn:
+                with conn.cursor() as cur:
+                    # Find active subscriptions ending in 1 or 3 days
+                    # We join with auth.users to get the actual email
+                    cur.execute("""
+                        SELECT s.user_id, u.email, s.current_period_end 
+                        FROM public.subscriptions s
+                        JOIN auth.users u ON s.user_id = u.id
+                        WHERE s.status = 'active' 
+                        AND s.current_period_end > now()
+                        AND s.current_period_end < now() + interval '3 days'
+                    """)
+                    expiring = cur.fetchall()
+                    
+                    for user_id, email, end_date in expiring:
+                        days_left = (end_date - datetime.now(timezone.utc)).days
+                        # Send notification only once (e.g., exactly at 1 or 3 days left)
+                        # For simplicity in this demo, we just print and send
+                        if email:
+                            send_expiration_warning(email, days_left + 1)
+                            
+        except Exception as e:
+            print(f"CRON ERROR: {e}")
+            
+        # Wait 24 hours
+        await asyncio.sleep(60 * 60 * 24)
+
+
+
+
 @app.get("/api/users/{user_id}/credits")
 def get_user_credits(user_id: str):
-    """Get user credits (auto-resets if period has passed)."""
+    """Get user credits and check subscription status."""
     result = database.get_or_reset_credits(user_id)
+    
+    # Check for expiration
+    try:
+        with database._get_pg_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT current_period_end FROM public.subscriptions WHERE user_id = %s AND status = 'active'", (user_id,))
+                sub = cur.fetchone()
+                if sub:
+                    from datetime import datetime, timezone
+                    end_date = sub[0]
+                    days_left = (end_date - datetime.now(timezone.utc)).days
+                    result["subscription_days_left"] = days_left
+                    if 0 <= days_left <= 1:
+                        result["expiring_soon"] = True
+    except:
+        pass
+        
     return result
+
+
+@app.post("/api/payments/create")
+def create_user_payment(req: PaymentCreateRequest):
+    """Create a new payment with Yookassa."""
+    result = payments.create_payment(
+        user_id=req.user_id,
+        amount=req.amount,
+        credits_amount=req.credits_amount,
+        plan_id=req.plan_id,
+        description=req.description or f"Пополнение баланса: {req.credits_amount} кредитов (AnimaticAI)"
+    )
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result.get("error"))
+    return result
+
+
+def send_contact_email(email: str, plan_id: str, message: str):
+    """Send an email notification using Yandex SMTP."""
+    if not config.SMTP_USER or not config.SMTP_PASSWORD:
+        print("SMTP credentials not set, skipping email")
+        return
+
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = config.SMTP_USER
+        msg['To'] = "fedenev.vladis@yandex.com"
+        msg['Subject'] = f"Новая заявка на план {plan_id} - AnimaticAI"
+
+        body = f"Пользователь: {email}\nПлан: {plan_id}\n\nСообщение:\n{message}"
+        msg.attach(MIMEText(body, 'plain'))
+
+        server = smtplib.SMTP_SSL(config.SMTP_HOST, config.SMTP_PORT)
+        server.login(config.SMTP_USER, config.SMTP_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        print(f"EMAIL SENT to fedenev.vladis@yandex.com from {email}")
+    except Exception as e:
+        print(f"EMAIL ERROR: {e}")
+
+
+@app.post("/api/contact")
+async def contact_form(req: ContactRequest, background_tasks: BackgroundTasks):
+    """Handle contact/studio requests."""
+    try:
+        with database._get_pg_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO public.contact_requests (user_id, email, message, plan_id)
+                    VALUES (%s, %s, %s, %s)
+                """, (req.user_id, req.email, req.message, req.plan_id))
+        
+        # Send email in background
+        background_tasks.add_task(send_contact_email, req.email, req.plan_id, req.message)
+        
+        return {"status": "ok", "message": "Request saved and email queued"}
+    except Exception as e:
+        print(f"CONTACT ERROR: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/payments/webhook")
+async def yookassa_webhook(request: Request):
+    """Handle Yookassa payment notifications."""
+    ip = request.client.host
+    # TODO: Verify Yookassa IP ranges for security in production
+    
+    try:
+        event_json = await request.json()
+        notification = WebhookNotificationFactory().create(event_json)
+        payment = notification.object
+        
+        if notification.event == "payment.succeeded":
+            user_id = payment.metadata.get("user_id")
+            credits_amount = int(payment.metadata.get("credits_amount", 0))
+            
+            if user_id and credits_amount > 0:
+                plan_id = payment.metadata.get("plan_id")
+                print(f"PAYMENT SUCCESS: User {user_id} bought {credits_amount} credits (Plan: {plan_id})")
+                payments.process_successful_payment(payment.id, user_id, credits_amount, plan_id)
+                
+                # Get user email for confirmation
+                try:
+                    with database._get_pg_connection() as conn:
+                        with conn.cursor() as cur:
+                            cur.execute("SELECT email FROM auth.users WHERE id = %s", (user_id,))
+                            row = cur.fetchone()
+                            if row:
+                                background_tasks.add_task(send_purchase_confirmation, row[0], plan_id or "Кредиты", credits_amount if not plan_id else None)
+                except:
+                    pass
+                    
+                return {"status": "ok"}
+                
+        elif notification.event == "payment.canceled":
+            payments.update_payment_status(payment.id, "canceled")
+            print(f"PAYMENT CANCELED: {payment.id}")
+            
+        return {"status": "ok"}
+    except Exception as e:
+        print(f"WEBHOOK ERROR: {e}")
+        return {"status": "error", "message": str(e)}
 
 
 @app.post("/api/users/{user_id}/credits/deduct")
