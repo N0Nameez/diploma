@@ -80,6 +80,7 @@ export interface ApiModel {
   vertices_count?: number;
   faces_count?: number;
   license?: string;
+  source_image_url?: string | null;
   user_profiles?: {
     username: string;
     display_name: string;
@@ -232,6 +233,9 @@ export interface ApiUser {
   avatar_url: string | null;
   bio: string | null;
   role: string;
+  total_rating: number;
+  followers_count: number;
+  following_count: number;
   credits: number;
   models_count: number;
   animations_count: number;
@@ -257,6 +261,18 @@ export async function fetchUserGenerations(userId: string, limit = 20) {
 export async function fetchUserFavorites(userId: string, limit = 20) {
   return api<{ items: ApiModel[]; total: number }>(
     `/api/users/${userId}/favorites?limit=${limit}`,
+  );
+}
+
+export async function fetchUserFollowers(userId: string, limit = 50) {
+  return api<{ items: ApiUser[]; total: number }>(
+    `/api/users/${userId}/followers?limit=${limit}`,
+  );
+}
+
+export async function fetchUserFollowing(userId: string, limit = 50) {
+  return api<{ items: ApiUser[]; total: number }>(
+    `/api/users/${userId}/following?limit=${limit}`,
   );
 }
 
@@ -299,6 +315,23 @@ export async function fetchUserActivity(userId: string, days = 90) {
       other_user: string | null;
     }[];
   }>(`/api/users/${userId}/activity?days=${days}`);
+}
+
+export async function toggleFollow(authorId: string, subscriberId: string) {
+  const form = new FormData();
+  form.append("subscriber_id", subscriberId);
+  const res = await fetch(`${API_BASE}/api/users/${authorId}/follow`, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) throw new Error(`Follow failed: ${res.status}`);
+  return res.json() as Promise<{ is_subscribed: boolean }>;
+}
+
+export async function checkFollowing(authorId: string, subscriberId: string) {
+  return api<{ is_following: boolean }>(
+    `/api/users/${authorId}/is_following?subscriber_id=${subscriberId}`,
+  );
 }
 
 export async function uploadAvatar(userId: string, file: File) {

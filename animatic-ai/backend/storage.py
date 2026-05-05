@@ -60,6 +60,12 @@ def upload_preview(file_path: str, generation_id: str) -> str | None:
     return upload_file(config.BUCKET_PREVIEWS, file_path, destination)
 
 
+def upload_source_image(file_path: str, generation_id: str) -> str | None:
+    """Upload the source input image to the previews bucket."""
+    destination = f"{generation_id}/source.png"
+    return upload_file(config.BUCKET_PREVIEWS, file_path, destination)
+
+
 def _guess_content_type(file_path: str) -> str:
     """Guess MIME type from file extension."""
     ext = Path(file_path).suffix.lower()

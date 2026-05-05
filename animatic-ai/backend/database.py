@@ -91,6 +91,7 @@ def get_user_generations(user_id: str, limit: int = 20) -> list:
 
 def create_model(author_id: str, name: str, description: str = None, category: str = None,
                  format: str = "GLB", file_url: str = None, preview_url: str = None,
+                 source_image_url: str = None,
                  ai_generated: bool = True, status: str = "approved",
                  license: str = "view_only",
                  vertices_count: int = None, faces_count: int = None) -> dict:
@@ -100,11 +101,11 @@ def create_model(author_id: str, name: str, description: str = None, category: s
             cur.execute("""
                 INSERT INTO public.models (
                     author_id, name, description, category, format,
-                    file_url, preview_url, source, ai_generated,
+                    file_url, preview_url, source_image_url, source, ai_generated,
                     status, license, vertices_count, faces_count
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id, author_id, name, description, category, format,
-                          file_url, preview_url, source, ai_generated, status,
+                          file_url, preview_url, source_image_url, source, ai_generated, status,
                           license, vertices_count, faces_count, created_at
             """, (
                 author_id,
@@ -114,6 +115,7 @@ def create_model(author_id: str, name: str, description: str = None, category: s
                 format,
                 file_url,
                 preview_url,
+                source_image_url or preview_url,
                 "ai_generated" if ai_generated else "user_upload",
                 ai_generated,
                 status,
@@ -195,7 +197,7 @@ def get_model(model_id: str) -> dict | None:
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT m.*, up.username, up.display_name, up.avatar_url,
-                       up.models_count, up.followers_count
+                       up.models_count, up.followers_count, up.following_count
                 FROM public.models m
                 LEFT JOIN public.user_profiles up ON m.author_id = up.id
                 WHERE m.id = %s
@@ -327,13 +329,18 @@ def get_comments(entity_id: str, entity_type: str = "model", limit: int = 50, of
 
 
 def add_comment(entity_id: str, entity_type: str, author_id: str, content: str, parent_id: str = None) -> dict | None:
-    """Add a comment to a model or animation."""
+    """Add a comment and return it with author info."""
     with _get_pg_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                INSERT INTO public.comments (entity_id, entity_type, author_id, content, parent_id)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING id, entity_id, entity_type, author_id, content, parent_id, status, likes, created_at
+                WITH inserted AS (
+                    INSERT INTO public.comments (entity_id, entity_type, author_id, content, parent_id)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING *
+                )
+                SELECT i.*, up.username, up.display_name, up.avatar_url
+                FROM inserted i
+                LEFT JOIN public.user_profiles up ON i.author_id = up.id
             """, (entity_id, entity_type, author_id, content, parent_id))
             row = cur.fetchone()
             if not row:
@@ -405,7 +412,73 @@ def get_user_favorites(user_id: str, limit: int = 20) -> list:
             return [dict(zip(cols, row)) for row in rows]
 
 
-def update_user_profile(user_id: str, updates: dict) -> dict | None:
+def toggle_subscription(subscriber_id: str, author_id: str) -> bool:
+    """Toggle subscription to an author. Returns True if subscribed, False if unsubscribed."""
+    if subscriber_id == author_id:
+        return False
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT 1 FROM public.subscriptions
+                WHERE subscriber_id = %s AND author_id = %s
+            """, (subscriber_id, author_id))
+            if cur.fetchone():
+                cur.execute("""
+                    DELETE FROM public.subscriptions
+                    WHERE subscriber_id = %s AND author_id = %s
+                """, (subscriber_id, author_id))
+                return False
+            else:
+                cur.execute("""
+                    INSERT INTO public.subscriptions (subscriber_id, author_id)
+                    VALUES (%s, %s)
+                """, (subscriber_id, author_id))
+                return True
+
+def is_following(subscriber_id: str, author_id: str) -> bool:
+    """Check if user is following another user."""
+    if not subscriber_id:
+        return False
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT 1 FROM public.subscriptions
+                WHERE subscriber_id = %s AND author_id = %s
+            """, (subscriber_id, author_id))
+            return cur.fetchone() is not None
+
+def get_user_followers(user_id: str, limit: int = 50) -> list:
+    """Get followers of a user."""
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT up.id, up.username, up.display_name, up.avatar_url, up.bio, up.followers_count
+                FROM public.user_profiles up
+                JOIN public.subscriptions s ON up.id = s.subscriber_id
+                WHERE s.author_id = %s
+                ORDER BY s.created_at DESC
+                LIMIT %s
+            """, (user_id, limit))
+            rows = cur.fetchall()
+            cols = [desc[0] for desc in cur.description]
+            return [dict(zip(cols, row)) for row in rows]
+
+
+def get_user_following(user_id: str, limit: int = 50) -> list:
+    """Get authors a user is following."""
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT up.id, up.username, up.display_name, up.avatar_url, up.bio, up.followers_count
+                FROM public.user_profiles up
+                JOIN public.subscriptions s ON up.id = s.author_id
+                WHERE s.subscriber_id = %s
+                ORDER BY s.created_at DESC
+                LIMIT %s
+            """, (user_id, limit))
+            rows = cur.fetchall()
+            cols = [desc[0] for desc in cur.description]
+            return [dict(zip(cols, row)) for row in rows]
     """Update user profile fields."""
     with _get_pg_connection() as conn:
         with conn.cursor() as cur:

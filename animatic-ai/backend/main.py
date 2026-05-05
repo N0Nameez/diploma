@@ -37,6 +37,21 @@ import storage
 # ── App ──
 app = FastAPI(title="AnimaticAI API", version="0.1.0")
 
+from fastapi import Request
+import time
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    try:
+        response = await call_next(request)
+        process_time = (time.time() - start_time) * 1000
+        print(f"DEBUG: {request.method} {request.url.path} - Status: {response.status_code} - {process_time:.2f}ms", flush=True)
+        return response
+    except Exception as e:
+        print(f"DEBUG ERROR: {request.method} {request.url.path} - Exception: {e}", flush=True)
+        raise
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -44,6 +59,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+def read_root():
+    return {"message": "AnimaticAI API is running", "timestamp": datetime.utcnow().isoformat()}
 
 # ── Pydantic models ──
 
@@ -445,6 +464,34 @@ def get_user_favorites(user_id: str, limit: int = 20):
     """Get models favorited by user."""
     favorites = database.get_user_favorites(user_id, limit=limit)
     return {"items": favorites, "total": len(favorites)}
+
+
+@app.get("/api/users/{user_id}/followers")
+def get_user_followers(user_id: str, limit: int = 50):
+    """Get user followers."""
+    followers = database.get_user_followers(user_id, limit=limit)
+    return {"items": followers, "total": len(followers)}
+
+
+@app.get("/api/users/{user_id}/following")
+def get_user_following(user_id: str, limit: int = 50):
+    """Get authors followed by user."""
+    following = database.get_user_following(user_id, limit=limit)
+    return {"items": following, "total": len(following)}
+
+
+@app.post("/api/users/{author_id}/follow")
+def toggle_subscription(author_id: str, subscriber_id: str = Form(...)):
+    """Follow or unfollow an author."""
+    is_subscribed = database.toggle_subscription(subscriber_id, author_id)
+    return {"is_subscribed": is_subscribed}
+
+
+@app.get("/api/users/{author_id}/is_following")
+def check_subscription(author_id: str, subscriber_id: str):
+    """Check if user is following author."""
+    following = database.is_following(subscriber_id, author_id)
+    return {"is_following": following}
 
 
 @app.put("/api/users/{user_id}")

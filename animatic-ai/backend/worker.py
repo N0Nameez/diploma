@@ -178,6 +178,10 @@ async def generate_model_from_image(
 
         database.update_generation_status(gen_id, "processing", 90)
 
+        # ── Step 7: Upload source image ──
+        source_image_url = storage.upload_source_image(image_path, gen_id)
+        print(f"[Worker] Source image uploaded: {source_image_url[:40]}...", flush=True)
+
         # ── Step 8: Create model record ──
         model = database.create_model(
             author_id=user_id,
@@ -187,6 +191,7 @@ async def generate_model_from_image(
             format="GLB",
             file_url=model_url,
             preview_url=preview_url,
+            source_image_url=source_image_url,
             ai_generated=True,
             status="approved",
             license="view_only",
