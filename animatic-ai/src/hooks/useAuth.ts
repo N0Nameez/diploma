@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const userIdRef = useRef<string | null>(null);
 
@@ -31,6 +32,22 @@ export function useAuth() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Fetch profile when user changes
+  useEffect(() => {
+    if (user) {
+      supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          setProfile(data);
+        });
+    } else {
+      setProfile(null);
+    }
+  }, [user]);
 
   const signUp = async (email: string, password: string, username: string) => {
     const { data, error } = await supabase.auth.signUp({
@@ -99,5 +116,5 @@ export function useAuth() {
     return { error };
   };
 
-  return { user, loading, signUp, signIn, signOut, resetPassword, updatePassword, resendEmail, signInWithOAuth };
+  return { user, profile, loading, signUp, signIn, signOut, resetPassword, updatePassword, resendEmail, signInWithOAuth };
 }

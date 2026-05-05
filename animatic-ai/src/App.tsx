@@ -8,6 +8,7 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { Modal } from "./components/Modal";
 import { ModelPage } from "./pages/ModelPage";
 import { AnimationPage } from "./pages/AnimationPage";
+import { PricingPage } from "./pages/PricingPage";
 import { useAuth } from "./hooks/useAuth";
 import { SearchProvider, SearchModal } from "./components/SearchAutocomplete";
 import { supabase } from "./lib/supabase";
@@ -18,7 +19,7 @@ import { LoadingScreen } from "./components/LoadingScreen/LoadingScreen";
  * Root Application component handling routing, global state, and layout.
  */
 export function App() {
-  const { user, signUp, signIn, signOut, updatePassword, resetPassword, resendEmail, signInWithOAuth } = useAuth();
+  const { user, profile, signUp, signIn, signOut, updatePassword, resetPassword, resendEmail, signInWithOAuth } = useAuth();
   const location = useLocation();
   const [currentTheme, setTheme] = useState<"dark" | "light">(() => {
     // Sync with index.html script
@@ -52,6 +53,7 @@ export function App() {
     { label: "Главная", href: "/" },
     { label: "Каталог", href: "/models" },
     { label: "Генерация", href: "/generation" },
+    { label: "Тарифы", href: "/pricing" },
   ];
 
   return (
@@ -60,6 +62,7 @@ export function App() {
       <Navbar
         links={links}
         user={user}
+        profile={profile}
         onLogout={signOut}
         onThemeToggle={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
         onLoginClick={() => setModal("login")}
@@ -77,6 +80,7 @@ export function App() {
         <Route path="/models" element={<CatalogPage />} />
         <Route path="/models/:id" element={<ModelPage />} />
         <Route path="/animations/:id" element={<AnimationPage />} />
+        <Route path="/pricing" element={<PricingPage onAuthClick={() => setModal("login")} />} />
         <Route 
           path="/generation" 
           element={

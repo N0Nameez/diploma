@@ -3,11 +3,12 @@ import { Button } from "@/components/Button";
 import { Link } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Moon, Sun, LogOut, User as UserIcon } from "lucide-react";
+import { Menu, X, Moon, Sun, LogOut, User as UserIcon, Crown } from "lucide-react";
 
 interface NavbarProps {
   links: { label: string; href: string }[];
   user: User | null;
+  profile?: any;
   onThemeToggle: () => void;
   onLoginClick: () => void;
   onRegisterClick: () => void;
@@ -19,12 +20,13 @@ interface NavbarProps {
  * Navbar component providing navigation links, theme toggle, and user authentication actions.
  */
 export function Navbar({
-  links,
-  user,
-  onThemeToggle,
-  onLoginClick,
-  onRegisterClick,
-  onLogout,
+  links = [],
+  user = null,
+  profile = null,
+  onThemeToggle = () => {},
+  onLoginClick = () => {},
+  onRegisterClick = () => {},
+  onLogout = () => {},
   fullWidth = false,
 }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
@@ -77,6 +79,25 @@ export function Navbar({
 
           {user ? (
             <div className="flex items-center gap-4">
+              {profile?.subscription_status ? (
+                <Link
+                  to="/profile"
+                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] bg-accent/10 border border-accent/20 text-accent hover:bg-accent/20 transition-all duration-200"
+                >
+                  <Crown size={14} className="fill-current" />
+                  <span className="text-xs font-bold uppercase tracking-wider">
+                    {profile.subscription_status}
+                  </span>
+                </Link>
+              ) : (
+                <Link
+                  to="/pricing"
+                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] bg-background-secondary border border-border text-text-secondary hover:bg-background-surface transition-all duration-200"
+                >
+                  <Crown size={14} />
+                  <span className="text-xs font-bold uppercase tracking-wider">Upgrade</span>
+                </Link>
+              )}
               <Link
                 to="/profile"
                 className="flex items-center gap-2 px-3 py-1.5 rounded-[10px] bg-background-secondary border border-border hover:border-accent transition-all duration-200"
@@ -179,6 +200,25 @@ export function Navbar({
                       <span className="text-xs text-text-muted">{user.email}</span>
                     </div>
                   </Link>
+                  {profile?.subscription_status ? (
+                    <Link
+                      to="/profile"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 p-3 rounded-xl bg-accent/10 border border-accent/20 text-accent"
+                    >
+                      <Crown size={20} className="fill-current" />
+                      <span className="font-bold">{profile.subscription_status}</span>
+                    </Link>
+                  ) : (
+                    <Link
+                      to="/pricing"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 p-3 rounded-xl bg-background-secondary border border-border text-text-secondary"
+                    >
+                      <Crown size={20} />
+                      <span className="font-bold">Upgrade to PRO</span>
+                    </Link>
+                  )}
                   <button
                     onClick={() => {
                       onLogout();
