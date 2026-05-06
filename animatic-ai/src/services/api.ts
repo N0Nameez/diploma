@@ -240,6 +240,9 @@ export interface ApiUser {
   credits: number;
   models_count: number;
   animations_count: number;
+  subscription_status?: string | null;
+  subscription_end_date?: string | null;
+  subscription_days_left?: number | null;
   created_at: string;
 }
 
@@ -326,7 +329,7 @@ export async function toggleFollow(authorId: string, subscriberId: string) {
     body: form,
   });
   if (!res.ok) throw new Error(`Follow failed: ${res.status}`);
-  return res.json() as Promise<{ is_subscribed: boolean }>;
+  return res.json() as Promise<{ is_subscribed: boolean; subscribers_count?: number }>;
 }
 
 export async function checkFollowing(authorId: string, subscriberId: string) {
@@ -444,9 +447,12 @@ export async function getInteractions(modelId: string, userId: string) {
 /* ── Credits ── */
 
 export async function getUserCredits(userId: string) {
-  return api<{ credits: number; reset_date: string | null }>(
-    `/api/users/${userId}/credits`,
-  );
+  return api<{
+    credits: number;
+    reset_date: string | null;
+    expiring_soon?: boolean;
+    subscription_days_left?: number;
+  }>(`/api/users/${userId}/credits`);
 }
 
 export async function deductCredits(userId: string, amount = 3) {
