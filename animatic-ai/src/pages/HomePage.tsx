@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { HeroScene } from '@/components/home/HeroScene';
 import { AboutSection } from '@/components/home/AboutSection';
 import { ProcessSection } from '@/components/home/ProcessSection';
@@ -12,6 +13,7 @@ import { SectionDivider } from '@/components/home/SectionDivider';
 import { useProgress } from '@react-three/drei';
 // Triggers module-level useGLTF.preload() for all landing page models
 import '@/components/home/ModelPreloader';
+import { LoadingScreen } from '@/components/LoadingScreen/LoadingScreen';
 
 import type { User } from "@supabase/supabase-js";
 
@@ -27,23 +29,25 @@ interface HomePageProps {
 export function HomePage({ onRegisterClick, user }: HomePageProps) {
   const { progress, active } = useProgress();
   const [isLoaded, setIsLoaded] = useState(false);
-  const hasSeenActive = useRef(false);
+  const navigate = useNavigate();
 
-  // Track whether loading has actually started
-  useEffect(() => {
-    if (active) {
-      hasSeenActive.current = true;
+  const handleCTAAction = () => {
+    if (user) {
+      navigate('/generation');
+    } else {
+      onRegisterClick();
     }
-  }, [active]);
+  };
 
   useEffect(() => {
-    // Only mark as loaded when:
-    // 1. Loading has started at some point (hasSeenActive)
-    // 2. Progress reached 100%
-    // 3. Loading manager is no longer active
-    if (hasSeenActive.current && progress >= 100 && !active) {
-      const timer = setTimeout(() => setIsLoaded(true), 600);
+    // We consider it ready when progress is 100 AND loading is no longer active
+    // This handles both fresh loads and cached assets
+    if (progress >= 100 && !active) {
+      const timer = setTimeout(() => setIsLoaded(true), 2000);
       return () => clearTimeout(timer);
+    } else if (active) {
+      // If loading starts again (e.g. models re-requesting), hide content
+      setIsLoaded(false);
     }
   }, [progress, active]);
 
@@ -64,26 +68,27 @@ export function HomePage({ onRegisterClick, user }: HomePageProps) {
 
   return (
     <>
+      <LoadingScreen />
       <motion.main 
         initial={{ opacity: 0 }}
         animate={{ opacity: isLoaded ? 1 : 0 }}
         transition={{ duration: 1, ease: "easeOut" }}
         className="min-h-screen bg-background-primary"
       >
-        <HeroScene onRegisterClick={onRegisterClick} user={user} />
+        <HeroScene onRegisterClick={handleCTAAction} user={user} />
         <SectionDivider />
         <AboutSection />
         <SectionDivider className="opacity-50" />
         <ProcessSection />
         <SectionDivider />
-        <WorkExamples />
+        <WorkExamples onCTAAction={handleCTAAction} />
         <SectionDivider />
         <CharacterSection />
         <SectionDivider className="opacity-50" />
-        <PricingSection onRegisterClick={onRegisterClick} />
+        <PricingSection onRegisterClick={handleCTAAction} />
         <SectionDivider />
         <FAQSection />
-        <CTASection onRegisterClick={onRegisterClick} />
+        <CTASection onRegisterClick={handleCTAAction} />
       </motion.main>
     </>
   );

@@ -13,7 +13,7 @@ import { useAuth } from "./hooks/useAuth";
 import { SearchProvider, SearchModal } from "./components/SearchAutocomplete";
 import { supabase } from "./lib/supabase";
 import { AuthGuard } from "./components/AuthGuard/AuthGuard";
-import { LoadingScreen } from "./components/LoadingScreen/LoadingScreen";
+import { ScrollToTop } from "./components/ScrollToTop";
 
 /**
  * Root Application component handling routing, global state, and layout.
@@ -58,7 +58,7 @@ export function App() {
 
   return (
     <SearchProvider>
-      <LoadingScreen />
+      <ScrollToTop />
       <Navbar
         links={links}
         user={user}
