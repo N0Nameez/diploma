@@ -3,8 +3,9 @@ import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { Check, Zap } from 'lucide-react';
 import { Button } from '@/components/Button';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { ShieldCheck, Loader2 } from 'lucide-react';
 
 /**
  * Pricing section with interactive 3D pricing cards.
@@ -40,7 +41,7 @@ const PLANS = [
     popular: true
   },
   {
-    name: 'Enterprise',
+    name: 'Studio',
     price: 'По запросу',
     description: 'Индивидуальные решения для крупных студий.',
     features: [
@@ -56,15 +57,16 @@ const PLANS = [
 ];
 
 interface PricingCardProps {
-  plan: typeof PLANS[0];
+  plan: typeof PLANS[0] & { isCurrent: boolean };
   index: number;
   isHovered: boolean;
   isAnyHovered: boolean;
+  loading: string | null;
   onHover: (index: number | null) => void;
-  onRegisterClick: () => void;
+  onRegisterClick: (plan: any) => void;
 }
 
-function PricingCard({ plan, index, isHovered, isAnyHovered, onHover, onRegisterClick }: PricingCardProps) {
+function PricingCard({ plan, index, isHovered, isAnyHovered, loading, onHover, onRegisterClick }: PricingCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   
   const x = useMotionValue(0);
@@ -164,9 +166,11 @@ function PricingCard({ plan, index, isHovered, isAnyHovered, onHover, onRegister
           <div style={{ transform: "translateZ(20px)" }}>
             <Button
               variant={plan.popular ? 'hero-primary' : 'hero-secondary'}
-              label={plan.cta}
+              label={plan.isCurrent ? 'Текущий план' : (loading === plan.name ? '' : plan.cta)}
+              icon={plan.isCurrent ? <ShieldCheck className="w-4 h-4" /> : (loading === plan.name ? <Loader2 className="w-4 h-4 animate-spin" /> : null)}
               className="w-full justify-center py-4"
-              onClick={onRegisterClick}
+              onClick={() => onRegisterClick(plan)}
+              disabled={plan.isCurrent || loading === plan.name}
             />
           </div>
         </div>
@@ -186,14 +190,51 @@ function PricingCard({ plan, index, isHovered, isAnyHovered, onHover, onRegister
 
 export function PricingSection({ onRegisterClick }: { onRegisterClick: () => void }) {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [loading, setLoading] = useState<string | null>(null);
 
-  const handleAction = () => {
-    if (user) {
-      navigate('/pricing');
-    } else {
+  const handleAction = async (plan: any) => {
+    if (!user) {
       onRegisterClick();
+      return;
+    }
+
+    if (plan.name === 'Starter') {
+      navigate('/generation');
+      return;
+    }
+
+    if (plan.name === 'Pro' || plan.name === 'Studio') {
+      navigate('/pricing');
+      return;
+    }
+
+    // Direct payment flow for Pro
+    setLoading(plan.name);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/payments/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: user.id,
+          amount: plan.price.toString().replace(/\s/g, ''),
+          credits_amount: 300, // Hardcoded for Pro as per PLANS array
+          plan_id: 'pro',
+          description: `Оплата: Pro Plan (AnimaticAI)`
+        })
+      });
+
+      const data = await response.json();
+      if (data.success && data.confirmation_url) {
+        window.location.href = data.confirmation_url;
+      } else {
+        alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+      }
+    } catch (err) {
+      alert('Не удалось связаться с сервером оплаты');
+    } finally {
+      setLoading(null);
     }
   };
 
@@ -258,18 +299,26 @@ export function PricingSection({ onRegisterClick }: { onRegisterClick: () => voi
           viewport={{ once: true }}
           className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-10"
         >
-          {PLANS.map((plan, index) => (
-            <motion.div key={plan.name} variants={itemVariants}>
-              <PricingCard 
-                plan={plan} 
-                index={index}
-                isHovered={hoveredIndex === index}
-                isAnyHovered={hoveredIndex !== null}
-                onHover={setHoveredIndex}
-                onRegisterClick={handleAction}
-              />
-            </motion.div>
-          ))}
+          {PLANS.map((plan, index) => {
+            const currentStatus = profile?.subscription_status || 'starter';
+            const isCurrent = 
+              (plan.name === 'Starter' && (currentStatus === 'free' || currentStatus === 'starter')) ||
+              (plan.name.toLowerCase() === currentStatus.toLowerCase());
+              
+            return (
+              <motion.div key={plan.name} variants={itemVariants}>
+                <PricingCard 
+                  plan={{ ...plan, isCurrent }} 
+                  index={index}
+                  isHovered={hoveredIndex === index}
+                  isAnyHovered={hoveredIndex !== null}
+                  loading={loading}
+                  onHover={setHoveredIndex}
+                  onRegisterClick={handleAction}
+                />
+              </motion.div>
+            );
+          })}
         </motion.div>
 
         <motion.div 
