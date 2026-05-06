@@ -40,6 +40,8 @@ import {
   Search,
   Gem,
   Download,
+  ShieldCheck,
+  CreditCard,
 } from "lucide-react";
 
 type TabId = "models" | "anims" | "liked" | "followers" | "following" | "settings";
@@ -155,13 +157,13 @@ export function ProfilePage() {
     fetchUser(targetId)
       .then(async (p) => {
         setProfile(p);
-        
+
         // Auto-sync only for owner
         if (isOwner && user) {
           const metaName = user.user_metadata?.display_name || user.user_metadata?.username || user.user_metadata?.full_name || user.user_metadata?.name;
-          
-          let initialName = (p.display_name && p.display_name !== "Аноним") 
-            ? p.display_name 
+
+          let initialName = (p.display_name && p.display_name !== "Аноним")
+            ? p.display_name
             : (metaName || p.username || "");
 
           if ((!p.display_name || p.display_name === "Аноним") && metaName && metaName !== "Аноним") {
@@ -188,7 +190,7 @@ export function ProfilePage() {
           setDisplayName(p.display_name || p.username || "");
           setBio(p.bio || "");
           setFollowersCount(p.followers_count || 0);
-          
+
           if (user && targetId) {
             checkFollowing(targetId, user.id)
               .then(res => setIsFollowing(res.is_following))
@@ -240,18 +242,13 @@ export function ProfilePage() {
       .catch(() => setUserFollowing([]));
   }, [targetId, activeTab]);
 
-  const handleLogout = async () => {
-    await signOut();
-    navigate("/");
-  };
-
   const handleToggleFollow = async () => {
     if (!user || !targetId) return;
-    
+
     // Optimistic update
     const previousFollowing = isFollowing;
     const previousFollowersCount = followersCount;
-    
+
     setIsFollowing(!previousFollowing);
     setFollowersCount(previousFollowing ? previousFollowersCount - 1 : previousFollowersCount + 1);
 
@@ -385,13 +382,13 @@ export function ProfilePage() {
     const list =
       modelFilter === "Все"
         ? userModels.filter(
-            (m) => m.status === "approved" && m.license !== "private",
-          )
+          (m) => m.status === "approved" && m.license !== "private",
+        )
         : userModels.filter((m) => {
-            if (modelFilter === "Черновики")
-              return m.status === "draft" || m.license === "private";
-            return true;
-          });
+          if (modelFilter === "Черновики")
+            return m.status === "draft" || m.license === "private";
+          return true;
+        });
     switch (modelSort) {
       case "По лайкам":
         return [...list].sort((a, b) => (b.likes || 0) - (a.likes || 0));
@@ -446,7 +443,7 @@ export function ProfilePage() {
   const coverSrc = coverUrl ? `${coverUrl}?v=${coverKey}` : undefined;
   const coverGradient = !coverUrl
     ? COVER_PRESETS.find((c) => c.id === coverPreset)?.gradient ||
-      COVER_PRESETS[0].gradient
+    COVER_PRESETS[0].gradient
     : undefined;
   const avatarSrc = p?.avatar_url
     ? `${p.avatar_url}?v=${avatarKey}`
@@ -482,19 +479,19 @@ export function ProfilePage() {
       case "model_created":
         return (
           <>
-            <strong>{item.entity_name}</strong> создана
+            Создал модель <span className="font-bold text-accent">{item.entity_name}</span>
           </>
         );
       case "model_liked":
         return (
           <>
-            <strong>{item.entity_name}</strong> лайкнута
+            Лайкнул модель <span className="font-bold text-accent">{item.entity_name}</span>
           </>
         );
       case "model_downloaded":
         return (
           <>
-            <strong>{item.entity_name}</strong> скачана
+            Скачал модель <span className="font-bold text-accent">{item.entity_name}</span>
           </>
         );
       default:
@@ -541,10 +538,10 @@ export function ProfilePage() {
           style={
             coverSrc
               ? {
-                  backgroundImage: `url(${coverSrc})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                }
+                backgroundImage: `url(${coverSrc})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }
               : { background: coverGradient }
           }
         >
@@ -707,22 +704,15 @@ export function ProfilePage() {
                   <Edit className="w-3.5 h-3.5" />
                   Редактировать
                 </button>
-                <button
-                  onClick={handleLogout}
-                  className="px-5 py-2.5 rounded-[10px] bg-background-secondary border border-border-elevated text-text-secondary text-sm font-semibold cursor-pointer hover:bg-red-500/10 hover:text-red-500 hover:border-red-500 transition-all duration-200 flex items-center gap-2"
-                >
-                  <Play className="w-3.5 h-3.5 rotate-180" />
-                  Выйти
-                </button>
+
               </>
             ) : (
               <button
                 onClick={handleToggleFollow}
-                className={`px-8 py-2.5 rounded-[10px] text-sm font-bold cursor-pointer transition-all duration-300 shadow-lg ${
-                  isFollowing 
-                  ? "bg-background-secondary border border-border-elevated text-text-secondary hover:bg-red-500/10 hover:text-red-500 hover:border-red-500" 
-                  : "bg-accent text-white hover:bg-accent-hover hover:scale-[1.02] active:scale-[0.98]"
-                }`}
+                className={`px-8 py-2.5 rounded-[10px] text-sm font-bold cursor-pointer transition-all duration-300 shadow-lg ${isFollowing
+                    ? "bg-background-secondary border border-border-elevated text-text-secondary hover:bg-red-500/10 hover:text-red-500 hover:border-red-500"
+                    : "bg-accent text-white hover:bg-accent-hover hover:scale-[1.02] active:scale-[0.98]"
+                  }`}
               >
                 {isFollowing ? "Отписаться" : "Подписаться"}
               </button>
@@ -802,10 +792,10 @@ export function ProfilePage() {
                 id: "following" as TabId,
                 label: (
                   <>
-                    <Users className="w-4 h-4 rotate-180" /> Подписки
+                    <Users className="w-4 h-4" /> Подписки
                   </>
                 ),
-                count: p?.following_count ?? 0,
+                count: activeTab === "following" ? userFollowing.length : (p?.following_count ?? 0),
               },
               ...(isOwner ? [{
                 id: "settings" as TabId,
@@ -873,7 +863,7 @@ export function ProfilePage() {
                         <div key={m.id} className="relative group">
                           <ModelCard model={m} />
                           {m.license === "private" && (
-                            <div className="absolute top-3 left-3 px-2 py-0.5 rounded-md bg-yellow-500/12 text-yellow-500 border border-yellow-500/25 text-[10px] font-bold z-10 flex items-center gap-1">
+                            <div className="absolute top-10 left-3 px-2 py-0.5 rounded-md bg-yellow-500/12 text-yellow-500 border border-yellow-500/25 text-[10px] font-bold z-10 flex items-center gap-1">
                               <Lock className="w-3 h-3" /> Приватная
                             </div>
                           )}
@@ -1116,6 +1106,69 @@ export function ProfilePage() {
 
         {/* Right Sidebar */}
         <div className="flex flex-col gap-4">
+          {isOwner && p && (
+            <div className="bg-background-surface border border-border rounded-2xl p-5 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                <CreditCard className="w-12 h-12 rotate-12" />
+              </div>
+              <div className="font-extrabold text-sm text-text-primary mb-4 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-accent" /> Моя подписка
+              </div>
+
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-0.5">
+                    Текущий план
+                  </div>
+                  <div className="text-lg font-black text-text-primary uppercase flex items-center gap-2">
+                    {p.subscription_status === 'pro' ? 'Pro Plan' :
+                      p.subscription_status === 'studio' ? 'Studio' : 'Free'}
+                    {p.subscription_status && (
+                      <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-0.5">
+                    Баланс
+                  </div>
+                  <div className="text-lg font-black text-accent">
+                    {p.credits} <span className="text-xs font-bold text-text-secondary">CR</span>
+                  </div>
+                </div>
+              </div>
+
+              {p.subscription_end_date ? (
+                <div className="space-y-3">
+                  <div className="h-1.5 w-full bg-background-secondary rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-1000 ${p.subscription_days_left !== undefined && p.subscription_days_left !== null && p.subscription_days_left < 3 ? 'bg-danger' : 'bg-accent'}`}
+                      style={{ width: `${Math.min(100, (((p.subscription_days_left ?? 0)) / 30) * 100)}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between items-end">
+                    <div className="text-[11px] text-text-secondary leading-tight">
+                      До {new Date(p.subscription_end_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+                    </div>
+                    <div className={`text-[11px] font-bold ${p.subscription_days_left !== undefined && p.subscription_days_left !== null && p.subscription_days_left < 3 ? 'text-danger' : 'text-text-muted'}`}>
+                      {p.subscription_days_left} дн. осталось
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-background-secondary/50 rounded-xl text-[11px] text-text-secondary border border-dashed border-border">
+                  Перейдите на PRO для доступа к расширенным функциям и приоритетной генерации
+                  <Button
+                    label="Улучшить план"
+                    variant="primary"
+                    className="w-full mt-2 h-8 text-[10px]"
+                    onClick={() => navigate('/pricing')}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Heatmap */}
           <div className="bg-background-surface border border-border rounded-2xl p-5">
             <div className="font-extrabold text-sm text-text mb-3 flex items-center gap-2">
@@ -1129,14 +1182,14 @@ export function ProfilePage() {
                   style={{
                     background:
                       level === 0
-                        ? "var(--surface3, #1C2640)"
+                        ? "var(--bg-secondary)"
                         : level === 1
-                          ? "rgba(27,110,243,0.2)"
+                          ? "color-mix(in srgb, var(--accent) 20%, transparent)"
                           : level === 2
-                            ? "rgba(27,110,243,0.4)"
+                            ? "color-mix(in srgb, var(--accent) 40%, transparent)"
                             : level === 3
-                              ? "rgba(27,110,243,0.65)"
-                              : "var(--accent, #1B6EF3)",
+                              ? "color-mix(in srgb, var(--accent) 65%, transparent)"
+                              : "var(--accent)",
                   }}
                   title={`${Math.floor(Math.random() * 5)} действий`}
                 />
@@ -1157,22 +1210,36 @@ export function ProfilePage() {
               <div className="flex flex-col gap-1">
                 {activity.feed.slice(0, 5).map((item, i) => {
                   const icon = activityTypeIcon(item.type);
-                  return (
-                    <div
-                      key={i}
-                      className="flex gap-2.5 items-start p-2 rounded-lg hover:bg-background-secondary transition-colors cursor-default"
-                    >
-                      <div
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 bg-background-secondary`}
-                      >
+                  const isModelAction = ["model_created", "model_liked", "model_downloaded"].includes(item.type);
+
+                  const Content = () => (
+                    <>
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0 bg-background-secondary group-hover:bg-accent/10 group-hover:text-accent transition-colors">
                         {icon.icon}
                       </div>
-                      <div className="flex-1 min-w-0 text-xs text-textSecondary leading-relaxed">
+                      <div className="flex-1 min-w-0 text-[11px] text-text-secondary leading-relaxed group-hover:text-text-primary transition-colors">
                         {activityTypeText(item)}
                       </div>
                       <div className="text-[10px] text-text-muted flex-shrink-0">
                         {formatDateAgo(item.created_at)}
                       </div>
+                    </>
+                  );
+
+                  return isModelAction ? (
+                    <Link
+                      key={i}
+                      to={`/models/${item.entity_id}`}
+                      className="flex gap-2.5 items-start p-2 rounded-lg hover:bg-background-secondary transition-all duration-200 group"
+                    >
+                      <Content />
+                    </Link>
+                  ) : (
+                    <div
+                      key={i}
+                      className="flex gap-2.5 items-start p-2 rounded-lg hover:bg-background-secondary transition-all duration-200 group"
+                    >
+                      <Content />
                     </div>
                   );
                 })}
