@@ -25,6 +25,13 @@
   --glass-bg: rgba(0, 0, 0, 0.45);
   --glass-border: rgba(255, 255, 255, 0.08);
   --grid-color: rgba(255, 255, 255, 0.05);
+
+  --danger: #EF4444;
+  --danger-rgb: 239 68 68;
+  --success: #10B981;
+  --success-rgb: 16 185 129;
+  --warning: #F59E0B;
+  --warning-rgb: 245 158 11;
 }
 
 :root[data-theme="light"] {

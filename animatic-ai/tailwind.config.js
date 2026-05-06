@@ -104,6 +104,24 @@ export default {
             'hover-bg': 'var(--border-default)',
           },
         },
+        danger: ({ opacityValue }) => {
+          if (opacityValue !== undefined) {
+            return `rgb(var(--danger-rgb) / ${opacityValue})`;
+          }
+          return `var(--danger)`;
+        },
+        success: ({ opacityValue }) => {
+          if (opacityValue !== undefined) {
+            return `rgb(var(--success-rgb) / ${opacityValue})`;
+          }
+          return `var(--success)`;
+        },
+        warning: ({ opacityValue }) => {
+          if (opacityValue !== undefined) {
+            return `rgb(var(--warning-rgb) / ${opacityValue})`;
+          }
+          return `var(--warning)`;
+        },
       },
       backgroundImage: {
         'overlay-gradient': 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.6) 80%, #000 100%)',
