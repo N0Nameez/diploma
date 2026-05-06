@@ -322,7 +322,7 @@ export function ModelPage() {
                 className={`flex items-center gap-2 px-6 py-2 rounded-[11px] text-xs font-bold transition-all duration-300 ${
                   viewMode === "photo"
                     ? "bg-accent text-white shadow-lg shadow-accent/20"
-                    : "text-text-secondary hover:text-text-primary"
+                    : "text-text-secondary hover:text-text-primary hover:bg-accent-glow"
                 }`}
               >
                 <svg
@@ -638,7 +638,7 @@ export function ModelPage() {
                   label="Скачать модель"
                   variant="primary"
                   onClick={() => setDownloadModalOpen(true)}
-                  className="w-full py-3.5 mb-2"
+                  className="w-full py-3.5 mb-2 gap-2"
                   icon={<Download className="w-4 h-4" />}
                 />
               )}
@@ -651,7 +651,7 @@ export function ModelPage() {
                   label="Редактировать"
                   variant="ghost"
                   onClick={() => navigate(`/generation?model_id=${id}`)}
-                  className="w-full mb-2"
+                  className="w-full py-3.5 mb-2 gap-2 "
                   icon={
                     <svg
                       width="14"
@@ -670,7 +670,7 @@ export function ModelPage() {
 
             {/* View-only badge */}
             {dm.license === "view_only" && (
-              <div className="w-full py-3 rounded-xl bg-background-secondary border border-border flex items-center justify-center gap-2 mb-2">
+              <div className="w-full py-3.5 rounded-xl bg-background-secondary border border-border flex items-center justify-center gap-2 mb-2">
                 <svg
                   width="16"
                   height="16"
@@ -694,8 +694,8 @@ export function ModelPage() {
               <button
                 onClick={handleLike}
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all duration-200 ${isLiked
-                  ? "bg-danger/12 border-danger/30 text-danger"
-                  : "bg-background-secondary border-border text-text-primary hover:border-accent hover:bg-accentGlow"
+                  ? "bg-danger/10 border-danger/30 text-danger hover:bg-danger/20"
+                  : "bg-background-secondary border-border text-text-primary hover:border-accent hover:bg-accent/10"
                   }`}
               >
                 <svg
@@ -713,8 +713,8 @@ export function ModelPage() {
               <button
                 onClick={handleSave}
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all duration-200 ${isSaved
-                  ? "bg-warning/10 border-warning/30 text-warning"
-                  : "bg-background-secondary border-border text-text-primary hover:border-accent hover:bg-accentGlow"
+                  ? "bg-warning/10 border-warning/30 text-warning hover:bg-warning/20"
+                  : "bg-background-secondary border-border text-text-primary hover:border-accent hover:bg-accent/10"
                   }`}
               >
                 <svg
@@ -735,7 +735,7 @@ export function ModelPage() {
               label="Поделиться"
               variant="ghost"
               onClick={handleShare}
-              className="w-full"
+              className="w-full py-3.5 mb-2 gap-2"
               icon={
                 <svg
                   width="14"
@@ -777,8 +777,8 @@ export function ModelPage() {
                       name: "OBJ",
                       size: "9.2 МБ",
                       desc: "Blender, ZBrush",
-                      color: "rgba(16,185,129,0.15)",
-                      text: "#10B981",
+                      color: "rgba(var(--success-rgb), 0.15)",
+                      text: "var(--success)",
                     },
                     {
                       id: "stl",

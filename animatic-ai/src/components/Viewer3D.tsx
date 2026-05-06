@@ -20,8 +20,8 @@ function Model({ modelUrl }: { modelUrl?: string }) {
   if (!modelUrl || error) {
     return (
       <mesh>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color="#1B6EF3" />
+        <sphereGeometry args={[0.5, 16, 16]} />
+        <meshStandardMaterial color="#EC4899" />
       </mesh>
     );
   }
@@ -51,7 +51,7 @@ function Loader() {
   return (
     <mesh>
       <sphereGeometry args={[0.5, 16, 16]} />
-      <meshStandardMaterial color="#1B6EF3" wireframe />
+      <meshStandardMaterial color="#EC4899" wireframe />
     </mesh>
   );
 }
@@ -86,7 +86,7 @@ export function Viewer3D({
       `}
       style={{
         background:
-          "radial-gradient(ellipse at 35% 45%, var(--viewer-bg-start, #0D2045) 0%, var(--viewer-bg-end, #080C14) 65%)",
+          "radial-gradient(ellipse at 35% 45%, var(--bg-secondary) 0%, var(--bg-primary) 65%)",
       }}
     >
       {/* 3D Canvas */}
@@ -109,8 +109,8 @@ export function Viewer3D({
             <Model modelUrl={modelUrl} />
           ) : (
             <mesh scale={zoom || 1}>
-              <boxGeometry args={[1, 1, 1]} />
-              <meshStandardMaterial color="#1B6EF3" />
+              <sphereGeometry args={[0.5, 16, 16]} />
+              <meshStandardMaterial color="#EC4899" />
             </mesh>
           )}
         </Suspense>
@@ -128,11 +128,11 @@ export function Viewer3D({
 
       {/* Grid Overlay — both variants */}
       <div
-        className="absolute inset-0 pointer-events-none z-0"
+        className="absolute inset-0 pointer-events-none z-0 opacity-50"
         style={{
           backgroundImage: `
-            linear-gradient(rgba(27,110,243,0.04) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(27,110,243,0.04) 1px, transparent 1px)
+            linear-gradient(var(--grid-color) 1px, transparent 1px),
+            linear-gradient(90deg, var(--grid-color) 1px, transparent 1px)
           `,
           backgroundSize: "40px 40px",
         }}
@@ -144,33 +144,33 @@ export function Viewer3D({
           className="absolute bottom-0 left-0 right-0 pointer-events-none z-0"
           style={{
             height: "40%",
-            background: "linear-gradient(transparent, rgba(27,110,243,0.04))",
+            background: "linear-gradient(transparent, var(--grid-color))",
           }}
         />
       )}
 
       {/* Badge */}
       {isHero && (
-        <div className="z-10 absolute top-3 left-3 bg-background-secondary backdrop-blur border border-border rounded-lg px-3 py-1.5 text-[9px] text-success font-bold tracking-[0.5px] flex items-center gap-2">
-          <span className="w-1 h-1 bg-success rounded-full animate-pulse" />
-          LIVE
+        <div className="z-10 absolute top-3 left-3 bg-background-surface/80 backdrop-blur-md border border-border rounded-lg px-3 py-1.5 text-[9px] text-accent font-bold tracking-[0.5px] flex items-center gap-2 shadow-sm">
+          <span className="w-1 h-1 bg-accent rounded-full animate-pulse" />
+          LIVE PREVIEW
         </div>
       )}
 
       {/* Controls */}
-      <div className="absolute bottom-4 right-4 z-10 flex gap-1.5">
+      <div className="absolute bottom-10 right-5 z-20 flex gap-1.5">
           <button
             onClick={handleReset}
-            className="w-9 h-9 rounded-lg flex items-center justify-center bg-background-secondary border border-border text-textSecondary hover:bg-accentGlow hover:text-accent transition-all duration-200 text-xs backdrop-blur-sm"
+            className="w-9 h-9 rounded-lg flex items-center justify-center bg-background-secondary/80 border border-border text-text-secondary hover:bg-accent/10 hover:text-accent transition-all duration-200 text-xs backdrop-blur-md"
           >
             ⟳
           </button>
           <button
             onClick={() => setAutoRotate(!autoRotate)}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-all duration-200 text-xs backdrop-blur-sm ${
+            className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-all duration-200 text-xs backdrop-blur-md ${
               autoRotate
-                ? "bg-background-surface border-accent text-accent hover:bg-accentGlow hover:text-accent"
-                : "bg-background-secondary border-border text-textSecondary hover:bg-accentGlow hover:text-accent"
+                ? "bg-accent/10 border-accent text-accent hover:bg-accent/20"
+                : "bg-background-secondary/80 border-border text-text-secondary hover:bg-accent/10 hover:text-accent"
             }`}
           >
             ↻
