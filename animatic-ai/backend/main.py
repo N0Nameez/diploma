@@ -683,6 +683,21 @@ def get_user_profile(user_id: str):
     profile = database.get_user_profile(user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Add days left calculation
+    if profile.get("subscription_end_date"):
+        try:
+            from datetime import datetime, timezone
+            end_date = profile["subscription_end_date"]
+            if isinstance(end_date, str):
+                # Handle string format if necessary
+                end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            
+            days_left = (end_date - datetime.now(timezone.utc)).days
+            profile["subscription_days_left"] = days_left
+        except Exception as e:
+            print(f"Error calculating days left: {e}")
+            
     return profile
 
 
@@ -717,8 +732,8 @@ def get_user_following(user_id: str, limit: int = 50):
 @app.post("/api/users/{author_id}/follow")
 def toggle_subscription(author_id: str, subscriber_id: str = Form(...)):
     """Follow or unfollow an author."""
-    is_subscribed = database.toggle_subscription(subscriber_id, author_id)
-    return {"is_subscribed": is_subscribed}
+    is_subscribed, count = database.toggle_subscription(subscriber_id, author_id)
+    return {"is_subscribed": is_subscribed, "subscribers_count": count}
 
 
 @app.get("/api/users/{author_id}/is_following")

@@ -413,27 +413,50 @@ def get_user_favorites(user_id: str, limit: int = 20) -> list:
 
 
 def toggle_subscription(subscriber_id: str, author_id: str) -> bool:
-    """Toggle subscription to an author. Returns True if subscribed, False if unsubscribed."""
+    """Toggle subscription to an author. Returns (is_subscribed, followers_count)."""
     if subscriber_id == author_id:
-        return False
+        return False, 0
     with _get_pg_connection() as conn:
         with conn.cursor() as cur:
+            # Check if interaction exists in interactions table
             cur.execute("""
-                SELECT 1 FROM public.subscriptions
-                WHERE subscriber_id = %s AND author_id = %s
+                SELECT 1 FROM public.interactions
+                WHERE user_id = %s AND entity_id = %s AND entity_type = 'user' AND interaction_type = 'follow'
             """, (subscriber_id, author_id))
+            
             if cur.fetchone():
+                # Remove follow
                 cur.execute("""
-                    DELETE FROM public.subscriptions
-                    WHERE subscriber_id = %s AND author_id = %s
+                    DELETE FROM public.interactions
+                    WHERE user_id = %s AND entity_id = %s AND entity_type = 'user' AND interaction_type = 'follow'
                 """, (subscriber_id, author_id))
-                return False
+                subscribed = False
             else:
+                # Add follow
                 cur.execute("""
-                    INSERT INTO public.subscriptions (subscriber_id, author_id)
-                    VALUES (%s, %s)
+                    INSERT INTO public.interactions (user_id, entity_id, entity_type, interaction_type)
+                    VALUES (%s, %s, 'user', 'follow')
                 """, (subscriber_id, author_id))
-                return True
+                subscribed = True
+            
+            # Recalculate counts
+            # 1. Update author's followers count
+            cur.execute("""
+                SELECT COUNT(*) FROM public.interactions 
+                WHERE entity_id = %s AND entity_type = 'user' AND interaction_type = 'follow'
+            """, (author_id,))
+            followers_count = cur.fetchone()[0]
+            cur.execute("UPDATE public.user_profiles SET followers_count = %s WHERE id = %s", (followers_count, author_id))
+            
+            # 2. Update subscriber's following count
+            cur.execute("""
+                SELECT COUNT(*) FROM public.interactions 
+                WHERE user_id = %s AND entity_type = 'user' AND interaction_type = 'follow'
+            """, (subscriber_id,))
+            following_count = cur.fetchone()[0]
+            cur.execute("UPDATE public.user_profiles SET following_count = %s WHERE id = %s", (following_count, subscriber_id))
+            
+            return subscribed, followers_count
 
 def is_following(subscriber_id: str, author_id: str) -> bool:
     """Check if user is following another user."""
@@ -442,8 +465,8 @@ def is_following(subscriber_id: str, author_id: str) -> bool:
     with _get_pg_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT 1 FROM public.subscriptions
-                WHERE subscriber_id = %s AND author_id = %s
+                SELECT 1 FROM public.interactions
+                WHERE user_id = %s AND entity_id = %s AND entity_type = 'user' AND interaction_type = 'follow'
             """, (subscriber_id, author_id))
             return cur.fetchone() is not None
 
@@ -454,9 +477,9 @@ def get_user_followers(user_id: str, limit: int = 50) -> list:
             cur.execute("""
                 SELECT up.id, up.username, up.display_name, up.avatar_url, up.bio, up.followers_count
                 FROM public.user_profiles up
-                JOIN public.subscriptions s ON up.id = s.subscriber_id
-                WHERE s.author_id = %s
-                ORDER BY s.created_at DESC
+                JOIN public.interactions i ON up.id = i.user_id
+                WHERE i.entity_id = %s AND i.entity_type = 'user' AND i.interaction_type = 'follow'
+                ORDER BY i.created_at DESC
                 LIMIT %s
             """, (user_id, limit))
             rows = cur.fetchall()
@@ -471,9 +494,9 @@ def get_user_following(user_id: str, limit: int = 50) -> list:
             cur.execute("""
                 SELECT up.id, up.username, up.display_name, up.avatar_url, up.bio, up.followers_count
                 FROM public.user_profiles up
-                JOIN public.subscriptions s ON up.id = s.author_id
-                WHERE s.subscriber_id = %s
-                ORDER BY s.created_at DESC
+                JOIN public.interactions i ON up.id = i.entity_id
+                WHERE i.user_id = %s AND i.entity_type = 'user' AND i.interaction_type = 'follow'
+                ORDER BY i.created_at DESC
                 LIMIT %s
             """, (user_id, limit))
             rows = cur.fetchall()
