@@ -38,7 +38,7 @@ export function SideRobot({ side, modelPath, progress }: SideRobotProps) {
   const { ref: inViewRef, inView } = useInView({
     triggerOnce: true,       // Keep Canvas alive once mounted
     threshold: 0.05,
-    rootMargin: '300px 0px', // Pre-mount before visible
+    rootMargin: '1000px 0px', // Pre-mount before visible
   });
 
   return (

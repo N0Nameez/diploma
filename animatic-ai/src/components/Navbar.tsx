@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/Button";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Moon, Sun, LogOut, User as UserIcon, Crown } from "lucide-react";
@@ -32,11 +32,21 @@ export function Navbar({
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const location = useLocation();
+  const navigate = useNavigate();
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  const handleHomeClick = (e: React.MouseEvent) => {
+    if (location.pathname === '/') {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   return (
     <nav
@@ -53,7 +63,11 @@ export function Navbar({
       >
         {/* Logo */}
         <div className="flex-none">
-          <Link to="/" className="font-tight font-bold text-xl lg:text-2xl flex items-center gap-1 tracking-tight no-underline bg-clip-text text-transparent bg-gradient-to-r from-[#EC4899] to-[#7C3AED]">
+          <Link 
+            to="/" 
+            onClick={handleHomeClick}
+            className="font-tight font-bold text-xl lg:text-2xl flex items-center gap-1 tracking-tight no-underline bg-clip-text text-transparent bg-gradient-to-r from-[#EC4899] to-[#7C3AED]"
+          >
               AnimaticAI
           </Link>
         </div>
@@ -62,7 +76,13 @@ export function Navbar({
         <div className="hidden lg:flex flex-1 justify-center">
           <div className="flex gap-8 items-center">
             {links.map((link) => (
-              <Button key={link.href} label={link.label} href={link.href} variant="link" />
+              <Button 
+                key={link.href} 
+                label={link.label} 
+                href={link.href} 
+                variant="link" 
+                onClick={link.href === '/' ? handleHomeClick : undefined}
+              />
             ))}
           </div>
         </div>

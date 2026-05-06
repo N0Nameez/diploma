@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 interface ButtonProps {
   label: string;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent) => void;
   variant?:
     | "primary"
     | "ghost"
@@ -61,7 +61,7 @@ export function Button({
 
   if (href) {
     return (
-      <Link to={href} className={classes}>
+      <Link to={href} className={classes} onClick={onClick}>
         {content}
       </Link>
     );

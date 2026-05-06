@@ -29,17 +29,18 @@ interface ExampleCardProps {
   index: number;
   total: number;
   progress: MotionValue<number>;
+  onCTA: () => void;
 }
 
 /**
  * Individual work example card with optional 3D model viewer.
  * On mobile, 3D is disabled for performance — only the image is shown.
  */
-function ExampleCard({ title, category, description, image, modelPath, index, total, progress }: ExampleCardProps) {
+function ExampleCard({ title, category, description, image, modelPath, index, total, progress, onCTA }: ExampleCardProps) {
   const { ref, inView } = useInView({
     threshold: 0.05,
     triggerOnce: true,       // Keep Canvas alive once mounted
-    rootMargin: '400px 0px', // Start mounting 400px before visible
+    rootMargin: '1200px 0px', // Start mounting 1200px before visible
   });
   
   const start = index / total;
@@ -119,7 +120,10 @@ function ExampleCard({ title, category, description, image, modelPath, index, to
         </p>
 
         <div className="flex items-center gap-6">
-          <button className="flex items-center gap-2 px-8 py-4 rounded-full bg-text-primary text-background-primary font-medium hover:bg-accent hover:text-white transition-all duration-300 group/btn">
+          <button 
+            onClick={onCTA}
+            className="flex items-center gap-2 px-8 py-4 rounded-full bg-text-primary text-background-primary font-medium hover:bg-accent hover:text-white transition-all duration-300 group/btn"
+          >
             Исследовать
             <ArrowUpRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1" />
           </button>
@@ -134,7 +138,7 @@ function ExampleCard({ title, category, description, image, modelPath, index, to
  * On desktop: interactive 3D models with orbit controls.
  * On mobile: static images only for performance.
  */
-export function WorkExamples() {
+export function WorkExamples({ onCTAAction }: { onCTAAction: () => void }) {
   const container = useRef<HTMLDivElement>(null);
   const examples = [
     {
@@ -198,6 +202,7 @@ export function WorkExamples() {
               index={i}
               total={examples.length}
               progress={scrollYProgress}
+              onCTA={onCTAAction}
               {...example}
             />
           ))}
