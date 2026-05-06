@@ -17,7 +17,7 @@ const SUBSCRIPTIONS = [
       'Экспорт в GLB',
       'Доступ к сообществу'
     ],
-    cta: 'Текущий план',
+    cta: 'Бесплатный старт',
     popular: false,
     disabled: true
   },
@@ -190,11 +190,11 @@ function PricingCard({
           <div style={{ transform: "translateZ(20px)" }}>
             <Button
               variant={isPopular ? 'hero-primary' : 'hero-secondary'}
-              label={loading === (plan.id || plan.label) ? '' : (plan.cta || (plan.name ? 'Выбрать' : 'Купить'))}
-              icon={loading === (plan.id || plan.label) ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+              label={plan.isCurrent ? 'Текущий план' : (loading === (plan.id || plan.label) ? '' : (plan.cta || (plan.name ? 'Выбрать' : 'Купить')))}
+              icon={plan.isCurrent ? <ShieldCheck className="w-4 h-4" /> : (loading === (plan.id || plan.label) ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />)}
               className="w-full justify-center py-4"
               onClick={() => onAction(plan)}
-              disabled={plan.disabled || loading === (plan.id || plan.label)}
+              disabled={plan.disabled || plan.isCurrent || loading === (plan.id || plan.label)}
             />
           </div>
         </div>
@@ -213,7 +213,7 @@ function PricingCard({
 }
 
 export function PricingPage({ onAuthClick }: { onAuthClick?: () => void }) {
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const [tab, setTab] = useState<'subs' | 'credits'>('subs');
   const [loading, setLoading] = useState<string | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -377,20 +377,25 @@ export function PricingPage({ onAuthClick }: { onAuthClick?: () => void }) {
             className="grid grid-cols-1 md:grid-cols-3 gap-8"
           >
             {tab === 'subs' ? (
-              SUBSCRIPTIONS.map((item, index) => (
-                <motion.div key={item.id} variants={itemVariants}>
-                  <PricingCard 
-                    index={index}
-                    isHovered={hoveredIndex === index}
-                    isAnyHovered={hoveredIndex !== null}
-                    onHover={setHoveredIndex}
-                    plan={item} 
-                    icon={item.id === 'pro' ? Crown : (item.id === 'studio' ? Mail : CreditCard)}
-                    onAction={handleAction} 
-                    loading={loading} 
-                  />
-                </motion.div>
-              ))
+              SUBSCRIPTIONS.map((item, index) => {
+                const currentStatus = profile?.subscription_status || 'starter';
+                const isCurrent = item.id.toLowerCase() === currentStatus.toLowerCase() || (item.id === 'starter' && currentStatus.toLowerCase() === 'free');
+                
+                return (
+                  <motion.div key={item.id} variants={itemVariants}>
+                    <PricingCard 
+                      index={index}
+                      isHovered={hoveredIndex === index}
+                      isAnyHovered={hoveredIndex !== null}
+                      onHover={setHoveredIndex}
+                      plan={{ ...item, isCurrent }} 
+                      icon={item.id === 'pro' ? Crown : (item.id === 'studio' ? Mail : CreditCard)}
+                      onAction={handleAction} 
+                      loading={loading} 
+                    />
+                  </motion.div>
+                );
+              })
             ) : (
               CREDIT_PACKS.map((item, index) => (
                 <motion.div key={item.id} variants={itemVariants}>
