@@ -291,7 +291,7 @@ async def contact_form(req: ContactRequest, background_tasks: BackgroundTasks):
 
 
 @app.post("/api/payments/webhook")
-async def yookassa_webhook(request: Request):
+async def yookassa_webhook(request: Request, background_tasks: BackgroundTasks):
     """Handle Yookassa payment notifications."""
     ip = request.client.host
     # TODO: Verify Yookassa IP ranges for security in production
