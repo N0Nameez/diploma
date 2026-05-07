@@ -117,6 +117,13 @@ class PaymentCreateRequest(BaseModel):
     plan_id: str | None = None
     description: str | None = None
 
+class SubscriptionCancelRequest(BaseModel):
+    user_id: str
+
+class SubscriptionAutoRenewRequest(BaseModel):
+    user_id: str
+    auto_renew: bool
+
 class ContactRequest(BaseModel):
     user_id: str | None = None
     email: str
@@ -131,8 +138,9 @@ def health_check():
     return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
 
 
-def send_purchase_confirmation(email: str, item_name: str, amount: int = None):
+def send_purchase_confirmation(email: str, item_name: str, credits_amount: int = None):
     """Send a confirmation email to the user after purchase."""
+    print(f"DEBUG EMAIL: Sending to {email}, item={item_name}, credits={credits_amount}")
     if not config.SMTP_USER or not config.SMTP_PASSWORD:
         return
 
@@ -140,12 +148,16 @@ def send_purchase_confirmation(email: str, item_name: str, amount: int = None):
         msg = MIMEMultipart()
         msg['From'] = config.SMTP_USER
         msg['To'] = email
-        msg['Subject'] = "Успешная оплата - AnimaticAI"
-
-        if amount:
-            text = f"Здравствуйте!\n\nВаш баланс успешно пополнен на {amount} кредитов.\nСпасибо, что выбираете AnimaticAI!"
+        
+        # If credits_amount is provided, it's a credit purchase
+        if credits_amount is not None:
+            msg['Subject'] = "Баланс пополнен - AnimaticAI"
+            text = f"Здравствуйте!\n\nВаш баланс успешно пополнен на {credits_amount} кредитов.\nТеперь вы можете продолжить создание потрясающих 3D-моделей!\n\nСпасибо, что выбираете AnimaticAI!"
         else:
-            text = f"Здравствуйте!\n\nВаша подписка {item_name} успешно активирована на 30 дней.\nТеперь вам доступны все PRO-возможности!"
+            # It's a subscription (Pro/Studio)
+            msg['Subject'] = "Подписка активирована - AnimaticAI"
+            text = f"Здравствуйте!\n\nВаша подписка ({item_name}) успешно активирована на 30 дней.\nВам стали доступны все PRO-возможности, включая высокополигональную генерацию и приоритет в очереди!\n\nЖелаем приятного творчества,\nКоманда AnimaticAI"
+
         
         msg.attach(MIMEText(text, 'plain'))
         server = smtplib.SMTP_SSL(config.SMTP_HOST, config.SMTP_PORT)
@@ -223,13 +235,15 @@ def get_user_credits(user_id: str):
     try:
         with database._get_pg_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT current_period_end FROM public.subscriptions WHERE user_id = %s AND status = 'active'", (user_id,))
+                cur.execute("SELECT current_period_end, auto_renew FROM public.subscriptions WHERE user_id = %s AND status = 'active'", (user_id,))
                 sub = cur.fetchone()
                 if sub:
                     from datetime import datetime, timezone
                     end_date = sub[0]
+                    auto_renew = sub[1]
                     days_left = (end_date - datetime.now(timezone.utc)).days
                     result["subscription_days_left"] = days_left
+                    result["subscription_auto_renew"] = auto_renew
                     if 0 <= days_left <= 1:
                         result["expiring_soon"] = True
     except:
@@ -324,8 +338,16 @@ async def yookassa_webhook(request: Request, background_tasks: BackgroundTasks):
                             cur.execute("SELECT email FROM auth.users WHERE id = %s", (user_id,))
                             row = cur.fetchone()
                             if row:
-                                background_tasks.add_task(send_purchase_confirmation, row[0], plan_id or "Кредиты", credits_amount if not plan_id else None)
-                except:
+                                # Subscriptions are 'pro' and 'studio'. Everything else is credits.
+                                is_sub = plan_id in ["pro", "studio"]
+                                background_tasks.add_task(
+                                    send_purchase_confirmation, 
+                                    email=row[0], 
+                                    item_name=plan_id or "Кредиты", 
+                                    credits_amount=(credits_amount if not is_sub else None)
+                                )
+                except Exception as e:
+                    print(f"WEBHOOK EMAIL NOTIFY ERROR: {e}")
                     pass
                     
                 return {"status": "ok"}
@@ -684,6 +706,26 @@ async def convert_model(model_id: str, format: str = Form(...)):
         raise HTTPException(status_code=500, detail=f"Conversion failed: {str(e)}")
 
 
+def prepare_profile_response(profile: dict) -> dict:
+    """Add calculated fields to profile response."""
+    if profile.get("subscription_end_date"):
+        try:
+            from datetime import datetime, timezone
+            end_date = profile["subscription_end_date"]
+            if isinstance(end_date, str):
+                end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            
+            # Ensure aware
+            if end_date.tzinfo is None:
+                end_date = end_date.replace(tzinfo=timezone.utc)
+                
+            days_left = (end_date - datetime.now(timezone.utc)).days
+            profile["subscription_days_left"] = days_left
+        except Exception as e:
+            print(f"Error calculating days left: {e}")
+    return profile
+
+
 @app.get("/api/users/{user_id}")
 def get_user_profile(user_id: str):
     """Get user profile."""
@@ -691,21 +733,7 @@ def get_user_profile(user_id: str):
     if not profile:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Add days left calculation
-    if profile.get("subscription_end_date"):
-        try:
-            from datetime import datetime, timezone
-            end_date = profile["subscription_end_date"]
-            if isinstance(end_date, str):
-                # Handle string format if necessary
-                end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-            
-            days_left = (end_date - datetime.now(timezone.utc)).days
-            profile["subscription_days_left"] = days_left
-        except Exception as e:
-            print(f"Error calculating days left: {e}")
-            
-    return profile
+    return prepare_profile_response(profile)
 
 
 @app.get("/api/users/{user_id}/generations")
@@ -764,7 +792,8 @@ def update_user(user_id: str, data: UserProfileUpdate):
     updated = database.update_user_profile(user_id, updates)
     if not updated:
         raise HTTPException(status_code=400, detail="Failed to update profile")
-    return updated
+    
+    return prepare_profile_response(updated)
 
 
 @app.get("/api/users/{user_id}/activity")
@@ -1095,6 +1124,54 @@ async def upload_cover(user_id: str, file: UploadFile = File(...)):
         return updated
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@app.post("/api/subscriptions/cancel")
+async def cancel_subscription(req: SubscriptionCancelRequest):
+    """Cancel subscription (set status to canceled)."""
+    try:
+        with database._get_pg_connection() as conn:
+            with conn.cursor() as cur:
+                # Update subscriptions table
+                cur.execute("""
+                    UPDATE public.subscriptions 
+                    SET status = 'canceled', auto_renew = false
+                    WHERE user_id = %s
+                """, (req.user_id,))
+                
+                # Update user profile auto_renew flag
+                cur.execute("""
+                    UPDATE public.user_profiles 
+                    SET subscription_auto_renew = false
+                    WHERE id = %s
+                """, (req.user_id,))
+        return {"status": "ok", "message": "Subscription canceled"}
+    except Exception as e:
+        print(f"CANCEL SUB ERROR: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/subscriptions/toggle-auto-renew")
+async def toggle_auto_renew(req: SubscriptionAutoRenewRequest):
+    """Toggle auto-renewal flag."""
+    try:
+        with database._get_pg_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE public.subscriptions 
+                    SET auto_renew = %s
+                    WHERE user_id = %s
+                """, (req.auto_renew, req.user_id))
+                
+                cur.execute("""
+                    UPDATE public.user_profiles 
+                    SET subscription_auto_renew = %s
+                    WHERE id = %s
+                """, (req.auto_renew, req.user_id))
+        return {"status": "ok", "auto_renew": req.auto_renew}
+    except Exception as e:
+        print(f"TOGGLE AUTO-RENEW ERROR: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

@@ -241,11 +241,13 @@ def update_model(model_id: str, author_id: str, updates: dict) -> dict | None:
             cur.execute(f"""
                 UPDATE public.models SET {set_clause}
                 WHERE id = %s AND author_id = %s
-                RETURNING id
+                RETURNING *
             """, params)
 
-            if cur.fetchone():
-                return get_model(model_id)
+            row = cur.fetchone()
+            if row:
+                cols = [desc[0] for desc in cur.description]
+                return dict(zip(cols, row))
             return None
 
 
@@ -538,11 +540,13 @@ def update_user_profile(user_id: str, updates: dict) -> dict | None:
             cur.execute(f"""
                 UPDATE public.user_profiles SET {set_clause}
                 WHERE id = %s
-                RETURNING id
+                RETURNING *
             """, params)
 
-            if cur.fetchone():
-                return get_user_profile(user_id)
+            row = cur.fetchone()
+            if row:
+                cols = [desc[0] for desc in cur.description]
+                return dict(zip(cols, row))
             return None
 
 
