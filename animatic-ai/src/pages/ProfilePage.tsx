@@ -295,8 +295,10 @@ export function ProfilePage() {
     try {
       const updated = await updateUserProfile(user.id, {
         cover_preset: presetId,
+        cover_url: null as any, // Clear uploaded photo when choosing preset
       });
       setProfile(updated);
+      setCoverKey((k) => k + 1); // Force re-render just in case
       setShowCoverModal(false);
       showToast("Обложка обновлена");
     } catch {
@@ -530,9 +532,9 @@ export function ProfilePage() {
   const sortedModels = getSortedModels();
 
   return (
-    <div className="pt-16 min-h-screen">
+    <div className="min-h-screen">
       {/* Cover */}
-      <div className="relative h-[240px] overflow-hidden">
+      <div className="relative h-[300px] overflow-hidden">
         <div
           className="w-full h-full relative overflow-hidden"
           style={
@@ -577,7 +579,7 @@ export function ProfilePage() {
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background-primary" />
         <button
           onClick={() => setShowCoverModal(true)}
-          className="absolute top-4 right-4 px-3.5 py-2 rounded-[9px] bg-black/45 backdrop-blur border border-white/15 text-white/80 text-xs font-semibold cursor-pointer hover:bg-black/65 hover:text-white transition-all duration-200 flex items-center gap-1.5"
+          className="absolute bottom-8 right-8 px-3.5 py-2 rounded-[9px] bg-black/45 backdrop-blur border border-white/15 text-white/80 text-xs font-semibold cursor-pointer hover:bg-black/65 hover:text-white transition-all duration-200 flex items-center gap-1.5"
         >
           <svg
             width="12"
@@ -642,6 +644,37 @@ export function ProfilePage() {
                   <line x1="12" y1="3" x2="12" y2="15" />
                 </svg>
                 Загрузить своё фото
+              </button>
+              <button
+                onClick={async () => {
+                  if (!user) return;
+                  try {
+                    const updated = await updateUserProfile(user.id, {
+                      cover_url: null as any,
+                      cover_preset: "default",
+                    });
+                    setProfile(updated);
+                    setShowCoverModal(false);
+                    showToast("Обложка удалена");
+                  } catch {
+                    showToast("Ошибка при удалении");
+                  }
+                }}
+                className="w-full py-2.5 rounded-xl bg-background-secondary border border-border text-red-500 hover:bg-red-500/10 transition-colors flex items-center justify-center gap-2"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M3 6h18" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+                Удалить обложку
               </button>
             </div>
             <button
@@ -1297,7 +1330,7 @@ export function ProfilePage() {
             URL.revokeObjectURL(coverCrop.image);
           }}
           onConfirm={handleCoverCropConfirm}
-          aspect={16 / 9}
+          aspect={5 / 1}
           title="Обложка"
         />
       )}

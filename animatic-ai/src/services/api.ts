@@ -286,7 +286,7 @@ export async function updateUserProfile(
     display_name?: string;
     bio?: string;
     avatar_url?: string;
-    cover_url?: string;
+    cover_url?: string | null;
     cover_preset?: string;
   },
 ) {
