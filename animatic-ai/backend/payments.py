@@ -79,29 +79,53 @@ def process_successful_payment(payment_id: str, user_id: str, credits_to_add: in
     # 3. Handle Subscription logic
     if plan_id in ["pro", "studio"]:
         try:
-            from datetime import datetime, timedelta
-            end_date = datetime.now() + timedelta(days=30)
+            from datetime import datetime, timedelta, timezone
+            
+            # Check existing subscription end date
+            current_end = None
+            with database._get_pg_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT current_period_end FROM public.subscriptions WHERE user_id = %s", (user_id,))
+                    row = cur.fetchone()
+                    if row:
+                        current_end = row[0]
+            
+            # If sub is still active, extend it. Otherwise, start from now.
+            now = datetime.now(timezone.utc)
+            if current_end:
+                # Ensure current_end is aware if it's not
+                if current_end.tzinfo is None:
+                    current_end = current_end.replace(tzinfo=timezone.utc)
+                
+                if current_end > now:
+                    end_date = current_end + timedelta(days=30)
+                else:
+                    end_date = now + timedelta(days=30)
+            else:
+                end_date = now + timedelta(days=30)
             
             with database._get_pg_connection() as conn:
                 with conn.cursor() as cur:
                     # Update or Insert subscription
                     cur.execute("""
-                        INSERT INTO public.subscriptions (user_id, plan_id, current_period_end, status)
-                        VALUES (%s, %s, %s, 'active')
+                        INSERT INTO public.subscriptions (user_id, plan_id, current_period_end, status, auto_renew)
+                        VALUES (%s, %s, %s, 'active', true)
                         ON CONFLICT (user_id) DO UPDATE 
                         SET plan_id = EXCLUDED.plan_id,
                             current_period_end = EXCLUDED.current_period_end,
-                            status = 'active'
+                            status = 'active',
+                            auto_renew = true
                     """, (user_id, plan_id, end_date))
                     
                     # Also update user profile status and end date
                     cur.execute("""
                         UPDATE public.user_profiles
                         SET subscription_status = %s,
-                            subscription_end_date = %s
+                            subscription_end_date = %s,
+                            subscription_auto_renew = true
                         WHERE id = %s
                     """, (plan_id, end_date, user_id))
-            print(f"SUBSCRIPTION UPDATED: User {user_id} is now {plan_id} until {end_date}")
+            print(f"SUBSCRIPTION UPDATED/EXTENDED: User {user_id} is now {plan_id} until {end_date}")
         except Exception as e:
             print(f"ERROR updating subscription: {e}")
     

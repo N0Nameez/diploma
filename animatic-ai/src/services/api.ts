@@ -243,6 +243,7 @@ export interface ApiUser {
   subscription_status?: string | null;
   subscription_end_date?: string | null;
   subscription_days_left?: number | null;
+  subscription_auto_renew?: boolean;
   created_at: string;
 }
 
@@ -452,7 +453,25 @@ export async function getUserCredits(userId: string) {
     reset_date: string | null;
     expiring_soon?: boolean;
     subscription_days_left?: number;
+    subscription_auto_renew?: boolean;
   }>(`/api/users/${userId}/credits`);
+}
+
+export async function cancelSubscription(userId: string) {
+  return api<{ status: string; message: string }>("/api/subscriptions/cancel", {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+export async function toggleAutoRenew(userId: string, autoRenew: boolean) {
+  return api<{ status: string; auto_renew: boolean }>(
+    "/api/subscriptions/toggle-auto-renew",
+    {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId, auto_renew: autoRenew }),
+    },
+  );
 }
 
 export async function deductCredits(userId: string, amount = 3) {
