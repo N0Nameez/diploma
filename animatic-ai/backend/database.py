@@ -11,14 +11,24 @@ def get_client() -> Client:
     return create_client(config.SUPABASE_URL, config.SUPABASE_SERVICE_KEY)
 
 
+from psycopg2 import pool
+
+_db_pool = None
+
+def _get_pool():
+    global _db_pool
+    if _db_pool is None:
+        if not config.SUPABASE_DB_URL:
+            raise RuntimeError("SUPABASE_DB_URL not set")
+        # 1 min, 10 max connections
+        _db_pool = pool.SimpleConnectionPool(1, 10, config.SUPABASE_DB_URL)
+    return _db_pool
+
 @contextmanager
 def _get_pg_connection():
-    """Get direct PostgreSQL connection (bypasses PostgREST cache)."""
-    if not config.SUPABASE_DB_URL:
-        raise RuntimeError(
-            "SUPABASE_DB_URL not set. Add it to .env (get from Supabase Dashboard -> Database -> Connection string -> Direct)"
-        )
-    conn = psycopg2.connect(config.SUPABASE_DB_URL)
+    """Get direct PostgreSQL connection from pool."""
+    p = _get_pool()
+    conn = p.getconn()
     try:
         yield conn
         conn.commit()
@@ -26,7 +36,7 @@ def _get_pg_connection():
         conn.rollback()
         raise
     finally:
-        conn.close()
+        p.putconn(conn)
 
 
 # ── Generation Requests ──
@@ -502,6 +512,8 @@ def get_user_following(user_id: str, limit: int = 50) -> list:
             rows = cur.fetchall()
             cols = [desc[0] for desc in cur.description]
             return [dict(zip(cols, row)) for row in rows]
+
+def update_user_profile(user_id: str, updates: dict) -> dict | None:
     """Update user profile fields."""
     with _get_pg_connection() as conn:
         with conn.cursor() as cur:

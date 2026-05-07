@@ -72,8 +72,15 @@ async def log_requests(request: Request, call_next):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=[
+        "https://animaticai.online",
+        "https://www.animaticai.online",
+        "https://animaticai.ru",
+        "https://www.animaticai.ru",
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -750,7 +757,7 @@ def update_user(user_id: str, data: UserProfileUpdate):
     if not profile:
         raise HTTPException(status_code=404, detail="User not found")
 
-    updates = data.model_dump(exclude_none=True)
+    updates = data.model_dump(exclude_unset=True)
     if not updates:
         return profile
 
@@ -1040,6 +1047,54 @@ def _run_generation(gen_id: str, user_id: str, image_path: str, style: str, temp
             shutil.rmtree(temp_dir, ignore_errors=True)
         except Exception:
             pass
+
+
+@app.post("/api/users/{user_id}/avatar")
+async def upload_avatar(user_id: str, file: UploadFile = File(...)):
+    """Upload user avatar and update profile."""
+    temp_dir = tempfile.mkdtemp()
+    try:
+        ext = os.path.splitext(file.filename)[1]
+        temp_path = os.path.join(temp_dir, f"avatar_{uuid.uuid4()}{ext}")
+        with open(temp_path, "wb") as f:
+            f.write(await file.read())
+        
+        # Upload to Supabase
+        destination = f"{user_id}/avatar{ext}"
+        public_url = storage.upload_file(config.BUCKET_AVATARS, temp_path, destination)
+        
+        if not public_url:
+            raise HTTPException(status_code=500, detail="Failed to upload avatar to storage")
+            
+        # Update DB
+        updated = database.update_user_profile(user_id, {"avatar_url": public_url})
+        return updated
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@app.post("/api/users/{user_id}/cover")
+async def upload_cover(user_id: str, file: UploadFile = File(...)):
+    """Upload user cover and update profile."""
+    temp_dir = tempfile.mkdtemp()
+    try:
+        ext = os.path.splitext(file.filename)[1]
+        temp_path = os.path.join(temp_dir, f"cover_{uuid.uuid4()}{ext}")
+        with open(temp_path, "wb") as f:
+            f.write(await file.read())
+        
+        # Upload to Supabase (using same avatars bucket or separate)
+        destination = f"{user_id}/cover{ext}"
+        public_url = storage.upload_file(config.BUCKET_AVATARS, temp_path, destination)
+        
+        if not public_url:
+            raise HTTPException(status_code=500, detail="Failed to upload cover to storage")
+            
+        # Update DB
+        updated = database.update_user_profile(user_id, {"cover_url": public_url})
+        return updated
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":
