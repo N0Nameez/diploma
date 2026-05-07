@@ -19,6 +19,8 @@ import {
   checkFollowing,
   fetchUserFollowers,
   fetchUserFollowing,
+  cancelSubscription,
+  toggleAutoRenew,
   type ApiModel,
   type ApiUser,
 } from "../services/api";
@@ -277,11 +279,9 @@ export function ProfilePage() {
         display_name: displayName,
         bio,
       });
-      // Reload full profile to get all fresh data
-      const freshProfile = await fetchUser(user.id);
-      setProfile(freshProfile);
-      setDisplayName(freshProfile.display_name || freshProfile.username || "");
-      setBio(freshProfile.bio || "");
+      setProfile(updated);
+      setDisplayName(updated.display_name || updated.username || "");
+      setBio(updated.bio || "");
       showToast("Профиль сохранён");
     } catch {
       showToast("Ошибка при сохранении");
@@ -291,7 +291,17 @@ export function ProfilePage() {
   };
 
   const handleCoverPreset = async (presetId: string) => {
-    if (!user) return;
+    if (!user || !profile) return;
+    
+    // Optimistic update
+    const oldProfile = profile;
+    setProfile({ 
+      ...profile, 
+      cover_preset: presetId, 
+      cover_url: null 
+    } as ApiUser);
+    setShowCoverModal(false);
+
     try {
       const updated = await updateUserProfile(user.id, {
         cover_preset: presetId,
@@ -299,9 +309,9 @@ export function ProfilePage() {
       });
       setProfile(updated);
       setCoverKey((k) => k + 1); // Force re-render just in case
-      setShowCoverModal(false);
       showToast("Обложка обновлена");
     } catch {
+      setProfile(oldProfile);
       showToast("Ошибка при обновлении");
     }
   };
@@ -629,7 +639,7 @@ export function ProfilePage() {
                   setShowCoverModal(false);
                   handleCoverClick();
                 }}
-                className="w-full py-2.5 rounded-xl bg-background-secondary border border-border text-text-primary hover:border-accent hover:text-accent transition-colors flex items-center justify-center gap-2"
+                className=" w-full py-2.5 rounded-xl bg-background-secondary border border-border text-text-primary hover:border-accent hover:text-accent transition-colors flex items-center justify-center gap-2"
               >
                 <svg
                   width="14"
@@ -647,20 +657,31 @@ export function ProfilePage() {
               </button>
               <button
                 onClick={async () => {
-                  if (!user) return;
+                  if (!user || !profile) return;
+                  const oldProfile = profile;
+                  
+                  // Optimistic update
+                  setProfile({
+                    ...profile,
+                    cover_url: null,
+                    cover_preset: "default"
+                  } as ApiUser);
+                  setShowCoverModal(false);
+
                   try {
                     const updated = await updateUserProfile(user.id, {
                       cover_url: null as any,
                       cover_preset: "default",
                     });
                     setProfile(updated);
-                    setShowCoverModal(false);
+                    setCoverKey((k) => k + 1);
                     showToast("Обложка удалена");
                   } catch {
+                    setProfile(oldProfile);
                     showToast("Ошибка при удалении");
                   }
                 }}
-                className="w-full py-2.5 rounded-xl bg-background-secondary border border-border text-red-500 hover:bg-red-500/10 transition-colors flex items-center justify-center gap-2"
+                className="mt-4 w-full py-2.5 rounded-xl bg-background-secondary border border-border text-red-500 hover:bg-red-500/10 transition-colors flex items-center justify-center gap-2"
               >
                 <svg
                   width="14"
@@ -1057,7 +1078,7 @@ export function ProfilePage() {
               ) : (
                 <div className="text-center py-16 text-text-secondary">
                   <div className="text-4xl mb-3">
-                    <Users className="w-10 h-10 mx-auto rotate-180" />
+                    <Users className="w-10 h-10 mx-auto" />
                   </div>
                   <div className="text-lg font-medium text-text-primary mb-1">
                     Пока нет подписок
@@ -1172,19 +1193,70 @@ export function ProfilePage() {
               </div>
 
               {p.subscription_end_date ? (
-                <div className="space-y-3">
-                  <div className="h-1.5 w-full bg-background-secondary rounded-full overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-1000 ${p.subscription_days_left !== undefined && p.subscription_days_left !== null && p.subscription_days_left < 3 ? 'bg-danger' : 'bg-accent'}`}
-                      style={{ width: `${Math.min(100, (((p.subscription_days_left ?? 0)) / 30) * 100)}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between items-end">
-                    <div className="text-[11px] text-text-secondary leading-tight">
-                      До {new Date(p.subscription_end_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="h-1.5 w-full bg-background-secondary rounded-full overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-1000 ${p.subscription_days_left !== undefined && p.subscription_days_left !== null && p.subscription_days_left < 3 ? 'bg-danger' : 'bg-accent'}`}
+                        style={{ width: `${Math.min(100, (((p.subscription_days_left ?? 0)) / 30) * 100)}%` }}
+                      />
                     </div>
-                    <div className={`text-[11px] font-bold ${p.subscription_days_left !== undefined && p.subscription_days_left !== null && p.subscription_days_left < 3 ? 'text-danger' : 'text-text-muted'}`}>
-                      {p.subscription_days_left} дн. осталось
+                    <div className="flex justify-between items-end">
+                      <div className="text-[11px] text-text-secondary leading-tight">
+                        До {new Date(p.subscription_end_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+                      </div>
+                      <div className={`text-[11px] font-bold ${p.subscription_days_left !== undefined && p.subscription_days_left !== null && p.subscription_days_left < 3 ? 'text-danger' : 'text-text-muted'}`}>
+                        {p.subscription_days_left} дн. осталось
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Management Controls */}
+                  <div className="pt-2 border-t border-border/50 flex flex-col gap-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="text-[11px] font-semibold text-text-secondary">Автопродление</div>
+                      <button
+                        onClick={async () => {
+                          if (!user) return;
+                          try {
+                            const newAutoRenew = !p.subscription_auto_renew;
+                            await toggleAutoRenew(user.id, newAutoRenew);
+                            setProfile({ ...p, subscription_auto_renew: newAutoRenew });
+                            showToast(newAutoRenew ? "Автопродление включено" : "Автопродление выключено");
+                          } catch (err) {
+                            showToast("Ошибка при изменении автопродления");
+                          }
+                        }}
+                        className={`w-9 h-5 rounded-full p-1 transition-colors duration-200 flex items-center ${p.subscription_auto_renew ? 'bg-accent justify-end' : 'bg-background-secondary border border-border justify-start'}`}
+                      >
+                        <div className="w-3 h-3 rounded-full bg-white shadow-sm" />
+                      </button>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        label="Продлить"
+                        variant="primary"
+                        className="flex-1 h-8 text-[10px]"
+                        onClick={() => navigate('/pricing')}
+                      />
+                      <button
+                        onClick={async () => {
+                          if (!user) return;
+                          if (!window.confirm("Вы уверены, что хотите отменить подписку? Она останется активной до конца оплаченного периода.")) return;
+                          try {
+                            await cancelSubscription(user.id);
+                            const fresh = await fetchUser(user.id);
+                            setProfile(fresh);
+                            showToast("Подписка отменена");
+                          } catch (err) {
+                            showToast("Ошибка при отмене подписки");
+                          }
+                        }}
+                        className="flex-1 h-8 rounded-[9px] bg-background-secondary border border-border text-[10px] font-bold text-text-muted hover:text-red-500 hover:border-red-500/30 transition-all"
+                      >
+                        Отменить
+                      </button>
                     </div>
                   </div>
                 </div>
