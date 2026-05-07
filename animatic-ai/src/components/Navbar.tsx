@@ -99,7 +99,7 @@ export function Navbar({
 
           {user ? (
             <div className="flex items-center gap-4">
-              {profile?.subscription_status ? (
+              {profile?.subscription_status && ['pro', 'studio'].includes(profile.subscription_status.toLowerCase()) ? (
                 <Link
                   to="/profile"
                   className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] bg-accent/10 border border-accent/20 text-accent hover:bg-accent/20 transition-all duration-200"
@@ -220,7 +220,7 @@ export function Navbar({
                       <span className="text-xs text-text-muted">{user.email}</span>
                     </div>
                   </Link>
-                  {profile?.subscription_status ? (
+                  {profile?.subscription_status && ['pro', 'studio'].includes(profile.subscription_status.toLowerCase()) ? (
                     <Link
                       to="/profile"
                       onClick={() => setMobileMenuOpen(false)}

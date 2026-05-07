@@ -57,9 +57,9 @@ const SUBSCRIPTIONS = [
 ];
 
 const CREDIT_PACKS = [
-  { id: 'small', credits: 50, price: '99', label: 'Базовый', description: 'Для разовых генераций', features: ['Без срока действия', 'Любые генерации'] },
-  { id: 'medium', credits: 200, price: '299', label: 'Популярный', description: 'Лучший выбор для творчества', popular: true, features: ['Без срока действия', 'Любые генерации'] },
-  { id: 'large', credits: 1000, price: '999', label: 'Профи', description: 'Для тех, кто создаёт много', features: ['Без срока действия', 'Любые генерации'] },
+  { id: 'small', credits: 50, price: '99', label: '50 Кредитов', description: 'Идеально для разового проекта', features: ['Без срока действия', 'Доступ ко всем моделям'] },
+  { id: 'medium', credits: 200, price: '299', label: '200 Кредитов', description: 'Для активного творчества', popular: true, features: ['Без срока действия', 'Приоритетная генерация'] },
+  { id: 'large', credits: 1000, price: '999', label: '1000 Кредитов', description: 'Лучшая цена за кредит', features: ['Без срока действия', 'Безлимитный экспорт'] },
 ];
 
 interface PricingCardProps {
@@ -161,9 +161,14 @@ function PricingCard({
             </div>
           </div>
 
-          <h3 className="font-tight text-[24px] font-medium mb-2 text-text group-hover:text-accent transition-colors">
+          <h3 className="font-tight text-[24px] font-medium mb-1 text-text group-hover:text-accent transition-colors">
             {plan.name || plan.label || `${plan.credits} Кредитов`}
           </h3>
+          {!isSubscription && (
+            <p className="text-[10px] font-bold text-accent uppercase tracking-widest mb-2 opacity-80">
+              Единоразовый пакет
+            </p>
+          )}
           
           <div className="flex items-baseline gap-1 mb-4">
             <span className="text-[44px] font-tight font-medium text-text">
