@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/Button";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
@@ -34,6 +34,8 @@ export function Navbar({
 
   const location = useLocation();
   const navigate = useNavigate();
+
+  const avatarBuster = useMemo(() => Date.now(), [profile?.avatar_url, profile?.updated_at]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -123,9 +125,9 @@ export function Navbar({
                 className="flex items-center gap-2 px-3 py-1.5 rounded-[10px] bg-background-secondary border border-border hover:border-accent transition-all duration-200"
               >
                 <div className="w-6 h-6 rounded-full bg-accent flex items-center justify-center text-white text-[10px] font-bold overflow-hidden">
-                  {(user.user_metadata?.avatar_url || user.user_metadata?.picture) ? (
+                  {profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture ? (
                     <img 
-                      src={user.user_metadata.avatar_url || user.user_metadata.picture} 
+                      src={`${profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture}?v=${avatarBuster}`} 
                       alt="Avatar" 
                       className="w-full h-full object-cover"
                     />
@@ -203,9 +205,9 @@ export function Navbar({
                     className="flex items-center gap-3 p-3 rounded-xl bg-background-surface border border-border"
                   >
                     <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-white font-bold overflow-hidden">
-                      {(user.user_metadata?.avatar_url || user.user_metadata?.picture) ? (
+                      {profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture ? (
                         <img 
-                          src={user.user_metadata.avatar_url || user.user_metadata.picture} 
+                          src={`${profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture}?v=${avatarBuster}`} 
                           alt="Avatar" 
                           className="w-full h-full object-cover"
                         />

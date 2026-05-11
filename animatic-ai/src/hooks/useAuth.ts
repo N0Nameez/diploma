@@ -1,6 +1,7 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import { fetchUser } from "../services/api";
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -33,17 +34,36 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, []);
 
+  const refreshProfile = useCallback(async () => {
+    if (!userIdRef.current) return;
+    try {
+      const data = await fetchUser(userIdRef.current);
+      if (data) setProfile(data);
+      return data;
+    } catch (err) {
+      console.error("Failed to refresh profile via API", err);
+      // Fallback to Supabase if API is down
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', userIdRef.current)
+        .single();
+      if (data) setProfile(data);
+      return data;
+    }
+  }, []);
+
+  // Listen for global profile refresh events
+  useEffect(() => {
+    const handleRefresh = () => refreshProfile();
+    window.addEventListener('profile-refresh', handleRefresh);
+    return () => window.removeEventListener('profile-refresh', handleRefresh);
+  }, [refreshProfile]);
+
   // Fetch profile when user changes
   useEffect(() => {
     if (user) {
-      supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-        .then(({ data }) => {
-          setProfile(data);
-        });
+      refreshProfile();
     } else {
       setProfile(null);
     }
@@ -116,5 +136,5 @@ export function useAuth() {
     return { error };
   };
 
-  return { user, profile, loading, signUp, signIn, signOut, resetPassword, updatePassword, resendEmail, signInWithOAuth };
+  return { user, profile, loading, signUp, signIn, signOut, resetPassword, updatePassword, resendEmail, signInWithOAuth, refreshProfile };
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { supabase } from "@/lib/supabase";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/Button";
 import ModelCard from "../components/ModelCard";
@@ -10,6 +11,7 @@ import {
   fetchUser,
   fetchUserModels,
   fetchUserFavorites,
+  fetchUserLikedModels,
   fetchUserActivity,
   updateUserProfile,
   updateModel,
@@ -27,26 +29,23 @@ import {
 import {
   Folder,
   Heart,
-  Play,
+  Bookmark,
   Settings,
   User,
-  Package,
-  Clapperboard,
   Calendar,
   Zap,
   Edit,
   Lock,
-  BarChart3,
   Users,
-  Check,
-  Search,
   Gem,
   Download,
   ShieldCheck,
   CreditCard,
 } from "lucide-react";
 
-type TabId = "models" | "anims" | "liked" | "followers" | "following" | "settings";
+type TabId = "models" | "favorites" | "liked" | "social" | "settings";
+type ModelsFilter = "all" | "free_use" | "view_only" | "private";
+type SocialTab = "followers" | "following";
 
 const COVER_PRESETS = [
   {
@@ -94,11 +93,13 @@ const ITEMS_PER_PAGE = 6;
  */
 export function ProfilePage() {
   const { id } = useParams<{ id: string }>();
-  const { user, signOut } = useAuth();
+  const { user, profile: authProfile, signOut, refreshProfile } = useAuth();
   const targetId = id || user?.id;
   const isOwner = !id || id === user?.id;
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabId>("models");
+  const [modelsFilter, setModelsFilter] = useState<ModelsFilter>("all");
+  const [socialTab, setSocialTab] = useState<SocialTab>("followers");
   const [modelFilter, setModelFilter] = useState<string>("Все");
   const [modelSort, setModelSort] = useState<string>("Новые сначала");
   const [currentPage, setCurrentPage] = useState(1);
@@ -122,13 +123,14 @@ export function ProfilePage() {
   const [uploadingCover, setUploadingCover] = useState(false);
 
   // Cache-busting keys — обновляются только при реальной загрузке
-  const [avatarKey, setAvatarKey] = useState(0);
-  const [coverKey, setCoverKey] = useState(0);
+  const [avatarKey, setAvatarKey] = useState(Date.now());
+  const [coverKey, setCoverKey] = useState(Date.now());
 
   // Real data
   const [profile, setProfile] = useState<ApiUser | null>(null);
   const [userModels, setUserModels] = useState<ApiModel[]>([]);
   const [userFavorites, setUserFavorites] = useState<ApiModel[]>([]);
+  const [userLikedModels, setUserLikedModels] = useState<ApiModel[]>([]);
   const [userFollowers, setUserFollowers] = useState<ApiUser[]>([]);
   const [userFollowing, setUserFollowing] = useState<ApiUser[]>([]);
   const [activity, setActivity] = useState<{
@@ -137,6 +139,9 @@ export function ProfilePage() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [emailInput, setEmailInput] = useState(user?.email || "");
+  const [changingEmail, setChangingEmail] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   // Settings form
   const [displayName, setDisplayName] = useState("");
@@ -212,12 +217,16 @@ export function ProfilePage() {
       .catch(() => setUserModels([]));
   }, [targetId, activeTab]);
 
-  // Load favorites immediately (not just on tab switch)
+  // Load favorites and liked immediately
   useEffect(() => {
     if (!targetId) return;
     fetchUserFavorites(targetId, 50)
       .then((res) => setUserFavorites(res.items))
       .catch(() => setUserFavorites([]));
+    
+    fetchUserLikedModels(targetId, 50)
+      .then((res) => setUserLikedModels(res.items))
+      .catch(() => setUserLikedModels([]));
   }, [targetId]);
 
   // Load activity
@@ -230,19 +239,19 @@ export function ProfilePage() {
 
   // Load followers
   useEffect(() => {
-    if (!targetId || activeTab !== "followers") return;
+    if (!targetId || activeTab !== "social" || socialTab !== "followers") return;
     fetchUserFollowers(targetId)
       .then(res => setUserFollowers(res.items))
       .catch(() => setUserFollowers([]));
-  }, [targetId, activeTab]);
+  }, [targetId, activeTab, socialTab]);
 
   // Load following
   useEffect(() => {
-    if (!targetId || activeTab !== "following") return;
+    if (!targetId || activeTab !== "social" || socialTab !== "following") return;
     fetchUserFollowing(targetId)
       .then(res => setUserFollowing(res.items))
       .catch(() => setUserFollowing([]));
-  }, [targetId, activeTab]);
+  }, [targetId, activeTab, socialTab]);
 
   const handleToggleFollow = async () => {
     if (!user || !targetId) return;
@@ -268,6 +277,37 @@ export function ProfilePage() {
       setFollowersCount(previousFollowersCount);
       console.error("Follow error:", err);
       showToast("Ошибка при подписке");
+    }
+  };
+
+  const handleEmailChange = async () => {
+    if (!user || !emailInput || emailInput === user.email) return;
+    setChangingEmail(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ email: emailInput });
+      if (error) throw error;
+      showToast("Письмо с подтверждением отправлено на оба адреса");
+    } catch (err: any) {
+      console.error("Email change error:", err);
+      showToast(err.message || "Ошибка при смене почты");
+    } finally {
+      setChangingEmail(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!user?.email) return;
+    setResettingPassword(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/profile?tab=settings`,
+      });
+      if (error) throw error;
+      showToast("Ссылка для сброса пароля отправлена на почту");
+    } catch (err: any) {
+      showToast("Ошибка при отправке ссылки");
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -333,10 +373,16 @@ export function ProfilePage() {
       try {
         const file = new File([blob], "avatar.png", { type: "image/png" });
         await uploadAvatar(user.id, file);
-        // Refetch profile to ensure we have the latest data
-        const freshProfile = await fetchUser(user.id);
-        setProfile(freshProfile);
-        setAvatarKey((k) => k + 1); // Update cache-busting key
+        
+        // Refresh global profile state and local profile
+        const fresh = await refreshProfile();
+        if (fresh) {
+          setProfile(fresh);
+          // Sync with Navbar and other components using useAuth
+          window.dispatchEvent(new CustomEvent('profile-refresh'));
+        }
+        
+        setAvatarKey(Date.now()); // Update cache-busting key
         showToast("Аватарка обновлена");
       } catch (err) {
         showToast("Ошибка при загрузке аватарки");
@@ -365,9 +411,13 @@ export function ProfilePage() {
       try {
         const file = new File([blob], "cover.png", { type: "image/png" });
         await uploadCover(user.id, file);
-        const freshProfile = await fetchUser(user.id);
-        setProfile(freshProfile);
-        setCoverKey((k) => k + 1); // Update cache-busting key
+        const fresh = await refreshProfile();
+        if (fresh) {
+          setProfile(fresh);
+          // Sync with Navbar and other components using useAuth
+          window.dispatchEvent(new CustomEvent('profile-refresh'));
+        }
+        setCoverKey(Date.now()); // Update cache-busting key
         showToast("Обложка обновлена");
       } catch (err) {
         showToast("Ошибка при загрузке обложки");
@@ -397,8 +447,8 @@ export function ProfilePage() {
           (m) => m.status === "approved" && m.license !== "private",
         )
         : userModels.filter((m) => {
-          if (modelFilter === "Черновики")
-            return m.status === "draft" || m.license === "private";
+          if (modelFilter === "Приватные")
+            return m.license === "private";
           return true;
         });
     switch (modelSort) {
@@ -417,8 +467,8 @@ export function ProfilePage() {
   };
 
   // Check if there are drafts/private models
-  const hasDrafts = userModels.some(
-    (m) => m.status === "draft" || m.license === "private",
+  const hasPrivate = userModels.some(
+    (m) => m.license === "private",
   );
 
   if (!user) {
@@ -459,7 +509,9 @@ export function ProfilePage() {
     : undefined;
   const avatarSrc = p?.avatar_url
     ? `${p.avatar_url}?v=${avatarKey}`
-    : (user?.user_metadata?.avatar_url || user?.user_metadata?.picture);
+    : (user?.user_metadata?.avatar_url || user?.user_metadata?.picture) 
+      ? `${user?.user_metadata?.avatar_url || user?.user_metadata?.picture}?v=${avatarKey}`
+      : undefined;
 
   // Activity helpers
   const formatDateAgo = (dateStr: string | null) => {
@@ -780,7 +832,7 @@ export function ProfilePage() {
             { num: p?.models_count ?? 0, lbl: "Модели" },
             { num: p?.animations_count ?? 0, lbl: "Анимации" },
             { num: followersCount, lbl: "Подписчики" },
-            { num: p?.total_rating ?? 0, lbl: "Рейтинг" },
+            { num: p?.total_downloads ?? 0, lbl: "Скачивания" },
           ].map((stat, i) => (
             <div
               key={i}
@@ -802,294 +854,263 @@ export function ProfilePage() {
         {/* Left */}
         <div className="min-w-0">
           {/* Tabs */}
-          <div className="flex gap-0.5 bg-background-surface border border-border rounded-[14px] p-1 mb-5">
+          {/* Tabs */}
+          <div className="flex gap-2 bg-background-surface border border-border rounded-[20px] p-2 mb-8 shadow-sm">
             {[
               {
                 id: "models" as TabId,
                 label: (
                   <>
-                    <Folder className="w-4 h-4" /> Модели
+                    <Folder className="w-4 h-4" /> Работы
                   </>
                 ),
-                count: userModels.filter(
-                  (m) => m.status === "approved" && m.license !== "private",
-                ).length,
               },
               {
-                id: "anims" as TabId,
+                id: "favorites" as TabId,
                 label: (
                   <>
-                    <Play className="w-4 h-4" /> Анимации
+                    <Bookmark className="w-4 h-4" /> Избранное
                   </>
                 ),
-                count: 0,
               },
               {
                 id: "liked" as TabId,
                 label: (
                   <>
-                    <Heart className="w-4 h-4" /> Избранное
+                    <Heart className="w-4 h-4" /> Понравилось
                   </>
                 ),
-                count: userFavorites.length,
               },
               {
-                id: "followers" as TabId,
+                id: "social" as TabId,
                 label: (
                   <>
-                    <Users className="w-4 h-4" /> Подписчики
+                    <Users className="w-4 h-4" /> Сообщество
                   </>
                 ),
-                count: followersCount,
               },
-              {
-                id: "following" as TabId,
-                label: (
-                  <>
-                    <Users className="w-4 h-4" /> Подписки
-                  </>
-                ),
-                count: activeTab === "following" ? userFollowing.length : (p?.following_count ?? 0),
-              },
-              ...(isOwner ? [{
-                id: "settings" as TabId,
-                label: (
-                  <>
-                    <Settings className="w-4 h-4" /> Настройки
-                  </>
-                ),
-              }] : []),
+              ...(isOwner
+                ? [
+                    {
+                      id: "settings" as TabId,
+                      label: (
+                        <>
+                          <Settings className="w-4 h-4" /> Настройки
+                        </>
+                      ),
+                    },
+                  ]
+                : []),
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 py-2.5 rounded-[10px] text-sm font-semibold cursor-pointer border-none flex items-center justify-center gap-2 transition-all duration-200 ${activeTab === tab.id ? "bg-accent text-white shadow-[0_3px_12px_var(--accent-glow)]" : "text-text-secondary hover:text-text-primary hover:bg-background-secondary"}`}
+                className={`flex-1 flex items-center justify-center gap-3 px-6 py-3.5 rounded-[14px] text-sm font-black transition-all duration-300 whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? "bg-accent text-white shadow-xl shadow-accent/25 scale-[1.02]"
+                    : "text-text-secondary hover:bg-background-secondary hover:text-text-primary"
+                }`}
               >
                 {tab.label}
-                {"count" in tab && tab.count !== undefined && (
-                  <span
-                    className={`rounded-full px-1.5 py-0.5 text-[11px] ${activeTab === tab.id ? "bg-white/20" : "bg-background-surface text-text-muted"}`}
-                  >
-                    {tab.count}
-                  </span>
-                )}
               </button>
             ))}
           </div>
 
           {/* Models */}
           {activeTab === "models" && (
-            <div>
-              <div className="flex gap-2 mb-5 flex-wrap items-center">
-                {["Все", "Черновики"]
-                  .filter((f) => f !== "Черновики" || hasDrafts)
-                  .map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => setModelFilter(f)}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer border transition-all duration-200 ${modelFilter === f ? "bg-accent text-white border-accent" : "bg-transparent border-border text-text-secondary hover:bg-accent hover:text-white hover:border-accent"}`}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                <select
-                  value={modelSort}
-                  onChange={(e) => setModelSort(e.target.value)}
-                  className="ml-auto px-3 py-1.5 rounded-[9px] bg-background-secondary border border-border text-text-primary text-xs cursor-pointer outline-none"
-                >
-                  <option>Новые сначала</option>
-                  <option>По лайкам</option>
-                  <option>По скачиваниям</option>
-                </select>
-              </div>
-              {sortedModels.length > 0 ? (
-                <>
-                  <div
-                    className="grid gap-[18px]"
-                    style={{ gridTemplateColumns: "repeat(3, 1fr)" }}
+            <div className="space-y-6">
+              {/* Sub-filters */}
+              <div className="flex items-center gap-2 border-b border-border pb-4 overflow-x-auto no-scrollbar">
+                {[
+                  { id: "all", label: "Все", count: userModels.length },
+                  { id: "free_use", label: "Free Use", count: userModels.filter(m => m.status === 'approved' && m.license === 'free_use').length },
+                  { id: "view_only", label: "Only Watch", count: userModels.filter(m => m.status === 'approved' && m.license === 'view_only').length },
+                  { id: "private", label: "Приватные", count: userModels.filter(m => m.status === 'approved' && m.license === 'private').length },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setModelsFilter(f.id as ModelsFilter)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
+                      modelsFilter === f.id
+                        ? "bg-accent/10 text-accent border border-accent/20"
+                        : "text-text-secondary hover:text-text-primary border border-transparent"
+                    }`}
                   >
-                    {sortedModels
-                      .slice(
-                        (currentPage - 1) * ITEMS_PER_PAGE,
-                        currentPage * ITEMS_PER_PAGE,
-                      )
-                      .map((m) => (
-                        <div key={m.id} className="relative group">
-                          <ModelCard model={m} />
-                          {m.license === "private" && (
-                            <div className="absolute top-10 left-3 px-2 py-0.5 rounded-md bg-yellow-500/12 text-yellow-500 border border-yellow-500/25 text-[10px] font-bold z-10 flex items-center gap-1">
-                              <Lock className="w-3 h-3" /> Приватная
-                            </div>
-                          )}
+                    {f.id === 'private' && <Lock className="w-3 h-3" />}
+                    {f.label}
+                    <span className="opacity-50 text-[10px]">{f.count}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {userModels
+                  .filter((m) => {
+                    if (modelsFilter === "free_use") return m.status === "approved" && m.license === "free_use";
+                    if (modelsFilter === "view_only") return m.status === "approved" && m.license === "view_only";
+                    if (modelsFilter === "private") return m.status === "approved" && m.license === "private";
+                    return true;
+                  })
+                  .map((model) => (
+                    <div key={model.id} className="relative group">
+                      <ModelCard model={model} />
+                      {model.license === "private" && (
+                        <div className="absolute top-10 left-3 px-2 py-0.5 rounded-md bg-yellow-500/12 text-yellow-500 border border-yellow-500/25 text-[10px] font-bold z-10 flex items-center gap-1">
+                          <Lock className="w-3 h-3" /> Приватная
                         </div>
-                      ))}
-                  </div>
-                  <Pagination
-                    currentPage={currentPage}
-                    totalPages={Math.ceil(sortedModels.length / ITEMS_PER_PAGE)}
-                    onPageChange={setCurrentPage}
-                  />
-                </>
-              ) : (
-                <div className="text-center py-16 text-text-secondary">
-                  <div className="text-4xl mb-3">
-                    <Package className="w-10 h-10 mx-auto" />
-                  </div>
-                  <div className="text-lg font-medium text-text-primary mb-1">
-                    Пока нет моделей
-                  </div>
-                  <Button
-                    label="Создать модель"
-                    variant="primary"
-                    onClick={() => navigate("/generation")}
-                    className="mt-4"
-                  />
+                      )}
+                    </div>
+                  ))}
+              </div>
+
+              {userModels.length === 0 && (
+                <div className="text-center py-20 bg-background-surface/50 border-2 border-dashed border-border rounded-3xl">
+                  <div className="text-4xl mb-4">✨</div>
+                  <p className="text-text-secondary font-medium">Здесь пока пусто</p>
                 </div>
               )}
             </div>
           )}
 
-          {/* Animations */}
-          {activeTab === "anims" && (
-            <div className="text-center py-16 text-text-secondary">
-              <div className="text-4xl mb-3">
-                <Clapperboard className="w-10 h-10 mx-auto" />
+          {/* Favorites */}
+          {activeTab === "favorites" && (
+            <div className="space-y-6">
+              <div className="font-extrabold text-lg flex items-center gap-2">
+                <Bookmark className="w-5 h-5 text-pink-500" /> Избранные модели
               </div>
-              <div className="text-lg font-medium text-text-primary mb-1">
-                Пока нет анимаций
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {userFavorites.map((model) => (
+                  <ModelCard key={model.id} model={model} />
+                ))}
               </div>
+              {userFavorites.length === 0 && (
+                <div className="text-center py-20 bg-background-surface/50 border-2 border-dashed border-border rounded-3xl">
+                  <div className="text-4xl mb-4">❤️</div>
+                  <p className="text-text-secondary font-medium">Вы еще ничего не добавили в избранное</p>
+                </div>
+              )}
             </div>
           )}
 
           {/* Liked */}
           {activeTab === "liked" && (
-            <div>
-              {userFavorites.length > 0 ? (
-                <div
-                  className="grid gap-[18px]"
-                  style={{
-                    gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))",
-                  }}
+            <div className="space-y-6">
+              <div className="font-extrabold text-lg flex items-center gap-2">
+                <Heart className="w-5 h-5 text-accent" /> Понравившиеся
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {userLikedModels.map((model) => (
+                  <ModelCard key={model.id} model={model} />
+                ))}
+              </div>
+              {userLikedModels.length === 0 && (
+                <div className="text-center py-20 bg-background-surface/50 border-2 border-dashed border-border rounded-3xl">
+                  <div className="text-4xl mb-4">👍</div>
+                  <p className="text-text-secondary font-medium">Вы еще не ставили лайки моделям</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Social */}
+          {activeTab === "social" && (
+            <div className="space-y-6">
+              {/* Social Sub-tabs */}
+              <div className="flex gap-6 border-b border-border pb-4">
+                <button
+                  onClick={() => setSocialTab("followers")}
+                  className={`text-sm font-bold transition-all relative pb-4 ${
+                    socialTab === "followers" ? "text-accent" : "text-text-secondary hover:text-text-primary"
+                  }`}
                 >
-                  {userFavorites.map((m) => (
-                    <ModelCard key={m.id} model={m} />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-16 text-textSecondary">
-                  <div className="text-4xl mb-3">
-                    <Heart className="w-10 h-10 mx-auto" />
-                  </div>
-                  <div className="text-lg font-medium text-text mb-1">
-                    Пока нет избранных моделей
-                  </div>
-                  <Button
-                    label="Перейти в каталог"
-                    variant="primary"
-                    onClick={() => navigate("/models")}
-                    className="mt-4"
-                  />
+                  Подписчики <span className="ml-1 opacity-50">{followersCount}</span>
+                  {socialTab === "followers" && <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-accent" />}
+                </button>
+                <button
+                  onClick={() => setSocialTab("following")}
+                  className={`text-sm font-bold transition-all relative pb-4 ${
+                    socialTab === "following" ? "text-accent" : "text-text-secondary hover:text-text-primary"
+                  }`}
+                >
+                  Подписки <span className="ml-1 opacity-50">{userFollowing.length}</span>
+                  {socialTab === "following" && <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-accent" />}
+                </button>
+              </div>
+
+              {socialTab === "followers" && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {userFollowers.length > 0 ? (
+                    userFollowers.map((f) => (
+                      <Link
+                        key={f.id}
+                        to={`/profile/${f.id}`}
+                        className="flex items-center gap-4 p-4 bg-background-surface border border-border rounded-2xl hover:border-accent transition-all duration-200 group"
+                      >
+                        <div className="w-12 h-12 rounded-full overflow-hidden bg-background-secondary border border-border group-hover:border-accent/30 transition-colors">
+                          {f.avatar_url ? (
+                            <img src={f.avatar_url} alt={f.username} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-text-secondary">
+                              <User className="w-6 h-6" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-text-primary truncate">
+                            {f.display_name || f.username}
+                          </div>
+                          <div className="text-xs text-text-secondary truncate">
+                            @{f.username}
+                          </div>
+                        </div>
+                        <div className="text-xs text-text-secondary font-medium">
+                          {f.followers_count} подп.
+                        </div>
+                      </Link>
+                    ))
+                  ) : (
+                    <div className="col-span-full text-center py-20 text-text-secondary">
+                      У этого автора пока нет подписчиков
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-          )}
 
-          {/* Followers */}
-          {activeTab === "followers" && (
-            <div>
-              {userFollowers.length > 0 ? (
+              {socialTab === "following" && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {userFollowers.map((f) => (
-                    <Link
-                      key={f.id}
-                      to={`/profile/${f.id}`}
-                      className="flex items-center gap-4 p-4 bg-background-surface border border-border rounded-2xl hover:border-accent transition-all duration-200 group"
-                    >
-                      <div className="w-12 h-12 rounded-full overflow-hidden bg-background-secondary border border-border group-hover:border-accent/30 transition-colors">
-                        {f.avatar_url ? (
-                          <img src={f.avatar_url} alt={f.username} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-text-secondary">
-                            <User className="w-6 h-6" />
+                  {userFollowing.length > 0 ? (
+                    userFollowing.map((f) => (
+                      <Link
+                        key={f.id}
+                        to={`/profile/${f.id}`}
+                        className="flex items-center gap-4 p-4 bg-background-surface border border-border rounded-2xl hover:border-accent transition-all duration-200 group"
+                      >
+                        <div className="w-12 h-12 rounded-full overflow-hidden bg-background-secondary border border-border group-hover:border-accent/30 transition-colors">
+                          {f.avatar_url ? (
+                            <img src={f.avatar_url} alt={f.username} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-text-secondary">
+                              <User className="w-6 h-6" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-text-primary truncate">
+                            {f.display_name || f.username}
                           </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold text-text-primary truncate">
-                          {f.display_name || f.username}
-                        </div>
-                        <div className="text-xs text-text-secondary truncate">
-                          @{f.username}
-                        </div>
-                      </div>
-                      <div className="text-xs text-text-secondary font-medium">
-                        {f.followers_count} подп.
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-16 text-text-secondary">
-                  <div className="text-4xl mb-3">
-                    <Users className="w-10 h-10 mx-auto" />
-                  </div>
-                  <div className="text-lg font-medium text-text-primary mb-1">
-                    Пока нет подписчиков
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Following */}
-          {activeTab === "following" && (
-            <div>
-              {userFollowing.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {userFollowing.map((f) => (
-                    <Link
-                      key={f.id}
-                      to={`/profile/${f.id}`}
-                      className="flex items-center gap-4 p-4 bg-background-surface border border-border rounded-2xl hover:border-accent transition-all duration-200 group"
-                    >
-                      <div className="w-12 h-12 rounded-full overflow-hidden bg-background-secondary border border-border group-hover:border-accent/30 transition-colors">
-                        {f.avatar_url ? (
-                          <img src={f.avatar_url} alt={f.username} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-text-secondary">
-                            <User className="w-6 h-6" />
+                          <div className="text-xs text-text-secondary truncate">
+                            @{f.username}
                           </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold text-text-primary truncate">
-                          {f.display_name || f.username}
                         </div>
-                        <div className="text-xs text-text-secondary truncate">
-                          @{f.username}
+                        <div className="text-xs text-text-secondary font-medium">
+                          {f.followers_count} подп.
                         </div>
-                      </div>
-                      <div className="text-xs text-text-secondary font-medium">
-                        {f.followers_count} подп.
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-16 text-text-secondary">
-                  <div className="text-4xl mb-3">
-                    <Users className="w-10 h-10 mx-auto" />
-                  </div>
-                  <div className="text-lg font-medium text-text-primary mb-1">
-                    Пока нет подписок
-                  </div>
-                  {isOwner && (
-                    <Button
-                      label="Найти авторов"
-                      variant="primary"
-                      onClick={() => navigate("/models")}
-                      className="mt-4"
-                    />
+                      </Link>
+                    ))
+                  ) : (
+                    <div className="col-span-full text-center py-20 text-text-secondary">
+                      {isOwner ? "Вы еще ни на кого не подписаны" : "Этот автор ни на кого не подписан"}
+                    </div>
                   )}
                 </div>
               )}
@@ -1120,11 +1141,23 @@ export function ProfilePage() {
                   <label className="text-[11px] font-bold text-textSecondary uppercase tracking-[0.8px]">
                     Email
                   </label>
-                  <input
-                    className="px-3.5 py-2.5 bg-background-secondary border border-border rounded-[10px] text-textSecondary text-sm outline-none cursor-not-allowed opacity-60"
-                    value={user.email || ""}
-                    readOnly
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      className="flex-1 px-3.5 py-2.5 bg-background-secondary border border-border rounded-[10px] text-text text-sm outline-none focus:border-accent transition-all duration-200"
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                    />
+                    <Button
+                      label={changingEmail ? "..." : "Сменить"}
+                      variant="primary"
+                      onClick={handleEmailChange}
+                      disabled={changingEmail || emailInput === user.email}
+                      className="px-6"
+                    />
+                  </div>
+                  <p className="text-[10px] text-text-secondary mt-1">
+                    Потребуется подтверждение с обоих адресов почты
+                  </p>
                 </div>
                 <div className="flex flex-col gap-1.5 mb-5">
                   <label className="text-[11px] font-bold text-textSecondary uppercase tracking-[0.8px]">
@@ -1150,8 +1183,31 @@ export function ProfilePage() {
                     onClick={() => {
                       setDisplayName(p?.display_name || p?.username || "");
                       setBio(p?.bio || "");
+                      setEmailInput(user?.email || "");
                     }}
                   />
+                </div>
+
+                <div className="mt-8 pt-8 border-t border-border">
+                  <div className="font-extrabold text-base mb-5 flex items-center gap-2.5">
+                    <span className="w-8 h-8 rounded-[9px] bg-accent/12 flex items-center justify-center text-base">
+                      <Lock className="w-4 h-4" />
+                    </span>
+                    Безопасность
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-background-secondary rounded-2xl border border-border">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold">Смена пароля</span>
+                      <span className="text-xs text-text-secondary">Отправить ссылку для сброса на почту</span>
+                    </div>
+                    <Button
+                      label={resettingPassword ? "Отправка..." : "Сбросить пароль"}
+                      variant="ghost"
+                      onClick={handlePasswordReset}
+                      disabled={resettingPassword}
+                      className="border border-border hover:bg-background-surface"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1177,7 +1233,7 @@ export function ProfilePage() {
                   <div className="text-lg font-black text-text-primary uppercase flex items-center gap-2">
                     {p.subscription_status === 'pro' ? 'Pro Plan' :
                       p.subscription_status === 'studio' ? 'Studio' : 'Free'}
-                    {p.subscription_status && (
+                    {(p.subscription_status === 'pro' || p.subscription_status === 'studio') && (
                       <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
                     )}
                   </div>
@@ -1192,7 +1248,7 @@ export function ProfilePage() {
                 </div>
               </div>
 
-              {p.subscription_end_date ? (
+              {p.subscription_status && p.subscription_status !== 'free' ? (
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <div className="h-1.5 w-full bg-background-secondary rounded-full overflow-hidden">
@@ -1206,7 +1262,7 @@ export function ProfilePage() {
                         До {new Date(p.subscription_end_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
                       </div>
                       <div className={`text-[11px] font-bold ${p.subscription_days_left !== undefined && p.subscription_days_left !== null && p.subscription_days_left < 3 ? 'text-danger' : 'text-text-muted'}`}>
-                        {p.subscription_days_left} дн. осталось
+                        {p.subscription_days_left ?? 0} дн. осталось
                       </div>
                     </div>
                   </div>

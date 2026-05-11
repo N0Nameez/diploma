@@ -235,6 +235,7 @@ export interface ApiUser {
   bio: string | null;
   role: string;
   total_rating: number;
+  total_downloads: number;
   followers_count: number;
   following_count: number;
   credits: number;
@@ -245,6 +246,7 @@ export interface ApiUser {
   subscription_days_left?: number | null;
   subscription_auto_renew?: boolean;
   created_at: string;
+  updated_at?: string;
 }
 
 export async function fetchUser(id: string) {
@@ -266,6 +268,12 @@ export async function fetchUserGenerations(userId: string, limit = 20) {
 export async function fetchUserFavorites(userId: string, limit = 20) {
   return api<{ items: ApiModel[]; total: number }>(
     `/api/users/${userId}/favorites?limit=${limit}`,
+  );
+}
+
+export async function fetchUserLikedModels(userId: string, limit = 20) {
+  return api<{ items: ApiModel[]; total: number }>(
+    `/api/users/${userId}/liked?limit=${limit}`,
   );
 }
 
@@ -363,6 +371,10 @@ export async function uploadAvatar(userId: string, file: File) {
     data: { publicUrl },
   } = client.storage.from("avatars").getPublicUrl(path);
 
+  // Sync with auth metadata so navbar/other components see it immediately
+  await client.auth.updateUser({
+    data: { avatar_url: publicUrl }
+  });
 
   return updateUserProfile(userId, { avatar_url: publicUrl });
 }
