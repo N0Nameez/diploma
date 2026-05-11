@@ -20,8 +20,8 @@ def _get_pool():
     if _db_pool is None:
         if not config.SUPABASE_DB_URL:
             raise RuntimeError("SUPABASE_DB_URL not set")
-        # 1 min, 10 max connections
-        _db_pool = pool.SimpleConnectionPool(1, 10, config.SUPABASE_DB_URL)
+        # Thread-safe pool: 1 min, 20 max connections
+        _db_pool = pool.ThreadedConnectionPool(1, 20, config.SUPABASE_DB_URL)
     return _db_pool
 
 @contextmanager
@@ -424,6 +424,28 @@ def get_user_favorites(user_id: str, limit: int = 20) -> list:
             return [dict(zip(cols, row)) for row in rows]
 
 
+def get_user_liked_models(user_id: str, limit: int = 20) -> list:
+    """Get models liked by user."""
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT m.*, up.username, up.display_name, up.avatar_url,
+                       up.models_count, up.followers_count
+                FROM public.models m
+                JOIN public.interactions i ON m.id = i.entity_id
+                LEFT JOIN public.user_profiles up ON m.author_id = up.id
+                WHERE i.user_id = %s AND i.entity_type = 'model' AND i.interaction_type = 'like'
+                  AND m.status = 'approved'
+                ORDER BY i.created_at DESC
+                LIMIT %s
+            """, (user_id, limit))
+            rows = cur.fetchall()
+            if not rows:
+                return []
+            cols = [desc[0] for desc in cur.description]
+            return [dict(zip(cols, row)) for row in rows]
+
+
 def toggle_subscription(subscriber_id: str, author_id: str) -> bool:
     """Toggle subscription to an author. Returns (is_subscribed, followers_count)."""
     if subscriber_id == author_id:
@@ -534,7 +556,7 @@ def update_user_profile(user_id: str, updates: dict) -> dict | None:
             if not allowed:
                 return get_user_profile(user_id)
 
-            set_clause = ", ".join([f"{k} = %s" for k in allowed.keys()])
+            set_clause = ", ".join([f"{k} = %s" for k in allowed.keys()]) + ", updated_at = NOW()"
             params = list(allowed.values()) + [user_id]
 
             cur.execute(f"""
@@ -676,15 +698,53 @@ def get_animation(anim_id: str) -> dict | None:
 # ── User Profiles ──
 
 def get_user_profile(user_id: str) -> dict | None:
-    """Get user profile by ID using direct PostgreSQL."""
+    """Get user profile by ID with live subscription data from subscriptions table."""
     with _get_pg_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM public.user_profiles WHERE id = %s", (user_id,))
+            # JOIN with subscriptions to get the most accurate end date and status
+            query = """
+                SELECT 
+                    up.*,
+                    s.current_period_end as live_subscription_end,
+                    s.status as live_subscription_status,
+                    s.plan_id as live_plan_id
+                FROM public.user_profiles up
+                LEFT JOIN public.subscriptions s ON up.id = s.user_id
+                WHERE up.id = %s
+                ORDER BY s.created_at DESC
+                LIMIT 1
+            """
+            cur.execute(query, (user_id,))
             row = cur.fetchone()
             if not row:
                 return None
             cols = [desc[0] for desc in cur.description]
-            return dict(zip(cols, row))
+            profile = dict(zip(cols, row))
+            
+            # Use live data if available
+            status = profile.get("live_subscription_status")
+            end_date = profile.get("live_subscription_end")
+            
+            # Sub is active if it's 'active' OR ('canceled' and not yet expired)
+            is_currently_active = False
+            if status == 'active':
+                is_currently_active = True
+            elif status == 'canceled' and end_date:
+                from datetime import datetime, timezone
+                if end_date > datetime.now(timezone.utc):
+                    is_currently_active = True
+            
+            if is_currently_active:
+                # Map active/canceled-but-future to the specific plan ID (pro, studio, etc.)
+                profile["subscription_status"] = profile.get("live_plan_id") or "free"
+            else:
+                # If expired or never had one, it's 'free'
+                profile["subscription_status"] = "free"
+
+            if profile.get("live_subscription_end"):
+                profile["subscription_end_date"] = profile["live_subscription_end"]
+                
+            return profile
 
 
 def get_user_models_count(author_id: str) -> int:
@@ -722,7 +782,7 @@ def get_or_reset_credits(user_id: str) -> dict:
             if needs_reset:
                 cur.execute("""
                     UPDATE public.user_profiles
-                    SET credits = 15, credits_reset_date = NOW() + INTERVAL '30 days'
+                    SET credits = credits + 15, credits_reset_date = NOW() + INTERVAL '30 days'
                     WHERE id = %s
                     RETURNING credits, credits_reset_date
                 """, (user_id,))
@@ -730,6 +790,132 @@ def get_or_reset_credits(user_id: str) -> dict:
                 return {"credits": result[0], "reset_date": result[1].isoformat() if result[1] else None}
 
             return {"credits": credits, "reset_date": reset_date.isoformat() if reset_date else None}
+
+
+def reset_all_pending_credits() -> int:
+    """
+    Find all users whose credit reset date has passed and add 15 credits.
+    Returns the number of users updated.
+    """
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE public.user_profiles
+                SET credits = credits + 15, credits_reset_date = NOW() + INTERVAL '30 days'
+                WHERE credits_reset_date <= NOW()
+            """)
+            updated_count = cur.rowcount
+            return updated_count
+
+
+def expire_subscriptions() -> dict:
+    """
+    Handle subscription expiration and auto-renewal.
+    Returns {
+        "renewed": [{"user_id": str, "email": str, "plan_id": str}],
+        "expired": [{"user_id": str, "email": str}]
+    }
+    """
+    results = {"renewed": [], "expired": []}
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            # 1. Get info for RENEWAL
+            cur.execute("""
+                SELECT s.user_id, u.email, s.plan_id, s.payment_method_id
+                FROM public.subscriptions s
+                JOIN auth.users u ON s.user_id = u.id
+                WHERE s.auto_renew = True 
+                AND s.current_period_end < NOW()
+            """)
+            renew_info = cur.fetchall()
+            for uid, email, pid, pm_id in renew_info:
+                results["renewed"].append({
+                    "user_id": uid, 
+                    "email": email, 
+                    "plan_id": pid,
+                    "payment_method_id": pm_id
+                })
+            
+            # 2. Perform RENEW
+            if results["renewed"]:
+                cur.execute("""
+                    UPDATE public.subscriptions
+                    SET current_period_end = current_period_end + INTERVAL '30 days',
+                        status = 'active'
+                    WHERE auto_renew = True 
+                    AND current_period_end < NOW()
+                """)
+                
+                # Sync user_profiles for renewed users
+                cur.execute("""
+                    UPDATE public.user_profiles up
+                    SET subscription_status = s.plan_id,
+                        subscription_end_date = s.current_period_end,
+                        subscription_auto_renew = s.auto_renew
+                    FROM public.subscriptions s
+                    WHERE up.id = s.user_id 
+                    AND s.status = 'active' 
+                    AND s.current_period_end > NOW()
+                """)
+
+            # 3. Get info for EXPIRATION
+            cur.execute("""
+                SELECT s.user_id, u.email
+                FROM public.subscriptions s
+                JOIN auth.users u ON s.user_id = u.id
+                WHERE (s.status = 'active' OR s.status = 'canceled') 
+                AND s.auto_renew = False 
+                AND s.current_period_end < NOW()
+            """)
+            expire_info = cur.fetchall()
+            for uid, email in expire_info:
+                results["expired"].append({"user_id": uid, "email": email})
+
+            # 4. Perform EXPIRE
+            if results["expired"]:
+                cur.execute("""
+                    UPDATE public.subscriptions
+                    SET status = 'expired'
+                    WHERE (status = 'active' OR status = 'canceled') 
+                    AND auto_renew = False 
+                    AND current_period_end < NOW()
+                """)
+                
+                # Update user_profiles to 'free' for those who actually expired
+                cur.execute("""
+                    UPDATE public.user_profiles up
+                    SET subscription_status = 'free',
+                        subscription_end_date = s.current_period_end,
+                        subscription_auto_renew = False
+                    FROM public.subscriptions s
+                    WHERE up.id = s.user_id 
+                    AND s.status = 'expired' 
+                    AND s.current_period_end < NOW()
+                """)
+            
+    return results
+
+def cancel_subscription_on_payment_failure(user_id: str):
+    """
+    Called when a recurrent payment fails. Marks subscription as expired.
+    """
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE public.subscriptions
+                SET status = 'expired', auto_renew = False
+                WHERE user_id = %s
+            """, (user_id,))
+            
+            cur.execute("""
+                UPDATE public.user_profiles
+                SET subscription_status = 'free',
+                    subscription_end_date = NOW(),
+                    subscription_auto_renew = False
+                WHERE id = %s
+            """, (user_id,))
+            conn.commit()
+            print(f"SUBSCRIPTION REVOKED due to payment failure for user {user_id}")
 
 
 def deduct_credits(user_id: str, amount: int = 3) -> dict:
@@ -820,7 +1006,10 @@ def record_download(model_id: str, user_id: str) -> bool:
                 ON CONFLICT DO NOTHING
             """, (user_id, model_id))
 
-            cur.execute("UPDATE public.models SET downloads = downloads + 1 WHERE id = %s", (model_id,))
+            cur.execute("UPDATE public.models SET downloads = downloads + 1 WHERE id = %s RETURNING author_id", (model_id,))
+            author_row = cur.fetchone()
+            if author_row and author_row[0]:
+                cur.execute("UPDATE public.user_profiles SET total_downloads = total_downloads + 1 WHERE id = %s", (author_row[0],))
             return True
 
 def get_platform_stats() -> dict:

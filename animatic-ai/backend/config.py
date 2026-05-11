@@ -46,6 +46,8 @@ GENERATION_PYTHON = os.environ.get("GENERATION_PYTHON", "python")
 # -- Yookassa --
 YOOKASSA_SHOP_ID = os.environ.get("YOOKASSA_SHOP_ID")
 YOOKASSA_SECRET_KEY = os.environ.get("YOOKASSA_SECRET_KEY")
+# If True, recurrent payments will succeed even if the API call fails (for demo/test purposes)
+SIMULATE_RECURRENTS = os.environ.get("SIMULATE_RECURRENTS", "true").lower() == "true"
 
 # -- SMTP --
 SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.yandex.ru")

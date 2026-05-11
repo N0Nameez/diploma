@@ -14,8 +14,9 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Bac
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import smtplib
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+import email_templates
 
 class UserProfileUpdate(BaseModel):
     display_name: str | None = None
@@ -43,10 +44,13 @@ from yookassa.domain.notification import WebhookNotificationFactory
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Start the expiration checker in the background
-    task = asyncio.create_task(check_expiring_subscriptions_loop())
+    sub_task = asyncio.create_task(check_expiring_subscriptions_loop())
+    # Start the credit reset checker in the background
+    credit_task = asyncio.create_task(check_pending_credit_resets_loop())
     yield
     # Cleanup
-    task.cancel()
+    sub_task.cancel()
+    credit_task.cancel()
 
 # ── App ──
 app = FastAPI(
@@ -140,26 +144,22 @@ def health_check():
 
 def send_purchase_confirmation(email: str, item_name: str, credits_amount: int = None):
     """Send a confirmation email to the user after purchase."""
-    print(f"DEBUG EMAIL: Sending to {email}, item={item_name}, credits={credits_amount}")
     if not config.SMTP_USER or not config.SMTP_PASSWORD:
         return
 
     try:
         msg = MIMEMultipart()
-        msg['From'] = config.SMTP_USER
+        msg['From'] = f"AnimaticAI <{config.SMTP_USER}>"
         msg['To'] = email
         
-        # If credits_amount is provided, it's a credit purchase
         if credits_amount is not None:
             msg['Subject'] = "Баланс пополнен - AnimaticAI"
-            text = f"Здравствуйте!\n\nВаш баланс успешно пополнен на {credits_amount} кредитов.\nТеперь вы можете продолжить создание потрясающих 3D-моделей!\n\nСпасибо, что выбираете AnimaticAI!"
+            html = email_templates.get_credits_confirmation_html(credits_amount)
         else:
-            # It's a subscription (Pro/Studio)
             msg['Subject'] = "Подписка активирована - AnimaticAI"
-            text = f"Здравствуйте!\n\nВаша подписка ({item_name}) успешно активирована на 30 дней.\nВам стали доступны все PRO-возможности, включая высокополигональную генерацию и приоритет в очереди!\n\nЖелаем приятного творчества,\nКоманда AnimaticAI"
+            html = email_templates.get_subscription_confirmation_html(item_name)
 
-        
-        msg.attach(MIMEText(text, 'plain'))
+        msg.attach(MIMEText(html, 'html'))
         server = smtplib.SMTP_SSL(config.SMTP_HOST, config.SMTP_PORT)
         server.login(config.SMTP_USER, config.SMTP_PASSWORD)
         server.send_message(msg)
@@ -175,13 +175,13 @@ def send_expiration_warning(email: str, days_left: int):
 
     try:
         msg = MIMEMultipart()
-        msg['From'] = config.SMTP_USER
+        msg['From'] = f"AnimaticAI <{config.SMTP_USER}>"
         msg['To'] = email
         msg['Subject'] = "Ваша подписка AnimaticAI скоро истекает"
 
-        text = f"Здравствуйте!\n\nНапоминаем, что ваша подписка истекает через {days_left} дн.\nВы можете продлить её в личном кабинете, чтобы сохранить доступ к PRO-функциям.\n\nКоманда AnimaticAI"
+        html = email_templates.get_expiration_warning_html(days_left)
         
-        msg.attach(MIMEText(text, 'plain'))
+        msg.attach(MIMEText(html, 'html'))
         server = smtplib.SMTP_SSL(config.SMTP_HOST, config.SMTP_PORT)
         server.login(config.SMTP_USER, config.SMTP_PASSWORD)
         server.send_message(msg)
@@ -191,15 +191,73 @@ def send_expiration_warning(email: str, days_left: int):
         print(f"EXPIRATION EMAIL ERROR: {e}")
 
 
+def send_renewal_confirmation(email: str, plan_name: str):
+    """Send a confirmation email when subscription is automatically renewed."""
+    if not config.SMTP_USER or not config.SMTP_PASSWORD:
+        return
+
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = f"AnimaticAI <{config.SMTP_USER}>"
+        msg['To'] = email
+        msg['Subject'] = "Подписка успешно продлена - AnimaticAI"
+
+        html = email_templates.get_subscription_renewal_html(plan_name)
+        
+        msg.attach(MIMEText(html, 'html'))
+        server = smtplib.SMTP_SSL(config.SMTP_HOST, config.SMTP_PORT)
+        server.login(config.SMTP_USER, config.SMTP_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        print(f"RENEWAL EMAIL SENT to {email}")
+    except Exception as e:
+        print(f"RENEWAL EMAIL ERROR: {e}")
+
+
 async def check_expiring_subscriptions_loop():
-    """Background loop that checks for expiring subscriptions every 24 hours."""
+    """Background loop that checks for expiring subscriptions every hour."""
     while True:
-        print("CRON: Checking for expiring subscriptions...")
+        print("CRON: Checking for expiring subscriptions...", flush=True)
         try:
+            # 1. Process actual expirations and renewals
+            res = database.expire_subscriptions()
+            renewed_list = res.get("renewed", [])
+            expired_list = res.get("expired", [])
+            
+            if renewed_list:
+                print(f"CRON: Processing {len(renewed_list)} renewals", flush=True)
+                for r in renewed_list:
+                    # 1. Check if we have a payment method for recurrent billing
+                    pm_id = r.get("payment_method_id")
+                    user_id = r["user_id"]
+                    plan_id = r["plan_id"]
+                    
+                    if pm_id:
+                        # Map plan_id to price
+                        price = 990.0 if plan_id == 'pro' else 2990.0
+                        
+                        print(f"CRON: Attempting recurrent payment for user {user_id} ({plan_id})", flush=True)
+                        pay_res = payments.create_recurrent_payment(user_id, price, pm_id, plan_id)
+                        
+                        if not pay_res["success"]:
+                            print(f"CRON: Recurrent payment FAILED for {user_id}. Revoking subscription.", flush=True)
+                            database.cancel_subscription_on_payment_failure(user_id)
+                            # TODO: Send email about payment failure
+                            continue
+                        else:
+                            status_msg = f"SIMULATED SUCCESS" if pay_res.get("simulated") else pay_res['status']
+                            print(f"CRON: Recurrent payment {status_msg} for {user_id}", flush=True)
+                    
+                    # 2. Send renewal confirmation email
+                    send_renewal_confirmation(r["email"], r["plan_id"])
+            
+            if expired_list:
+                print(f"CRON: Expired {len(expired_list)} subscriptions", flush=True)
+
+            # 2. Send warnings for upcoming expirations
             with database._get_pg_connection() as conn:
                 with conn.cursor() as cur:
                     # Find active subscriptions ending in 1 or 3 days
-                    # We join with auth.users to get the actual email
                     cur.execute("""
                         SELECT s.user_id, u.email, s.current_period_end 
                         FROM public.subscriptions s
@@ -212,16 +270,29 @@ async def check_expiring_subscriptions_loop():
                     
                     for user_id, email, end_date in expiring:
                         days_left = (end_date - datetime.now(timezone.utc)).days
-                        # Send notification only once (e.g., exactly at 1 or 3 days left)
-                        # For simplicity in this demo, we just print and send
                         if email:
                             send_expiration_warning(email, days_left + 1)
                             
         except Exception as e:
-            print(f"CRON ERROR: {e}")
+            print(f"CRON SUB ERROR: {e}", flush=True)
             
-        # Wait 24 hours
-        await asyncio.sleep(60 * 60 * 24)
+        # Wait 1 hour
+        await asyncio.sleep(60 * 60)
+
+
+async def check_pending_credit_resets_loop():
+    """Background loop that checks for credit resets every hour."""
+    while True:
+        print("CRON: Checking for pending credit resets...", flush=True)
+        try:
+            count = database.reset_all_pending_credits()
+            if count > 0:
+                print(f"CRON: Automatically reset credits for {count} users.", flush=True)
+        except Exception as e:
+            print(f"CRON CREDIT RESET ERROR: {e}", flush=True)
+            
+        # Wait 1 hour
+        await asyncio.sleep(60 * 60)
 
 
 
@@ -235,7 +306,7 @@ def get_user_credits(user_id: str):
     try:
         with database._get_pg_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT current_period_end, auto_renew FROM public.subscriptions WHERE user_id = %s AND status = 'active'", (user_id,))
+                cur.execute("SELECT current_period_end, auto_renew FROM public.subscriptions WHERE user_id = %s AND status IN ('active', 'canceled')", (user_id,))
                 sub = cur.fetchone()
                 if sub:
                     from datetime import datetime, timezone
@@ -330,6 +401,22 @@ async def yookassa_webhook(request: Request, background_tasks: BackgroundTasks):
                 plan_id = payment.metadata.get("plan_id")
                 print(f"PAYMENT SUCCESS: User {user_id} bought {credits_amount} credits (Plan: {plan_id})")
                 payments.process_successful_payment(payment.id, user_id, credits_amount, plan_id)
+                
+                # Save payment method ID for recurrent payments if it's a subscription
+                if plan_id and payment.payment_method:
+                    pm_id = payment.payment_method.id
+                    try:
+                        with database._get_pg_connection() as conn:
+                            with conn.cursor() as cur:
+                                cur.execute("""
+                                    UPDATE public.subscriptions 
+                                    SET payment_method_id = %s 
+                                    WHERE user_id = %s
+                                """, (pm_id, user_id))
+                                conn.commit()
+                                print(f"SAVED PAYMENT METHOD {pm_id} for user {user_id}")
+                    except Exception as e:
+                        print(f"ERROR saving payment method: {e}")
                 
                 # Get user email for confirmation
                 try:
@@ -708,21 +795,31 @@ async def convert_model(model_id: str, format: str = Form(...)):
 
 def prepare_profile_response(profile: dict) -> dict:
     """Add calculated fields to profile response."""
+    profile["subscription_days_left"] = 0
+    
     if profile.get("subscription_end_date"):
         try:
             from datetime import datetime, timezone
             end_date = profile["subscription_end_date"]
+            
             if isinstance(end_date, str):
+                # Handle ISO format from Supabase (e.g. 2024-01-01T00:00:00Z)
                 end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
             
             # Ensure aware
             if end_date.tzinfo is None:
                 end_date = end_date.replace(tzinfo=timezone.utc)
                 
-            days_left = (end_date - datetime.now(timezone.utc)).days
-            profile["subscription_days_left"] = days_left
+            now = datetime.now(timezone.utc)
+            
+            # Calculate days left
+            if end_date > now:
+                days_left = (end_date - now).days
+                profile["subscription_days_left"] = max(0, days_left)
+                
         except Exception as e:
             print(f"Error calculating days left: {e}")
+            
     return profile
 
 
@@ -748,6 +845,13 @@ def get_user_favorites(user_id: str, limit: int = 20):
     """Get models favorited by user."""
     favorites = database.get_user_favorites(user_id, limit=limit)
     return {"items": favorites, "total": len(favorites)}
+
+
+@app.get("/api/users/{user_id}/liked")
+def get_user_liked(user_id: str, limit: int = 20):
+    """Get models liked by user."""
+    liked = database.get_user_liked_models(user_id, limit=limit)
+    return {"items": liked, "total": len(liked)}
 
 
 @app.get("/api/users/{user_id}/followers")

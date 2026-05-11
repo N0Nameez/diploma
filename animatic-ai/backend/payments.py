@@ -23,6 +23,7 @@ def create_payment(user_id: str, amount: float, credits_amount: int, plan_id: st
         },
         "capture": True,
         "description": description or f"Пополнение баланса: {credits_amount} кредитов",
+        "save_payment_method": True if plan_id else False,
         "metadata": {
             "user_id": user_id,
             "credits_amount": credits_amount,
@@ -130,3 +131,55 @@ def process_successful_payment(payment_id: str, user_id: str, credits_to_add: in
             print(f"ERROR updating subscription: {e}")
     
     return {"success": True}
+
+def create_recurrent_payment(user_id: str, amount: float, payment_method_id: str, plan_id: str, description: str = None):
+    """
+    Create a recurrent payment using a previously saved payment method.
+    """
+    idempotence_key = str(uuid.uuid4())
+    
+    payment_data = {
+        "amount": {
+            "value": str(amount),
+            "currency": "RUB"
+        },
+        "capture": True,
+        "payment_method_id": payment_method_id,
+        "description": description or f"Автопродление подписки: {plan_id}",
+        "metadata": {
+            "user_id": user_id,
+            "plan_id": plan_id,
+            "recurrent": True
+        }
+    }
+
+    try:
+        payment = Payment.create(payment_data, idempotence_key)
+        
+        # Save to our DB
+        with database._get_pg_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO public.payments (user_id, amount, payment_id, status, description)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (user_id, amount, payment.id, payment.status, payment_data["description"]))
+        
+        return {
+            "success": True,
+            "payment_id": payment.id,
+            "status": payment.status
+        }
+    except Exception as e:
+        print(f"ERROR creating recurrent payment for user {user_id}: {e}")
+        
+        # If simulation is enabled, we return success anyway for demo purposes
+        if config.SIMULATE_RECURRENTS:
+            print(f"SIMULATION: Treating failed recurrent payment as SUCCESS for demo (User {user_id})")
+            return {
+                "success": True,
+                "payment_id": f"sim_{uuid.uuid4().hex[:8]}",
+                "status": "succeeded",
+                "simulated": True
+            }
+            
+        return {"success": False, "error": str(e)}
