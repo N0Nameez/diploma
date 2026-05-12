@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, X, Layers, Layout, Zap, Filter, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Layers, Layout, Zap, Filter, Sparkles, ChevronDown } from "lucide-react";
 import FilterCheckbox from "./FilterCheckbox";
+import { type CatalogStats } from "../../services/api";
 
 interface FilterSidebarProps {
   isOpen: boolean;
@@ -14,33 +16,8 @@ interface FilterSidebarProps {
   onFormatsChange: (formats: string[]) => void;
   onlyAI: boolean;
   onAIChange: (value: boolean) => void;
+  stats: CatalogStats | null;
 }
-
-const CATEGORIES = [
-  "Персонажи",
-  "Архитектура",
-  "Природа",
-  "Транспорт",
-  "Оружие",
-  "Животные",
-  "Интерьер",
-];
-const FORMATS: ("GLB" | "FBX" | "OBJ")[] = ["GLB", "FBX", "OBJ"];
-
-const CAT_COUNTS: Record<string, string> = {
-  Персонажи: "3.2K",
-  Архитектура: "1.8K",
-  Природа: "987",
-  Транспорт: "654",
-  Оружие: "432",
-  Животные: "389",
-  Интерьер: "276",
-};
-const FORMAT_COUNTS: Record<string, string> = {
-  GLB: "6.1K",
-  FBX: "4.2K",
-  OBJ: "2.1K",
-};
 
 export function FilterSidebar({
   isOpen,
@@ -54,7 +31,27 @@ export function FilterSidebar({
   onFormatsChange,
   onlyAI,
   onAIChange,
+  stats,
 }: FilterSidebarProps) {
+  const [showAllTags, setShowAllTags] = useState(false);
+
+  const tags = stats?.tags || [];
+  const visibleTags = showAllTags ? tags : tags.slice(0, 8);
+  const hasMoreTags = tags.length > 8;
+
+  const formats = Object.keys(stats?.formats || {});
+  const aiCount = stats?.ai_generated_count || 0;
+
+  const formatCount = (f: string) => {
+    const count = stats?.formats[f] || 0;
+    return count > 999 ? `${(count / 1000).toFixed(1)}K` : String(count);
+  };
+
+  const tagCount = (t: any) => {
+    const count = contentType === "3d" ? t.models_count : t.animations_count;
+    return count > 999 ? `${(count / 1000).toFixed(1)}K` : String(count);
+  };
+
   return (
     <>
       {/* Overlay for mobile */}
@@ -87,7 +84,7 @@ export function FilterSidebar({
         <div className="flex-shrink-0 border-b border-border/5" />
 
         <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-6">
-          {/* Toggle button (inside for mobile, fixed for desktop) */}
+          {/* Header/Close button (mobile) */}
           <div className="flex items-center justify-between lg:hidden mb-6">
             <span className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2">
               <Filter size={16} className="text-accent" /> Фильтры
@@ -129,53 +126,77 @@ export function FilterSidebar({
             </div>
           </div>
 
-          {/* Category */}
+          {/* Category (Tags) */}
           <div className="mb-8">
             <p className="text-[10px] font-bold tracking-[2px] uppercase text-text-muted mb-4 flex items-center gap-2">
               <Layers size={12} /> Категория
             </p>
             <div className="space-y-1">
-              {CATEGORIES.map((c) => (
-                <FilterCheckbox
-                  key={c}
-                  label={c}
-                  count={CAT_COUNTS[c] ?? "—"}
-                  checked={selectedCats.includes(c)}
-                  onChange={() =>
-                    onCatsChange(
-                      selectedCats.includes(c)
-                        ? selectedCats.filter((x) => x !== c)
-                        : [...selectedCats, c],
-                    )
-                  }
-                />
-              ))}
+              {stats === null ? (
+                <div className="text-[10px] text-text-muted italic px-2 py-1">Загрузка...</div>
+              ) : tags.length > 0 ? (
+                visibleTags.map((tag) => (
+                  <FilterCheckbox
+                    key={tag.id}
+                    label={tag.name}
+                    count={tagCount(tag)}
+                    checked={selectedCats.includes(tag.name)}
+                    onChange={() =>
+                      onCatsChange(
+                        selectedCats.includes(tag.name)
+                          ? selectedCats.filter((x) => x !== tag.name)
+                          : [...selectedCats, tag.name],
+                      )
+                    }
+                  />
+                ))
+              ) : (
+                <div className="text-[10px] text-text-muted italic px-2 py-1">Нет категорий</div>
+              )}
+              
+              {hasMoreTags && (
+                <button
+                  onClick={() => setShowAllTags(!showAllTags)}
+                  className="flex items-center gap-2 w-full px-2 py-2 text-[10px] font-bold text-accent hover:text-accent/80 transition-colors"
+                >
+                  {showAllTags ? "Скрыть" : `Показать еще (${tags.length - 8})`}
+                  <ChevronDown size={12} className={`transition-transform duration-300 ${showAllTags ? "rotate-180" : ""}`} />
+                </button>
+              )}
             </div>
           </div>
 
           {/* Format */}
-          <div className="mb-8">
-            <p className="text-[10px] font-bold tracking-[2px] uppercase text-text-muted mb-4 flex items-center gap-2">
-              <Zap size={12} /> Формат файла
-            </p>
-            <div className="space-y-1">
-              {FORMATS.map((f) => (
-                <FilterCheckbox
-                  key={f}
-                  label={f}
-                  count={FORMAT_COUNTS[f]}
-                  checked={selectedFormats.includes(f)}
-                  onChange={() =>
-                    onFormatsChange(
-                      selectedFormats.includes(f)
-                        ? selectedFormats.filter((x) => x !== f)
-                        : [...selectedFormats, f],
-                    )
-                  }
-                />
-              ))}
+          {contentType === "3d" && (
+            <div className="mb-8">
+              <p className="text-[10px] font-bold tracking-[2px] uppercase text-text-muted mb-4 flex items-center gap-2">
+                <Zap size={12} /> Формат файла
+              </p>
+              <div className="space-y-1">
+                {stats === null ? (
+                  <div className="text-[10px] text-text-muted italic px-2 py-1">Загрузка...</div>
+                ) : formats.length > 0 ? (
+                  formats.map((f) => (
+                    <FilterCheckbox
+                      key={f}
+                      label={f}
+                      count={formatCount(f)}
+                      checked={selectedFormats.includes(f)}
+                      onChange={() =>
+                        onFormatsChange(
+                          selectedFormats.includes(f)
+                            ? selectedFormats.filter((x) => x !== f)
+                            : [...selectedFormats, f],
+                        )
+                      }
+                    />
+                  ))
+                ) : (
+                   <div className="text-[10px] text-text-muted italic px-2 py-1">Нет форматов</div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Source */}
           <div className="mb-8">
@@ -184,7 +205,7 @@ export function FilterSidebar({
             </p> 
             <FilterCheckbox
               label="Сгенерировано ИИ"
-              count="8.9K"
+              count={aiCount > 999 ? `${(aiCount / 1000).toFixed(1)}K` : String(aiCount)}
               checked={onlyAI}
               onChange={() => onAIChange(!onlyAI)}
             />
@@ -207,7 +228,7 @@ export function FilterSidebar({
           </button>
         </div>
 
-        {/* Desktop Toggle Button (Floating on the edge) */}
+        {/* Desktop Toggle Button */}
         <button
           onClick={onToggle}
           className={`hidden lg:flex absolute top-1/2 -right-8 w-8 h-12 bg-background-primary/80 border border-border/50

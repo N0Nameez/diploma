@@ -1,4 +1,5 @@
 import { Settings, Sparkles, Zap, FlaskConical } from "lucide-react";
+import type { ApiTag } from "../../services/api";
 
 interface SettingsPanelProps {
   mode: "model" | "animation";
@@ -6,6 +7,7 @@ interface SettingsPanelProps {
   onSettingsChange: (settings: any) => void;
   nameError?: string; /* Ошибка валидации имени */
   userProfile?: any;
+  industryTags?: ApiTag[];
 }
 
 const CATEGORIES = [
@@ -32,11 +34,17 @@ export function SettingsPanel({
   onSettingsChange,
   nameError,
   userProfile,
+  industryTags = [],
 }: SettingsPanelProps) {
   const isModel = mode === "model";
   
   // Checking subscription tier
   const isPro = userProfile?.subscription_status === 'pro' || userProfile?.subscription_status === 'studio';
+
+  // Use DB tags for models if available, otherwise fallback to hardcoded
+  const categoriesToUse = isModel 
+    ? (industryTags.length > 0 ? industryTags.map(t => t.name) : CATEGORIES)
+    : ANIMATION_TYPES;
 
   return (
     <div className="bg-background-surface border border-border rounded-[18px] p-6 transition-colors duration-200">
@@ -87,7 +95,7 @@ export function SettingsPanel({
                        text-text text-[14px] outline-none focus:border-accent hover:border-accent-glow transition-all duration-200
                        cursor-pointer appearance-none"
           >
-            {(isModel ? CATEGORIES : ANIMATION_TYPES).map((cat) => (
+            {categoriesToUse.map((cat) => (
               <option key={cat} value={cat}>
                 {cat}
               </option>

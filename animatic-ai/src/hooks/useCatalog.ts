@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import {
   fetchModels,
   fetchAnimations,
+  fetchCatalogStats,
   type ApiModel,
   type ApiAnimation,
+  type CatalogStats,
 } from "../services/api";
 
 /* Catalog filters */
@@ -19,17 +21,6 @@ export interface CatalogFilters {
 /* Merged item type for the catalog */
 export type CatalogItem = ApiModel | ApiAnimation;
 
-/* Metadata — static for now, will be fetched from backend later */
-const CATEGORIES = [
-  "Персонажи",
-  "Архитектура",
-  "Природа",
-  "Транспорт",
-  "Оружие",
-  "Животные",
-  "Интерьер",
-];
-const FORMATS = ["GLB", "FBX", "OBJ"];
 const SORT_OPTIONS = [
   "По популярности",
   "Сначала новые",
@@ -49,7 +40,21 @@ export function useCatalog() {
 
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState<CatalogStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Load stats once
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const data = await fetchCatalogStats();
+        setStats(data);
+      } catch (err: any) {
+        console.error("Failed to fetch catalog stats:", err);
+      }
+    };
+    loadStats();
+  }, []);
 
   const loadItems = useCallback(async () => {
     setLoading(true);
@@ -67,7 +72,10 @@ export function useCatalog() {
         });
         setItems(res.items as CatalogItem[]);
       } else {
-        const res = await fetchAnimations({ limit: 50 });
+        const res = await fetchAnimations({
+          search: filters.search || undefined,
+          limit: 50
+        });
         setItems(res.items as CatalogItem[]);
       }
     } catch (err: any) {
@@ -105,9 +113,10 @@ export function useCatalog() {
     loading,
     error,
     filters,
+    stats,
     meta: {
-      categories: CATEGORIES,
-      formats: FORMATS,
+      categories: stats?.tags.map(t => t.name) || [],
+      formats: Object.keys(stats?.formats || {}),
       sortOptions: SORT_OPTIONS,
     },
     updateFilter,

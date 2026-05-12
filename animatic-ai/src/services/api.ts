@@ -31,6 +31,8 @@ export async function startGeneration(
     poly_count?: string;
     quality_level?: string;
     ai_model?: string;
+    category?: string;
+
   },
 ) {
   const form = new FormData();
@@ -45,6 +47,8 @@ export async function startGeneration(
   form.append("poly_count", options?.poly_count ?? "50k");
   form.append("quality_level", options?.quality_level || "high");
   form.append("ai_model", options?.ai_model || "Hunyuan3D-1");
+  form.append("category", options?.category || "Персонажи");
+
 
   const res = await fetch(`${API_BASE}/api/generate`, {
     method: "POST",
@@ -66,7 +70,20 @@ export async function getGenerationStatus(genId: string) {
     queue_position: number | null;
     queue_length: number | null;
     source_image_url: string | null;
+    total_duration_ms: number | null;
   }>(`/api/generate/${genId}`);
+}
+
+export interface GenerationLog {
+  stage: string;
+  duration_ms: number;
+  status: "success" | "failed";
+  error_message: string | null;
+  created_at: string;
+}
+
+export async function getGenerationLogs(genId: string) {
+  return api<GenerationLog[]>(`/api/generate/${genId}/logs`);
 }
 
 /* ── Models ── */
@@ -514,3 +531,30 @@ export async function getPlatformStats() {
     "/api/stats"
   );
 }
+export interface CatalogStats {
+  tags: {
+    id: string;
+    name: string;
+    models_count: number;
+    animations_count: number;
+  }[];
+  formats: Record<string, number>;
+  ai_generated_count: number;
+}
+
+export async function fetchCatalogStats() {
+  return api<CatalogStats>("/api/stats/catalog");
+}
+
+export interface ApiTag {
+  id: string;
+  name: string;
+  tag_type: "type" | "industry";
+  slug: string;
+}
+
+export async function fetchTags(tagType?: "type" | "industry") {
+  const qs = tagType ? `?tag_type=${tagType}` : "";
+  return api<ApiTag[]>(`/api/tags${qs}`);
+}
+

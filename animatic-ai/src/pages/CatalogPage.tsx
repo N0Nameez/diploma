@@ -22,6 +22,7 @@ export function CatalogPage() {
     items,
     loading,
     filters,
+    stats,
     meta,
     updateFilter,
     resetFilters,
@@ -101,6 +102,7 @@ export function CatalogPage() {
         onFormatsChange={(formats) => updateFilter("formats", formats)}
         onlyAI={filters.onlyAI}
         onAIChange={(value) => updateFilter("onlyAI", value)}
+        stats={stats}
       />
 
       <main
