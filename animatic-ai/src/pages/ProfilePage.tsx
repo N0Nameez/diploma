@@ -220,21 +220,30 @@ export function ProfilePage() {
   useEffect(() => {
     if (!targetId || activeTab !== "models") return;
     fetchUserModels(targetId, 50)
-      .then((res) => setUserModels(res.items))
+      .then((res) => {
+        // Security filter: don't even store private models if not owner
+        const filtered = isOwner 
+          ? res.items 
+          : res.items.filter(m => m.license !== 'private' && m.status === 'approved');
+        setUserModels(filtered);
+      })
       .catch(() => setUserModels([]));
-  }, [targetId, activeTab]);
+  }, [targetId, activeTab, isOwner]);
 
-  // Load favorites and liked immediately
+  // Load favorites (only for owner) and liked immediately
   useEffect(() => {
     if (!targetId) return;
-    fetchUserFavorites(targetId, 50)
-      .then((res) => setUserFavorites(res.items))
-      .catch(() => setUserFavorites([]));
+    
+    if (isOwner) {
+      fetchUserFavorites(targetId, 50)
+        .then((res) => setUserFavorites(res.items))
+        .catch(() => setUserFavorites([]));
+    }
     
     fetchUserLikedModels(targetId, 50)
       .then((res) => setUserLikedModels(res.items))
       .catch(() => setUserLikedModels([]));
-  }, [targetId]);
+  }, [targetId, isOwner]);
 
   // Load activity
   useEffect(() => {
