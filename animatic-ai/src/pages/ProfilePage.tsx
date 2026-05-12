@@ -94,8 +94,8 @@ const ITEMS_PER_PAGE = 6;
 export function ProfilePage() {
   const { id } = useParams<{ id: string }>();
   const { user, profile: authProfile, signOut, refreshProfile } = useAuth();
+  const isOwner = user ? (!id || id === user.id) : false;
   const targetId = id || user?.id;
-  const isOwner = !id || id === user?.id;
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabId>("models");
   const [modelsFilter, setModelsFilter] = useState<ModelsFilter>("all");
@@ -156,6 +156,13 @@ export function ProfilePage() {
     setToast({ visible: true, message });
     setTimeout(() => setToast({ visible: false, message: "" }), 2800);
   };
+
+  // Redirect from private tabs if not owner
+  useEffect(() => {
+    if (!isOwner && (activeTab === "favorites" || activeTab === "settings")) {
+      setActiveTab("models");
+    }
+  }, [activeTab, isOwner]);
 
   // Load profile
   useEffect(() => {
@@ -237,21 +244,18 @@ export function ProfilePage() {
       .catch(() => setActivity(null));
   }, [targetId]);
 
-  // Load followers
+  // Load social data (followers and following)
   useEffect(() => {
-    if (!targetId || activeTab !== "social" || socialTab !== "followers") return;
+    if (!targetId || activeTab !== "social") return;
+    
     fetchUserFollowers(targetId)
       .then(res => setUserFollowers(res.items))
       .catch(() => setUserFollowers([]));
-  }, [targetId, activeTab, socialTab]);
-
-  // Load following
-  useEffect(() => {
-    if (!targetId || activeTab !== "social" || socialTab !== "following") return;
+      
     fetchUserFollowing(targetId)
       .then(res => setUserFollowing(res.items))
       .catch(() => setUserFollowing([]));
-  }, [targetId, activeTab, socialTab]);
+  }, [targetId, activeTab]);
 
   const handleToggleFollow = async () => {
     if (!user || !targetId) return;
@@ -441,7 +445,7 @@ export function ProfilePage() {
 
   // Sort models
   const getSortedModels = () => {
-    const list =
+    let list =
       modelFilter === "Все"
         ? userModels.filter(
           (m) => m.status === "approved" && m.license !== "private",
@@ -451,6 +455,12 @@ export function ProfilePage() {
             return m.license === "private";
           return true;
         });
+
+    // Final security filter: non-owners never see private models
+    if (!isOwner) {
+      list = list.filter(m => m.license !== 'private');
+    }
+
     switch (modelSort) {
       case "По лайкам":
         return [...list].sort((a, b) => (b.likes || 0) - (a.likes || 0));
@@ -471,12 +481,12 @@ export function ProfilePage() {
     (m) => m.license === "private",
   );
 
-  if (!user) {
+  if (!targetId) {
     return (
       <div className="pt-16 min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="text-2xl text-text-primary font-bold mb-2">
-            Войдите в аккаунт
+            Профиль не найден
           </div>
           <Link to="/" className="text-accent hover:underline">
             На главную
@@ -639,23 +649,25 @@ export function ProfilePage() {
           })}
         </div>
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background-primary" />
-        <button
-          onClick={() => setShowCoverModal(true)}
-          className="absolute bottom-8 right-8 px-3.5 py-2 rounded-[9px] bg-black/45 backdrop-blur border border-white/15 text-white/80 text-xs font-semibold cursor-pointer hover:bg-black/65 hover:text-white transition-all duration-200 flex items-center gap-1.5"
-        >
-          <svg
-            width="12"
-            height="12"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-          >
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-          </svg>
-          Изменить обложку
-        </button>
+          {isOwner && (
+            <button
+              onClick={() => setShowCoverModal(true)}
+              className="absolute bottom-8 right-8 px-3.5 py-2 rounded-[9px] bg-black/45 backdrop-blur border border-white/15 text-white/80 text-xs font-semibold cursor-pointer hover:bg-black/65 hover:text-white transition-all duration-200 flex items-center gap-1.5"
+            >
+              <svg
+                width="12"
+                height="12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+              Изменить обложку
+            </button>
+          )}
       </div>
 
       {/* Cover preset modal */}
@@ -775,12 +787,14 @@ export function ProfilePage() {
                 {authorInitial}
               </div>
             )}
-            <button
-              onClick={handleAvatarClick}
-              className="absolute bottom-1 right-1 w-7 h-7 rounded-full bg-accent border-2 border-background-primary flex items-center justify-center text-xs text-white cursor-pointer hover:scale-110 transition-transform duration-200"
-            >
-              <Edit className="w-3 h-3" />
-            </button>
+            {isOwner && (
+              <button
+                onClick={handleAvatarClick}
+                className="absolute bottom-1 right-1 w-7 h-7 rounded-full bg-accent border-2 border-background-primary flex items-center justify-center text-xs text-white cursor-pointer hover:scale-110 transition-transform duration-200"
+              >
+                <Edit className="w-3 h-3" />
+              </button>
+            )}
           </div>
           <div className="flex-1 pb-1.5 min-w-0">
             <div className="font-extrabold text-[24px] tracking-[-0.5px] mb-1">
@@ -865,14 +879,16 @@ export function ProfilePage() {
                   </>
                 ),
               },
-              {
-                id: "favorites" as TabId,
-                label: (
-                  <>
-                    <Bookmark className="w-4 h-4" /> Избранное
-                  </>
-                ),
-              },
+              ...(isOwner ? [
+                {
+                  id: "favorites" as TabId,
+                  label: (
+                    <>
+                      <Bookmark className="w-4 h-4" /> Избранное
+                    </>
+                  ),
+                },
+              ] : []),
               {
                 id: "liked" as TabId,
                 label: (
@@ -922,10 +938,10 @@ export function ProfilePage() {
               {/* Sub-filters */}
               <div className="flex items-center gap-2 border-b border-border pb-4 overflow-x-auto no-scrollbar">
                 {[
-                  { id: "all", label: "Все", count: userModels.length },
+                  { id: "all", label: "Все", count: userModels.filter(m => isOwner || m.license !== 'private').length },
                   { id: "free_use", label: "Free Use", count: userModels.filter(m => m.status === 'approved' && m.license === 'free_use').length },
                   { id: "view_only", label: "Only Watch", count: userModels.filter(m => m.status === 'approved' && m.license === 'view_only').length },
-                  { id: "private", label: "Приватные", count: userModels.filter(m => m.status === 'approved' && m.license === 'private').length },
+                  ...(isOwner ? [{ id: "private", label: "Приватные", count: userModels.filter(m => m.status === 'approved' && m.license === 'private').length }] : []),
                 ].map((f) => (
                   <button
                     key={f.id}
@@ -946,6 +962,7 @@ export function ProfilePage() {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {userModels
                   .filter((m) => {
+                    if (!isOwner && m.license === 'private') return false;
                     if (modelsFilter === "free_use") return m.status === "approved" && m.license === "free_use";
                     if (modelsFilter === "view_only") return m.status === "approved" && m.license === "view_only";
                     if (modelsFilter === "private") return m.status === "approved" && m.license === "private";
@@ -1032,7 +1049,7 @@ export function ProfilePage() {
                     socialTab === "following" ? "text-accent" : "text-text-secondary hover:text-text-primary"
                   }`}
                 >
-                  Подписки <span className="ml-1 opacity-50">{userFollowing.length}</span>
+                  Подписки <span className="ml-1 opacity-50">{p?.following_count ?? 0}</span>
                   {socialTab === "following" && <div className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-accent" />}
                 </button>
               </div>
@@ -1151,7 +1168,7 @@ export function ProfilePage() {
                       label={changingEmail ? "..." : "Сменить"}
                       variant="primary"
                       onClick={handleEmailChange}
-                      disabled={changingEmail || emailInput === user.email}
+                      disabled={changingEmail || emailInput === user?.email}
                       className="px-6"
                     />
                   </div>
