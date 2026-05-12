@@ -64,14 +64,10 @@ import time
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    start_time = time.time()
     try:
         response = await call_next(request)
-        process_time = (time.time() - start_time) * 1000
-        print(f"DEBUG: {request.method} {request.url.path} - Status: {response.status_code} - {process_time:.2f}ms", flush=True)
         return response
     except Exception as e:
-        print(f"DEBUG ERROR: {request.method} {request.url.path} - Exception: {e}", flush=True)
         raise
 
 app.add_middleware(
@@ -113,6 +109,7 @@ class GenerationStatus(BaseModel):
     queue_position: int | None = None
     queue_length: int | None = None
     source_image_url: str | None = None
+    total_duration_ms: int | None = None
 
 
 class PaymentCreateRequest(BaseModel):
@@ -141,6 +138,28 @@ class ContactRequest(BaseModel):
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
+
+
+@app.get("/api/stats/catalog")
+def get_catalog_stats():
+    """Get detailed statistics for catalog filters (tags, formats, AI counts)."""
+    try:
+        stats = database.get_catalog_stats()
+        return stats
+    except Exception as e:
+        print(f"CATALOG STATS ERROR: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/tags")
+def list_tags(tag_type: str | None = None):
+    """Get list of tags, optionally filtered by type."""
+    try:
+        tags = database.get_tags(tag_type)
+        return tags
+    except Exception as e:
+        print(f"TAGS ERROR: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 def send_purchase_confirmation(email: str, item_name: str, credits_amount: int = None):
@@ -472,6 +491,7 @@ async def generate_model(
     poly_count: str = Form("50k"),
     ai_model: str = Form("Hunyuan3D-1"),
     quality_level: str = Form("high"),
+    category: str = Form("Персонажи"),
 ):
     """
     Start 3D model generation from a photo via ARQ queue.
@@ -479,14 +499,13 @@ async def generate_model(
     """
     import queue_manager
 
-    # Calculate credits and check subscription tier based on ai_model
-    cost = 2
-    if ai_model == "Hunyuan3D-2":
-        cost = 3
-    elif ai_model == "TRELLIS2":
-        cost = 4
+    # Fetch model config from DB
+    model_cfg = database.get_ai_model_config(ai_model)
+    if not model_cfg:
+        raise HTTPException(status_code=400, detail=f"Unknown AI model: {ai_model}")
 
-    # Add cost based on quality_level
+    # Calculate credits based on base_cost and quality
+    cost = model_cfg.get("base_cost", 2)
     if quality_level == "ultra":
         cost += 2
     elif quality_level == "high":
@@ -534,6 +553,9 @@ async def generate_model(
             enable_rig=False,
             poly_count=poly_count,
             ai_model=ai_model,
+            category=category,
+            quality_level=quality_level,
+            quality_settings=model_cfg.get("quality_settings"),
         )
         print(f"[API] Submitted generation job {gen_id} to queue", flush=True)
     except Exception as e:
@@ -573,18 +595,59 @@ def get_generation_status(gen_id: str):
         except:
             pass
 
+    # Calculate total duration if completed
+    total_duration_ms = None
+    if gen.get("completed_at") and gen.get("created_at"):
+        try:
+            from dateutil import parser
+            created = parser.parse(gen["created_at"]) if isinstance(gen["created_at"], str) else gen["created_at"]
+            completed = parser.parse(gen["completed_at"]) if isinstance(gen["completed_at"], str) else gen["completed_at"]
+            total_duration_ms = int((completed - created).total_seconds() * 1000)
+        except Exception as e:
+            print(f"DURATION CALC ERROR: {e}")
+
     return GenerationStatus(
         id=gen["id"],
         status=gen["status"],
         progress=gen.get("progress", 0),
         result_model_id=gen.get("result_model_id"),
         error_message=gen.get("error_message"),
-        created_at=gen.get("created_at"),
-        completed_at=gen.get("completed_at"),
+        created_at=str(gen.get("created_at")) if gen.get("created_at") else None,
+        completed_at=str(gen.get("completed_at")) if gen.get("completed_at") else None,
         queue_position=queue_position,
         queue_length=queue_length,
         source_image_url=gen.get("source_image_url"),
+        total_duration_ms=total_duration_ms,
     )
+
+
+@app.get("/api/generate/{gen_id}/logs")
+def get_generation_logs(gen_id: str):
+    """Get performance metrics for each stage of generation."""
+    try:
+        logs = database.get_generation_logs(gen_id)
+        return logs
+    except Exception as e:
+        print(f"GET LOGS ERROR: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/config/ai-models")
+def get_ai_models_config():
+    """Get all available AI models for generation UI."""
+    return database.get_ai_models()
+
+
+@app.get("/api/config/subscription-plans")
+def get_subscription_plans_config():
+    """Get all subscription plans for pricing page."""
+    return database.get_subscription_plans()
+
+
+@app.get("/api/config/file-formats")
+def get_file_formats_config():
+    """Get all file formats for catalog filtering."""
+    return database.get_file_formats()
 
 
 @app.get("/api/models")

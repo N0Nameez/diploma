@@ -30,6 +30,9 @@ async def submit_generation_job(
     enable_rig: bool = False,
     poly_count: str = "50k",
     ai_model: str = "Hunyuan3D-1",
+    category: str = "Персонажи",
+    quality_level: str = "high",
+    quality_settings: dict = None,
 ) -> str:
     """
     Submit a generation job to the ARQ queue.
@@ -51,6 +54,9 @@ async def submit_generation_job(
         enable_rig=enable_rig,
         poly_count=poly_count,
         ai_model=ai_model,
+        category=category,
+        quality_level=quality_level,
+        quality_settings=quality_settings,
         _job_id=gen_id,
     )
     

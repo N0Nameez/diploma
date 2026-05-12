@@ -102,6 +102,36 @@ def get_generation_request(gen_id: str) -> dict | None:
     return result.data[0] if result.data else None
 
 
+
+def add_generation_log(gen_id: str, stage: str, duration_ms: int, status: str = 'success', error: str = None):
+    """Record timing and status for a specific generation stage."""
+    try:
+        with _get_pg_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO public.generation_logs (generation_id, stage, duration_ms, status, error_message)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (gen_id, stage, duration_ms, status, error))
+    except Exception as e:
+        print(f"FAILED TO WRITE LOG: {e}")
+
+
+def get_generation_logs(gen_id: str) -> list:
+    """Get all stage logs for a generation request."""
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT stage, duration_ms, status, error_message, created_at
+                FROM public.generation_logs
+                WHERE generation_id = %s
+                ORDER BY created_at ASC
+            """, (gen_id,))
+            rows = cur.fetchall()
+            if not rows:
+                return []
+            cols = [desc[0] for desc in cur.description]
+            return [dict(zip(cols, row)) for row in rows]
+
 def get_user_generations(user_id: str, limit: int = 20) -> list:
     """Get user's generation requests, newest first, using direct PostgreSQL."""
     with _get_pg_connection() as conn:
@@ -1037,6 +1067,7 @@ def record_download(model_id: str, user_id: str) -> bool:
                 cur.execute("UPDATE public.user_profiles SET total_downloads = total_downloads + 1 WHERE id = %s", (author_row[0],))
             return True
 
+
 def get_platform_stats() -> dict:
     """
     Get platform-wide stats for homepage.
@@ -1052,3 +1083,144 @@ def get_platform_stats() -> dict:
             return {
                 "models": models_count,
             }
+
+
+def get_tags(tag_type: str = None) -> list:
+    """Get all tags, optionally filtered by type."""
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            if tag_type:
+                cur.execute("SELECT id, name, tag_type, slug FROM public.tags WHERE tag_type = %s ORDER BY name", (tag_type,))
+            else:
+                cur.execute("SELECT id, name, tag_type, slug FROM public.tags ORDER BY name")
+            rows = cur.fetchall()
+            return [{"id": str(r[0]), "name": r[1], "tag_type": r[2], "slug": r[3]} for r in rows]
+
+
+def link_model_to_tag(model_id: str, tag_id: str):
+    """Link a model to a tag in model_tags table."""
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO public.model_tags (model_id, tag_id)
+                VALUES (%s, %s)
+                ON CONFLICT DO NOTHING
+            """, (model_id, tag_id))
+            conn.commit()
+
+
+def get_catalog_stats() -> dict:
+    """
+    Get detailed catalog stats for filters: 
+    - tags (with model and animation counts)
+    - format counts
+    - AI-generated count
+    """
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            # 1. Tags and their counts
+            cur.execute("""
+                SELECT t.id, t.name, t.tag_type,
+                       (SELECT COUNT(*) FROM public.model_tags mt 
+                        JOIN public.models m ON mt.model_id = m.id 
+                        WHERE mt.tag_id = t.id AND m.status = 'approved') as models_count,
+                       (SELECT COUNT(*) FROM public.animation_tags at 
+                        JOIN public.animations a ON at.animation_id = a.id 
+                        WHERE at.tag_id = t.id AND a.status = 'approved') as animations_count
+                FROM public.tags t
+                ORDER BY t.name
+            """)
+            tag_rows = cur.fetchall()
+            tags = []
+            for row in tag_rows:
+                tags.append({
+                    "id": str(row[0]),
+                    "name": row[1],
+                    "tag_type": row[2],
+                    "models_count": row[3],
+                    "animations_count": row[4]
+                })
+
+            # 2. Format counts
+            cur.execute("""
+                SELECT format, COUNT(*) 
+                FROM public.models 
+                WHERE status = 'approved' 
+                GROUP BY format
+                ORDER BY COUNT(*) DESC
+            """)
+            format_rows = cur.fetchall()
+            formats = {row[0]: row[1] for row in format_rows}
+
+            # 3. AI count
+            cur.execute("""
+                SELECT COUNT(*) 
+                FROM public.models 
+                WHERE status = 'approved' AND ai_generated = TRUE
+            """)
+            ai_count = cur.fetchone()[0] or 0
+
+            return {
+                "tags": tags,
+                "formats": formats,
+                "ai_generated_count": ai_count
+            }
+
+
+def get_ai_models() -> list:
+    """Get all active AI models for generation."""
+    try:
+        with _get_pg_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, name, model_key, base_cost, quality_settings, description FROM public.ai_models WHERE is_active = TRUE ORDER BY base_cost")
+                rows = cur.fetchall()
+                cols = [desc[0] for desc in cur.description]
+                return [dict(zip(cols, row)) for row in rows]
+    except Exception as e:
+        print(f"DB ERROR (get_ai_models): {e}")
+        return []
+
+
+def get_ai_model_config(model_key: str) -> dict | None:
+    """Get config for a specific AI model."""
+    try:
+        with _get_pg_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, name, model_key, base_cost, quality_settings, description FROM public.ai_models WHERE model_key = %s", (model_key,))
+                row = cur.fetchone()
+                if not row:
+                    return None
+                cols = [desc[0] for desc in cur.description]
+                return dict(zip(cols, row))
+    except Exception as e:
+        print(f"DB ERROR (get_ai_model_config): {e}")
+        return None
+
+
+def get_subscription_plans() -> list:
+    """Get all active subscription plans."""
+    try:
+        with _get_pg_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, name, price_monthly, credits_per_month, features FROM public.subscription_plans WHERE is_active = TRUE ORDER BY price_monthly")
+                rows = cur.fetchall()
+                cols = [desc[0] for desc in cur.description]
+                return [dict(zip(cols, row)) for row in rows]
+    except Exception as e:
+        print(f"DB ERROR (get_subscription_plans): {e}")
+        return []
+
+
+def get_file_formats() -> list:
+    """Get all active file formats for catalog filtering."""
+    try:
+        with _get_pg_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, name FROM public.file_formats WHERE is_active = TRUE ORDER BY name")
+                rows = cur.fetchall()
+                cols = [desc[0] for desc in cur.description]
+                return [dict(zip(cols, row)) for row in rows]
+    except Exception as e:
+        print(f"DB ERROR (get_file_formats): {e}")
+        return []
+
