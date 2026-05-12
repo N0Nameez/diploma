@@ -14,6 +14,7 @@ import { SearchProvider, SearchModal } from "./components/SearchAutocomplete";
 import { supabase } from "./lib/supabase";
 import { AuthGuard } from "./components/AuthGuard/AuthGuard";
 import { ScrollToTop } from "./components/ScrollToTop";
+import { GenerationProvider } from "./contexts/GenerationContext";
 
 /**
  * Root Application component handling routing, global state, and layout.
@@ -57,7 +58,8 @@ export function App() {
   ];
 
   return (
-    <SearchProvider>
+    <GenerationProvider>
+      <SearchProvider>
       <ScrollToTop />
       <Navbar
         links={links}
@@ -113,7 +115,7 @@ export function App() {
           onOAuthSignIn={signInWithOAuth}
         />
       )}
-    </SearchProvider>
+      </SearchProvider>
+    </GenerationProvider>
   );
 }
-

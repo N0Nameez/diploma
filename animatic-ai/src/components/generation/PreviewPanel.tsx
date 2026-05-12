@@ -1,4 +1,6 @@
 import type { GenerationStatus } from "../../hooks/useGeneration";
+import type { GenerationLog } from "../../services/api";
+import { GenerationTelemetry } from "./GenerationTelemetry";
 import {
   Check,
   RefreshCw,
@@ -16,6 +18,8 @@ interface PreviewPanelProps {
   fileUploaded: boolean;
   modelFileUrl: string | null;
   onRetry: () => void;
+  logs?: GenerationLog[];
+  totalDurationMs?: number | null;
 }
 
 const STEPS = [
@@ -53,6 +57,8 @@ export function PreviewPanel({
   fileUploaded,
   modelFileUrl,
   onRetry,
+  logs = [],
+  totalDurationMs = null,
 }: PreviewPanelProps) {
   const isModel = mode === "model";
   const steps = isModel ? STEPS : ANIM_STEPS;
@@ -243,7 +249,6 @@ export function PreviewPanel({
             </div>
           </div>
         )}
-
         {/* FAILED STATE */}
         {status === "failed" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-5 text-center z-10">
@@ -261,6 +266,8 @@ export function PreviewPanel({
           </div>
         )}
       </div>
+
+
 
       {/* Meta Bar */}
       <div className="px-5 py-4 border-t border-border flex items-center justify-between gap-3">

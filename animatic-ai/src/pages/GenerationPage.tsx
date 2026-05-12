@@ -16,7 +16,7 @@ import HistoryPanel from "../components/generation/HistoryPanel";
 import Toast from "../components/model/Toast";
 import { Modal } from "../components/Modal";
 import LicenseModal from "../components/model/LicenseModal";
-import { publishModel, downloadModel, fetchModel } from "../services/api";
+import { publishModel, downloadModel, fetchModel, fetchTags, type ApiTag } from "../services/api";
 
 /**
  * Generation page for creating new 3D models and animations using AI.
@@ -43,6 +43,8 @@ export function GenerationPage() {
     modelFileUrl,
     queuePosition,
     queueLength,
+    totalDurationMs,
+    logs,
     setOnComplete,
     uploadFile,
     startGeneration,
@@ -51,20 +53,10 @@ export function GenerationPage() {
     resumeGenerationById,
     removeFile,
     reset,
+    settings,
+    setSettings,
   } = useGeneration();
 
-  const [settings, setSettings] = useState<GenerationSettings>({
-    name: "",
-    category: "Персонаж",
-    description: "",
-    stylePreset: "realism",
-    qualityLevel: "high",
-    polyCount: "50k",
-    enablePbr: true,
-    enableRig: true,
-    autoPublish: false,
-    aiModel: "Hunyuan3D-1",
-  });
 
   // Track previous status for toast notifications
   const [prevStatus, setPrevStatus] = useState<string | null>(null);
@@ -97,6 +89,28 @@ export function GenerationPage() {
   // Hide settings panels when generating or after completion
   const showSettings =
     !generating && status !== "completed" && status !== "processing";
+
+  // Fetch tags from DB
+  const [industryTags, setIndustryTags] = useState<ApiTag[]>([]);
+  const [typeTags, setTypeTags] = useState<ApiTag[]>([]);
+
+  useEffect(() => {
+    fetchTags("industry").then(setIndustryTags).catch(() => {});
+    fetchTags("type").then(setTypeTags).catch(() => {});
+  }, []);
+
+  // Update default category when tags are loaded if current is empty or still "Персонаж"
+  useEffect(() => {
+    if (industryTags.length > 0 && settings.category === "Персонаж") {
+      setSettings(prev => ({ ...prev, category: industryTags[0].name }));
+    }
+  }, [industryTags]);
+
+  useEffect(() => {
+    if (typeTags.length > 0 && editorCategory === "Персонажи") {
+      setEditorCategory(typeTags[0].name);
+    }
+  }, [typeTags]);
 
   // Validation: name is required
   const nameError =
@@ -387,13 +401,21 @@ export function GenerationPage() {
                   onChange={(e) => setEditorCategory(e.target.value)}
                   className="w-full px-4 py-2.5 bg-background-primary border border-border rounded-xl text-text-primary text-sm outline-none focus:border-accent hover:border-accent-glow transition-all"
                 >
-                  <option value="Персонажи">Персонажи</option>
-                  <option value="Архитектура">Архитектура</option>
-                  <option value="Природа">Природа</option>
-                  <option value="Транспорт">Транспорт</option>
-                  <option value="Оружие">Оружие</option>
-                  <option value="Животные">Животные</option>
-                  <option value="Интерьер">Интерьер</option>
+                  {typeTags.length > 0 ? (
+                    typeTags.map(tag => (
+                      <option key={tag.id} value={tag.name}>{tag.name}</option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="Персонажи">Персонажи</option>
+                      <option value="Архитектура">Архитектура</option>
+                      <option value="Природа">Природа</option>
+                      <option value="Транспорт">Транспорт</option>
+                      <option value="Оружие">Оружие</option>
+                      <option value="Животные">Животные</option>
+                      <option value="Интерьер">Интерьер</option>
+                    </>
+                  )}
                 </select>
               </div>
 
@@ -475,6 +497,7 @@ export function GenerationPage() {
                   onSettingsChange={setSettings}
                   nameError={nameError}
                   userProfile={profile}
+                  industryTags={industryTags}
                 />
 
                 <QualitySettings
@@ -505,6 +528,8 @@ export function GenerationPage() {
               fileUploaded={!!file}
               modelFileUrl={modelFileUrl}
               onRetry={handleRetry}
+              logs={logs}
+              totalDurationMs={totalDurationMs}
             />
 
             <button
