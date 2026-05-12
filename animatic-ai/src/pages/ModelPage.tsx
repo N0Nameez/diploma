@@ -132,6 +132,7 @@ export function ModelPage() {
     animationsCount: 0,
     tags: [displayModel.category || "Персонажи", displayModel.format || "GLB"],
     category: displayModel.category || "Персонажи",
+    aiModel: (displayModel as any).ai_model || "Hunyuan3D-1",
     // Real author stats
     authorModelsCount: (displayModel as any).models_count ?? 0,
     authorFollowers: (displayModel as any).followers_count ?? 0,
@@ -563,7 +564,7 @@ export function ModelPage() {
                   { label: "Риг", value: dm.rig },
                   { label: "Форматы", value: "GLB, FBX, OBJ" },
                   { label: "Движки", value: dm.engines },
-                  { label: "Анимаций", value: `${dm.animationsCount} шт.` },
+                  { label: "ИИ Модель", value: dm.aiGenerated ? dm.aiModel : "N/A" },
                   { label: "Лицензия", value: dm.license },
                 ].map((item) => (
                   <div
@@ -857,7 +858,7 @@ export function ModelPage() {
                 </Link>
                 <div className="text-xs text-text-secondary">
                   @{dm.authorUsername} ·{" "}
-                  {dm.aiGenerated ? "ИИ-генерация" : "Авторская работа"}
+                  {dm.aiGenerated ? `ИИ-генерация (${dm.aiModel})` : "Авторская работа"}
                 </div>
               </div>
               <button

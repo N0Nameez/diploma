@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Viewer3D } from "../Viewer3D";
 import { Camera, Video, Dot } from "lucide-react";
 
@@ -19,6 +19,25 @@ const MODEL_FORMATS = ["JPG", "PNG", "WEBP"];
 const ANIMATION_FORMATS = ["MP4", "MOV", "WEBM"];
 const MAX_SIZE_MODEL = 20; // MB
 const MAX_SIZE_ANIMATION = 200; // MB
+
+/**
+ * Maps real backend progress to a user-friendly stage label.
+ * Backend stages: 5(start) → 10(validate) → 15(rembg) → 20(preprocess)
+ * → 30(subprocess start) → 35/45/50/60/65(subprocess phases)
+ * → 75(subprocess done) → 80(preview) → 85(upload start) → 90(upload done)
+ * → 100(complete)
+ */
+function getProgressLabel(p: number): string {
+  if (p < 10) return "Подготовка...";
+  if (p < 20) return "Удаление фона...";
+  if (p < 30) return "Предобработка изображения...";
+  if (p < 40) return "Загрузка ИИ модели...";
+  if (p < 55) return "Генерация мультивидов...";
+  if (p < 70) return "Генерация 3D геометрии...";
+  if (p < 80) return "Рендеринг превью...";
+  if (p < 90) return "Загрузка на сервер...";
+  return "Финализация...";
+}
 
 export function UploadPanel({
   mode,
@@ -43,6 +62,44 @@ export function UploadPanel({
   const [viewMode, setViewMode] = useState<"photo" | "3d">("photo");
 
   const isCompleted = status === "completed" && modelFileUrl;
+
+  /**
+   * Smooth progress interpolation:
+   * When real progress stays on the same value for a while,
+   * slowly creep the displayed value towards the next checkpoint.
+   * This makes the UI feel alive during long subprocess stages.
+   */
+  const [displayProgress, setDisplayProgress] = useState(0);
+  const lastRealProgress = useRef(0);
+
+  useEffect(() => {
+    if (!generating) {
+      setDisplayProgress(progress);
+      lastRealProgress.current = progress;
+      return;
+    }
+
+    // Real progress jumped — snap to it
+    if (progress > lastRealProgress.current) {
+      setDisplayProgress(progress);
+      lastRealProgress.current = progress;
+      return;
+    }
+
+    // Slowly creep towards the midpoint to next expected checkpoint
+    const timer = setInterval(() => {
+      setDisplayProgress((prev) => {
+        // Don't exceed real progress + small offset
+        const ceiling = Math.min(progress + 8, 99);
+        if (prev >= ceiling) return prev;
+        return prev + 0.3;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [progress, generating]);
+
+  const shownProgress = Math.round(Math.max(displayProgress, progress));
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -185,25 +242,15 @@ export function UploadPanel({
           />
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/60">
             <div className="text-[40px] font-extrabold text-accent tabular-nums">
-              {progress}%
+              {shownProgress}%
             </div>
             <div className="text-[13px] text-text-secondary">
-              {progress < 15
-                ? "Подготовка..."
-                : progress < 30
-                  ? "Предобработка..."
-                  : progress < 55
-                    ? "Генерация геометрии..."
-                    : progress < 65
-                      ? "Упрощение меша..."
-                      : progress < 95
-                        ? "Создание текстур..."
-                        : "Финализация..."}
+              {getProgressLabel(shownProgress)}
             </div>
             <div className="w-3/4 h-[6px] bg-background-primary rounded-[3px] overflow-hidden">
               <div
-                className="h-full bg-accent rounded-[3px] transition-all duration-700 ease-out"
-                style={{ width: `${progress}%` }}
+                className="h-full bg-accent rounded-[3px] transition-all duration-1000 ease-out"
+                style={{ width: `${shownProgress}%` }}
               />
             </div>
           </div>
@@ -307,10 +354,10 @@ export function UploadPanel({
           </button>
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-3 py-2">
             <div className="text-[12px] text-white font-medium">
-              {file.name}
+              {file?.name || "Исходное изображение"}
             </div>
             <div className="flex items-center gap-0.5 text-[11px] text-white/60">
-              {(file.size / (1024 * 1024)).toFixed(1)} МБ
+              {file ? `${(file.size / (1024 * 1024)).toFixed(1)} МБ` : "Загружено"}
               <Dot className="w-3 h-3" />
               Готово к генерации
             </div>

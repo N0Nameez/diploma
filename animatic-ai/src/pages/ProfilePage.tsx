@@ -1259,7 +1259,7 @@ export function ProfilePage() {
                     </div>
                     <div className="flex justify-between items-end">
                       <div className="text-[11px] text-text-secondary leading-tight">
-                        До {new Date(p.subscription_end_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+                        До {new Date(p.subscription_end_date || '').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
                       </div>
                       <div className={`text-[11px] font-bold ${p.subscription_days_left !== undefined && p.subscription_days_left !== null && p.subscription_days_left < 3 ? 'text-danger' : 'text-text-muted'}`}>
                         {p.subscription_days_left ?? 0} дн. осталось

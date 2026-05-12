@@ -48,7 +48,7 @@
  * =============================================================================
  */
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   startGeneration,      // API: POST /api/generate
   getGenerationStatus, // API: GET /api/generate/{id}
@@ -94,6 +94,7 @@ export interface GenerationSettings {
   enablePbr: boolean;  // Включить PBR текстуры
   enableRig: boolean;  // Включить риг (скелет)
   autoPublish: boolean; // Автоопубликация в каталог
+  aiModel: string;      // Выбранная ИИ модель
 }
 
 /**
@@ -185,6 +186,12 @@ export function useGeneration() {
   /** URL .glb файла для Viewer3D — загружается после завершения */
   const [modelFileUrl, setModelFileUrl] = useState<string | null>(null);
 
+  /** Позиция в очереди (null если не в очереди) */
+  const [queuePosition, setQueuePosition] = useState<number | null>(null);
+
+  /** Общая длина очереди */
+  const [queueLength, setQueueLength] = useState<number>(0);
+
   // =========================================================================
   // REFS (изменяемые значения без ререндера)
   // =========================================================================
@@ -197,6 +204,59 @@ export function useGeneration() {
   
   /** Коллбэк при завершении — устанавливается из GenerationPage */
   const onCompleteRef = useRef<((modelId: string) => void) | null>(null);
+
+  /**
+   * =============================================================================
+   * ВОССТАНОВЛЕНИЕ СЕССИИ ПРИ ЗАГРУЗКЕ
+   * =============================================================================
+   */
+  useEffect(() => {
+    const savedGenId = sessionStorage.getItem("active_gen_id");
+    if (!savedGenId || generating) return;
+
+    const resumePolling = async () => {
+      try {
+        const res = await getGenerationStatus(savedGenId);
+        
+        // Если задача еще жива (в очереди или работает)
+        if (res.status === "queued" || res.status === "processing") {
+          setGenerating(true);
+          setStatus(res.status);
+          setProgress(res.progress);
+          if (res.source_image_url) {
+            setFileUrl(res.source_image_url);
+          }
+          genIdRef.current = savedGenId;
+
+          // Запускаем опрос
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = window.setInterval(() => {
+            pollStatus(savedGenId);
+          }, POLL_INTERVAL);
+        } else if (res.status === "completed") {
+          // Если задача уже завершилась пока нас не было
+          setStatus("completed");
+          setProgress(100);
+          setResultModelId(res.result_model_id);
+          if (res.source_image_url) setFileUrl(res.source_image_url);
+          
+          if (res.result_model_id) {
+            try {
+              const model = await fetchModel(res.result_model_id);
+              setModelFileUrl(model.file_url);
+            } catch (err) {}
+          }
+          sessionStorage.removeItem("active_gen_id");
+        } else {
+          sessionStorage.removeItem("active_gen_id");
+        }
+      } catch (err) {
+        sessionStorage.removeItem("active_gen_id");
+      }
+    };
+
+    resumePolling();
+  }, []); // Только при первом рендере хука
 
   // =========================================================================
   // ФУНКЦИИ
@@ -224,6 +284,14 @@ export function useGeneration() {
       // Обновляем состояние
       setProgress(res.progress);
       setStatus(res.status);
+
+      // Обновляем позицию в очереди
+      if (res.status === "queued") {
+        setQueuePosition(res.queue_position ?? null);
+        setQueueLength(res.queue_length ?? 0);
+      } else {
+        setQueuePosition(null);
+      }
 
       // Проверяем завершение
       if (res.status === "completed" || res.status === "failed") {
@@ -256,8 +324,9 @@ export function useGeneration() {
           }
         }
         
-        // Очищаем ref
+        // Очищаем ref и хранилище
         genIdRef.current = null;
+        sessionStorage.removeItem("active_gen_id");
       }
     } catch (err: any) {
       // ...
@@ -368,12 +437,14 @@ export function useGeneration() {
             guidance_scale: q.guidance,
             enable_pbr: settings.enablePbr,
             poly_count: settings.polyCount,
+            ai_model: settings.aiModel,
           },
         );
 
         
-        // Сохраняем ID для polling
+        // Сохраняем ID для polling и восстановления сессии
         genIdRef.current = result.generation_id;
+        sessionStorage.setItem("active_gen_id", result.generation_id);
 
         // НАЧИНАЕМ POLLING — это ключевое!
         // Не используем useEffect — сразу запускаем после отправки
@@ -395,6 +466,38 @@ export function useGeneration() {
     },
     [file],  // file — зависимость, при изменении функция пересоздается
   );
+
+  const resumeGenerationById = useCallback(async (genId: string) => {
+    try {
+      setGenerating(true);
+      setStatus("processing");
+      setErrorMessage(null);
+      setResultModelId(null);
+      setModelFileUrl(null);
+      
+      const res = await getGenerationStatus(genId);
+      
+      setStatus(res.status);
+      setProgress(res.progress);
+      if (res.source_image_url) {
+        setFileUrl(res.source_image_url);
+      }
+      
+      genIdRef.current = genId;
+      sessionStorage.setItem("active_gen_id", genId);
+
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = window.setInterval(() => {
+        pollStatus(genId);
+      }, POLL_INTERVAL);
+
+      return true;
+    } catch (err) {
+      console.error("Failed to resume generation:", err);
+      setGenerating(false);
+      return false;
+    }
+  }, [pollStatus]);
 
   /**
    * =============================================================================
@@ -487,8 +590,11 @@ export function useGeneration() {
     setErrorMessage(null);
     setResultModelId(null);
     setModelFileUrl(null);
+    setQueuePosition(null);
+    setQueueLength(0);
     if (pollRef.current) clearInterval(pollRef.current);
     genIdRef.current = null;
+    sessionStorage.removeItem("active_gen_id");
     onCompleteRef.current = null;
   }, [removeFile]);
 
@@ -527,11 +633,14 @@ export function useGeneration() {
     history,
     resultModelId,
     modelFileUrl,
+    queuePosition,
+    queueLength,
     setOnComplete,
     uploadFile: uploadFileToStorage,
     startGeneration: startGenerationProcess,
     loadUserCredits,
     loadUserHistory,
+    resumeGenerationById,
     removeFile,
     reset,
   };

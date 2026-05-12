@@ -1,10 +1,11 @@
-import { Settings } from "lucide-react";
+import { Settings, Sparkles, Zap, FlaskConical } from "lucide-react";
 
 interface SettingsPanelProps {
   mode: "model" | "animation";
   settings: any;
   onSettingsChange: (settings: any) => void;
   nameError?: string; /* Ошибка валидации имени */
+  userProfile?: any;
 }
 
 const CATEGORIES = [
@@ -30,8 +31,12 @@ export function SettingsPanel({
   settings,
   onSettingsChange,
   nameError,
+  userProfile,
 }: SettingsPanelProps) {
   const isModel = mode === "model";
+  
+  // Checking subscription tier
+  const isPro = userProfile?.subscription_status === 'pro' || userProfile?.subscription_status === 'studio';
 
   return (
     <div className="bg-background-surface border border-border rounded-[18px] p-6 transition-colors duration-200">
@@ -89,6 +94,52 @@ export function SettingsPanel({
             ))}
           </select>
         </div>
+
+        {isModel && (
+          <div className="col-span-2 flex flex-col gap-2">
+            <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-[0.8px]">
+              ИИ-Модель
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <div 
+                onClick={() => onSettingsChange({ ...settings, aiModel: "Hunyuan3D-1" })}
+                className={`p-3 rounded-xl border cursor-pointer transition-all ${settings.aiModel === "Hunyuan3D-1" ? 'border-accent bg-accent/10' : 'border-border bg-background-secondary hover:border-accent-glow'}`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Sparkles className={`w-4 h-4 ${settings.aiModel === "Hunyuan3D-1" ? 'text-accent' : 'text-text-muted'}`} />
+                  <span className={`text-sm font-semibold ${settings.aiModel === "Hunyuan3D-1" ? 'text-accent' : 'text-text-primary'}`}>Hunyuan3D-1</span>
+                </div>
+                <div className="text-xs text-text-secondary">Детальная генерация (2 кредита)</div>
+              </div>
+
+              <div 
+                onClick={() => isPro && onSettingsChange({ ...settings, aiModel: "Hunyuan3D-2" })}
+                className={`p-3 rounded-xl border transition-all ${!isPro ? 'opacity-50 cursor-not-allowed bg-background-primary' : 'cursor-pointer'} ${settings.aiModel === "Hunyuan3D-2" ? 'border-accent bg-accent/10' : 'border-border bg-background-secondary hover:border-accent-glow'}`}
+                title={!isPro ? "Требуется подписка Pro или Studio" : ""}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Zap className={`w-4 h-4 ${settings.aiModel === "Hunyuan3D-2" ? 'text-accent' : 'text-text-muted'}`} />
+                  <span className={`text-sm font-semibold ${settings.aiModel === "Hunyuan3D-2" ? 'text-accent' : 'text-text-primary'}`}>Hunyuan3D-2</span>
+                  {!isPro && <span className="ml-auto text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded">PRO</span>}
+                </div>
+                <div className="text-xs text-text-secondary">Быстрая генерация (3 кредита)</div>
+              </div>
+
+              <div 
+                onClick={() => isPro && onSettingsChange({ ...settings, aiModel: "TRELLIS2" })}
+                className={`p-3 rounded-xl border transition-all ${!isPro ? 'opacity-50 cursor-not-allowed bg-background-primary' : 'cursor-pointer'} ${settings.aiModel === "TRELLIS2" ? 'border-accent bg-accent/10' : 'border-border bg-background-secondary hover:border-accent-glow'}`}
+                title={!isPro ? "Требуется подписка Pro или Studio" : ""}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <FlaskConical className={`w-4 h-4 ${settings.aiModel === "TRELLIS2" ? 'text-accent' : 'text-text-muted'}`} />
+                  <span className={`text-sm font-semibold ${settings.aiModel === "TRELLIS2" ? 'text-accent' : 'text-text-primary'}`}>TRELLIS 2</span>
+                  {!isPro && <span className="ml-auto text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded">PRO</span>}
+                </div>
+                <div className="text-xs text-text-secondary">Экспериментальная (4 кредита)</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="col-span-2 flex flex-col gap-2">
           <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-[0.8px]">

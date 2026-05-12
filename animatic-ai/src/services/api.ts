@@ -29,6 +29,8 @@ export async function startGeneration(
     guidance_scale?: number;
     enable_pbr?: boolean;
     poly_count?: string;
+    quality_level?: string;
+    ai_model?: string;
   },
 ) {
   const form = new FormData();
@@ -41,6 +43,8 @@ export async function startGeneration(
   form.append("guidance_scale", String(options?.guidance_scale ?? 5.5));
   form.append("enable_pbr", options?.enable_pbr !== false ? "true" : "false");
   form.append("poly_count", options?.poly_count ?? "50k");
+  form.append("quality_level", options?.quality_level || "high");
+  form.append("ai_model", options?.ai_model || "Hunyuan3D-1");
 
   const res = await fetch(`${API_BASE}/api/generate`, {
     method: "POST",
@@ -59,6 +63,9 @@ export async function getGenerationStatus(genId: string) {
     error_message: string | null;
     created_at: string | null;
     completed_at: string | null;
+    queue_position: number | null;
+    queue_length: number | null;
+    source_image_url: string | null;
   }>(`/api/generate/${genId}`);
 }
 

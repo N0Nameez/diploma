@@ -6,6 +6,7 @@ interface QualitySettingsProps {
   enablePbr: boolean;
   enableRig: boolean;
   autoPublish: boolean;
+  aiModel?: string;
   onQualityChange: (level: string) => void;
   onPolyChange: (count: string) => void;
   onToggle: (setting: string, value: boolean) => void;
@@ -13,14 +14,23 @@ interface QualitySettingsProps {
 
 const POLY_LABELS = ["5K", "25K", "50K", "75K", "100K+"];
 
-/* What each quality level means in ML terms */
-const QUALITY_INFO: Record<
-  string,
-  { res: string; steps: string; guidance: string }
-> = {
-  draft: { res: "128", steps: "20", guidance: "4.0" },
-  high: { res: "256", steps: "30", guidance: "5.5" },
-  ultra: { res: "512", steps: "50", guidance: "7.0" },
+/* Model-specific quality info displayed as badges */
+const QUALITY_INFO: Record<string, Record<string, { label: string; values: Record<string, string> }>> = {
+  "Hunyuan3D-2": {
+    draft: { label: "Draft", values: { "Res": "128", "Steps": "20", "CFG": "4.0" } },
+    high:  { label: "High",  values: { "Res": "256", "Steps": "30", "CFG": "5.5" } },
+    ultra: { label: "Ultra", values: { "Res": "512", "Steps": "50", "CFG": "7.0" } },
+  },
+  "Hunyuan3D-1": {
+    draft: { label: "Draft", values: { "Diffusion": "20", "Faces": "25K" } },
+    high:  { label: "High",  values: { "Diffusion": "35", "Faces": "50K" } },
+    ultra: { label: "Ultra", values: { "Diffusion": "50", "Faces": "90K" } },
+  },
+  "TRELLIS2": {
+    draft: { label: "Draft", values: { "Steps": "12", "Tokens": "16K" } },
+    high:  { label: "High",  values: { "Steps": "20", "Tokens": "32K" } },
+    ultra: { label: "Ultra", values: { "Steps": "30", "Tokens": "49K" } },
+  },
 };
 
 export function QualitySettings({
@@ -29,10 +39,13 @@ export function QualitySettings({
   enablePbr,
   enableRig,
   autoPublish,
+  aiModel = "Hunyuan3D-2",
   onQualityChange,
   onPolyChange,
   onToggle,
 }: QualitySettingsProps) {
+  const modelInfo = QUALITY_INFO[aiModel] || QUALITY_INFO["Hunyuan3D-2"];
+  const currentInfo = modelInfo[qualityLevel];
   return (
     <div className="bg-background-surface border border-border rounded-[18px] p-6 transition-colors duration-200">
       <div className="flex items-center gap-[10px] mb-4">
@@ -85,17 +98,13 @@ export function QualitySettings({
             <span>Ultra</span>
           </div>
           {/* Show actual params for current quality */}
-          {QUALITY_INFO[qualityLevel] && (
-            <div className="mt-2 flex gap-2 text-[10px] text-text-secondary">
-              <span className="px-2 py-1 rounded bg-background-secondary">
-                Res: {QUALITY_INFO[qualityLevel].res}
-              </span>
-              <span className="px-2 py-1 rounded bg-background-secondary">
-                Steps: {QUALITY_INFO[qualityLevel].steps}
-              </span>
-              <span className="px-2 py-1 rounded bg-background-secondary">
-                CFG: {QUALITY_INFO[qualityLevel].guidance}
-              </span>
+          {currentInfo && (
+            <div className="mt-2 flex gap-2 text-[10px] text-text-secondary flex-wrap">
+              {Object.entries(currentInfo.values).map(([key, val]) => (
+                <span key={key} className="px-2 py-1 rounded bg-background-secondary">
+                  {key}: {val}
+                </span>
+              ))}
             </div>
           )}
         </div>

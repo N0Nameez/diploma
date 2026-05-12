@@ -24,7 +24,7 @@ import { publishModel, downloadModel, fetchModel } from "../services/api";
 export function GenerationPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, signIn, signUp, resendEmail, signInWithOAuth } = useAuth();
+  const { user, profile, signIn, signUp, resendEmail, signInWithOAuth } = useAuth();
   const {
     mode,
     setMode,
@@ -41,11 +41,14 @@ export function GenerationPage() {
     history,
     resultModelId,
     modelFileUrl,
+    queuePosition,
+    queueLength,
     setOnComplete,
     uploadFile,
     startGeneration,
     loadUserCredits,
     loadUserHistory,
+    resumeGenerationById,
     removeFile,
     reset,
   } = useGeneration();
@@ -60,11 +63,10 @@ export function GenerationPage() {
     enablePbr: true,
     enableRig: true,
     autoPublish: false,
+    aiModel: "Hunyuan3D-1",
   });
 
-  // Queue state
-  const [queuePosition, setQueuePosition] = useState<number | null>(null);
-  const [queueLength, setQueueLength] = useState<number>(0);
+  // Track previous status for toast notifications
   const [prevStatus, setPrevStatus] = useState<string | null>(null);
 
   // Editor mode (after generation completes)
@@ -225,40 +227,13 @@ export function GenerationPage() {
     }
   }, [searchParams, user]);
 
-  /* Poll queue position when status is queued */
+  /* Detect status transitions for toast notifications */
   useEffect(() => {
-    if (!user || status !== "queued") return;
-
-    const pollQueue = async () => {
-      try {
-        const { getGenerationStatus } = await import("../services/api");
-        // Get current gen ID from history
-        const currentGen = history.find(
-          (h) => h.status === "queued" || h.status === "processing",
-        );
-        if (!currentGen) return;
-
-        const res = await fetch(
-          `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/generate/${currentGen.id}`,
-        );
-        const data = await res.json();
-        setQueuePosition(data.queue_position);
-        setQueueLength(data.queue_length || 0);
-
-        // Detect status transition: queued -> processing
-        if (prevStatus === "queued" && data.status === "processing") {
-          showToast("🎨 Генерация началась! GPU обрабатывает вашу модель...");
-        }
-        setPrevStatus(data.status);
-      } catch {
-        // Ignore polling errors
-      }
-    };
-
-    pollQueue();
-    const interval = setInterval(pollQueue, 3000);
-    return () => clearInterval(interval);
-  }, [user, status, history, prevStatus]);
+    if (prevStatus === "queued" && status === "processing") {
+      showToast("🎨 Генерация началась! GPU обрабатывает вашу модель...");
+    }
+    setPrevStatus(status);
+  }, [status]);
 
   /* Handle publish with chosen license */
   const handlePublish = async (license: string) => {
@@ -462,6 +437,9 @@ export function GenerationPage() {
                   if (gen.resultModelId) {
                     setEditorModelId(gen.resultModelId);
                   }
+                } else if (status === "processing" || status === "queued") {
+                  // Восстанавливаем активную сессию из истории
+                  resumeGenerationById(id);
                 } else if (status === "failed") {
                   showToast("❌ Ошибка генерации");
                 }
@@ -496,6 +474,7 @@ export function GenerationPage() {
                   settings={settings}
                   onSettingsChange={setSettings}
                   nameError={nameError}
+                  userProfile={profile}
                 />
 
                 <QualitySettings
@@ -504,6 +483,7 @@ export function GenerationPage() {
                   enablePbr={settings.enablePbr}
                   enableRig={settings.enableRig}
                   autoPublish={settings.autoPublish}
+                  aiModel={settings.aiModel}
                   onQualityChange={(level) =>
                     setSettings({ ...settings, qualityLevel: level as any })
                   }
@@ -572,14 +552,14 @@ export function GenerationPage() {
                       : "Генерировать анимацию"}
                   </span>
                   <span className="opacity-70 font-medium text-[13px]">
-                    · {mode === "model" ? "3" : "2"} кредита
+                    · {mode === "model" ? (settings.aiModel === "TRELLIS2" ? 4 : settings.aiModel === "Hunyuan3D-2" ? 3 : 2) + (settings.qualityLevel === "ultra" ? 2 : settings.qualityLevel === "high" ? 1 : 0) : 2} кредитов
                   </span>
                 </>
               )}
             </button>
 
             {/* Queue indicator */}
-            {status === "queued" && queuePosition && (
+            {status === "queued" && (
               <div className="bg-background-surface border border-border rounded-[14px] p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
@@ -598,25 +578,37 @@ export function GenerationPage() {
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-text-primary">
-                      Вы {queuePosition}-й в очереди
+                      {queuePosition != null
+                        ? `Вы ${queuePosition}-й в очереди`
+                        : "В очереди — ожидание GPU"}
                     </div>
                     <div className="text-xs text-text-secondary">
-                      Ожидают ещё {queueLength - 1} задач
+                      {queuePosition != null && queueLength > 1
+                        ? `Ожидают ещё ${queueLength - 1} задач`
+                        : "Скоро начнётся обработка"}
                     </div>
                   </div>
                 </div>
-                {/* Queue progress bar */}
-                <div className="w-full h-2 bg-background-secondary rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-accent rounded-full transition-all duration-500"
-                    style={{
-                      width: `${Math.max(5, (1 - queuePosition / Math.max(queueLength, 1)) * 100)}%`,
-                    }}
-                  />
-                </div>
-                <div className="text-xs text-text-secondary mt-2">
-                  ⏳ Примерно ~{queuePosition * 3} мин
-                </div>
+                {queuePosition != null && (
+                  <>
+                    <div className="w-full h-2 bg-background-secondary rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-accent rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.max(5, (1 - queuePosition / Math.max(queueLength, 1)) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="text-xs text-text-secondary mt-2">
+                      ⏳ Примерно ~{queuePosition * 3} мин
+                    </div>
+                  </>
+                )}
+                {queuePosition == null && (
+                  <div className="w-full h-2 bg-background-secondary rounded-full overflow-hidden">
+                    <div className="h-full bg-accent/50 rounded-full animate-pulse" style={{ width: "30%" }} />
+                  </div>
+                )}
               </div>
             )}
 
@@ -681,7 +673,8 @@ export function GenerationPage() {
                   } else if (status === "failed") {
                     showToast("❌ Ошибка генерации. Попробуйте другое фото.");
                   } else if (status === "processing" || status === "queued") {
-                    showToast("⏳ Генерация в процессе...");
+                    // Восстанавливаем активную сессию из истории
+                    resumeGenerationById(id);
                   }
                 }}
               />
