@@ -28,14 +28,35 @@ def _get_pool():
 def _get_pg_connection():
     """Get direct PostgreSQL connection from pool."""
     p = _get_pool()
-    conn = p.getconn()
+    
+    # Try up to 3 times to get a live connection
+    conn = None
+    for _ in range(3):
+        conn = p.getconn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+            break # Valid connection found
+        except (psycopg2.OperationalError, psycopg2.InterfaceError):
+            # Connection is dead, dispose it
+            p.putconn(conn, close=True)
+            conn = None
+            
+    if not conn:
+        raise RuntimeError("Failed to obtain a live database connection from the pool.")
+        
     try:
         yield conn
         conn.commit()
+    except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+        conn.rollback()
+        p.putconn(conn, close=True)
+        raise e
     except Exception:
         conn.rollback()
+        p.putconn(conn)
         raise
-    finally:
+    else:
         p.putconn(conn)
 
 
@@ -58,7 +79,7 @@ def create_generation_request(user_id: str, gen_type: str = "model_photo", style
     return result.data[0] if result.data else None
 
 
-def update_generation_status(gen_id: str, status: str, progress: int = None, error: str = None, result_model_id: str = None) -> dict:
+def update_generation_status(gen_id: str, status: str, progress: int = None, error: str = None, result_model_id: str = None, source_image_url: str = None) -> dict:
     """Update generation request status and progress."""
     client = get_client()
     updates = {"status": status}
@@ -68,6 +89,8 @@ def update_generation_status(gen_id: str, status: str, progress: int = None, err
         updates["error_message"] = error
     if result_model_id is not None:
         updates["result_model_id"] = result_model_id
+    if source_image_url is not None:
+        updates["source_image_url"] = source_image_url
     result = client.table("generation_requests").update(updates).eq("id", gen_id).execute()
     return result.data[0] if result.data else None
 
@@ -84,7 +107,7 @@ def get_user_generations(user_id: str, limit: int = 20) -> list:
     with _get_pg_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT id, type, status, progress, result_model_id, error_message, created_at
+                SELECT id, type, status, progress, result_model_id, error_message, source_image_url, created_at
                 FROM public.generation_requests
                 WHERE user_id = %s
                 ORDER BY created_at DESC
@@ -104,7 +127,8 @@ def create_model(author_id: str, name: str, description: str = None, category: s
                  source_image_url: str = None,
                  ai_generated: bool = True, status: str = "approved",
                  license: str = "view_only",
-                 vertices_count: int = None, faces_count: int = None) -> dict:
+                 vertices_count: int = None, faces_count: int = None,
+                 ai_model: str = None) -> dict:
     """Create a new model record using direct PostgreSQL (bypasses PostgREST cache)."""
     with _get_pg_connection() as conn:
         with conn.cursor() as cur:
@@ -112,11 +136,11 @@ def create_model(author_id: str, name: str, description: str = None, category: s
                 INSERT INTO public.models (
                     author_id, name, description, category, format,
                     file_url, preview_url, source_image_url, source, ai_generated,
-                    status, license, vertices_count, faces_count
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    status, license, vertices_count, faces_count, ai_model
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id, author_id, name, description, category, format,
                           file_url, preview_url, source_image_url, source, ai_generated, status,
-                          license, vertices_count, faces_count, created_at
+                          license, vertices_count, faces_count, ai_model, created_at
             """, (
                 author_id,
                 name,
@@ -132,6 +156,7 @@ def create_model(author_id: str, name: str, description: str = None, category: s
                 license,
                 vertices_count,
                 faces_count,
+                ai_model
             ))
             row = cur.fetchone()
             if not row:

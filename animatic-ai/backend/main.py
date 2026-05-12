@@ -112,6 +112,7 @@ class GenerationStatus(BaseModel):
     completed_at: str | None = None
     queue_position: int | None = None
     queue_length: int | None = None
+    source_image_url: str | None = None
 
 
 class PaymentCreateRequest(BaseModel):
@@ -469,6 +470,8 @@ async def generate_model(
     guidance_scale: float = Form(5.5),
     enable_pbr: bool = Form(True),
     poly_count: str = Form("50k"),
+    ai_model: str = Form("Hunyuan3D-1"),
+    quality_level: str = Form("high"),
 ):
     """
     Start 3D model generation from a photo via ARQ queue.
@@ -476,8 +479,28 @@ async def generate_model(
     """
     import queue_manager
 
+    # Calculate credits and check subscription tier based on ai_model
+    cost = 2
+    if ai_model == "Hunyuan3D-2":
+        cost = 3
+    elif ai_model == "TRELLIS2":
+        cost = 4
+
+    # Add cost based on quality_level
+    if quality_level == "ultra":
+        cost += 2
+    elif quality_level == "high":
+        cost += 1
+
+    # Require Pro/Studio for premium models
+    if ai_model in ["Hunyuan3D-2", "TRELLIS2"]:
+        profile = database.get_user_profile(user_id)
+        tier = profile.get('subscription_status') if profile else None
+        if tier not in ['pro', 'studio']:
+            raise HTTPException(status_code=403, detail=f"Model {ai_model} requires Pro or Studio subscription.")
+
     # Check and deduct credits
-    credit_result = database.deduct_credits(user_id, amount=3)
+    credit_result = database.deduct_credits(user_id, amount=cost)
     if not credit_result["success"]:
         raise HTTPException(status_code=402, detail=credit_result["error"])
 
@@ -510,6 +533,7 @@ async def generate_model(
             enable_pbr=enable_pbr,
             enable_rig=False,
             poly_count=poly_count,
+            ai_model=ai_model,
         )
         print(f"[API] Submitted generation job {gen_id} to queue", flush=True)
     except Exception as e:
@@ -559,6 +583,7 @@ def get_generation_status(gen_id: str):
         completed_at=gen.get("completed_at"),
         queue_position=queue_position,
         queue_length=queue_length,
+        source_image_url=gen.get("source_image_url"),
     )
 
 

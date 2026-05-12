@@ -47,12 +47,14 @@ async def generate_model_from_image(
     enable_pbr: bool = True,
     enable_rig: bool = False,
     poly_count: str = "50k",
+    ai_model: str = "Hunyuan3D-1",
 ):
     """
     Run Hunyuan3D-2 generation in the ARQ worker.
     Updates database status during the process.
     """
     import database
+    import storage
     import torch
     import trimesh
     from PIL import Image
@@ -64,7 +66,7 @@ async def generate_model_from_image(
     try:
         # Update status: processing
         database.update_generation_status(gen_id, "processing", 5)
-        print(f"[Worker] Starting generation: gen_id={gen_id[:8]}", flush=True)
+        print(f"[Worker] Starting generation: gen_id={gen_id[:8]}, ai_model={ai_model}, enable_pbr={enable_pbr}, poly_count={poly_count}", flush=True)
 
         # ── Step 1: Validate photo (only if rigging is needed) ──
         database.update_generation_status(gen_id, "processing", 10)
@@ -97,63 +99,171 @@ async def generate_model_from_image(
         processed_path = os.path.join(temp_dir, "processed.png")
         processed_img.save(processed_path)
 
-        # ── Step 4: Load Hunyuan3D and generate geometry ──
-        database.update_generation_status(gen_id, "processing", 30)
-        print(f"[Worker] Loading Hunyuan3D model...", flush=True)
+        # Upload processed image for persistent session preview
+        source_img_url = None
+        try:
+            source_img_url = storage.upload_source_image(processed_path, gen_id)
+        except Exception as e:
+            print(f"[Worker] Failed to upload source preview: {e}", flush=True)
 
-        from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
-
-        print(f"[Worker] Loading model with from_pretrained...", flush=True)
-        pipe = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(
-            "tencent/Hunyuan3D-2",
-        )
-        print(f"[Worker] from_pretrained returned: {type(pipe)}", flush=True)
-        if pipe is None:
-            raise RuntimeError("Failed to load Hunyuan3D pipeline — model returned None")
-
-        database.update_generation_status(gen_id, "processing", 40)
-        print(f"[Worker] Generating 3D geometry...", flush=True)
-
-        mesh = pipe(
-            image=processed_path,
-            octree_resolution=octree_resolution,
-            num_inference_steps=num_steps,
-            guidance_scale=guidance_scale,
-            remove_bg=False,
-            mc_algo='mc',
-        )[0]
-
-        # ── Step 5: Generate PBR textures if enabled ──
-        if enable_pbr:
-            print(f"[Worker] Generating PBR textures...", flush=True)
-            try:
-                from hy3dgen.texgen import Hunyuan3DPaintPipeline
-                tex_pipe = Hunyuan3DPaintPipeline.from_pretrained("tencent/Hunyuan3D-2")
-                # Load the processed image as PIL Image for the texture pipeline
-                processed_img = Image.open(processed_path).convert("RGBA")
-                mesh = tex_pipe(mesh, image=processed_img)
-                # Clean up VRAM
-                del tex_pipe
-                torch.cuda.empty_cache()
-                gc.collect()
-                print(f"[Worker] PBR textures applied", flush=True)
-            except Exception as e:
-                print(f"[Worker] PBR texture generation failed (continuing without): {e}", flush=True)
-
-        database.update_generation_status(gen_id, "processing", 75)
-
-        # ── Step 6: Save GLB ──
+        # ── Step 4: Branch execution based on AI Model ──
+        database.update_generation_status(gen_id, "processing", 30, source_image_url=source_img_url)
+        
+        # Free memory BEFORE launching heavy models or subprocesses
+        torch.cuda.empty_cache()
+        gc.collect()
+        
         output_dir = os.path.join(temp_dir, "output")
         os.makedirs(output_dir, exist_ok=True)
         glb_path = os.path.join(output_dir, "model.glb")
+
+        import subprocess
         
-        mesh.export(glb_path, file_type='glb')
+        if ai_model == "Hunyuan3D-2":
+            print(f"[Worker] Loading Hunyuan3D model...", flush=True)
+            from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
+            pipe = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained("tencent/Hunyuan3D-2")
+            
+            database.update_generation_status(gen_id, "processing", 40)
+            print(f"[Worker] Generating 3D geometry...", flush=True)
+
+            mesh = pipe(
+                image=processed_path,
+                octree_resolution=octree_resolution,
+                num_inference_steps=num_steps,
+                guidance_scale=guidance_scale,
+                remove_bg=False,
+                mc_algo='mc',
+            )[0]
+
+            if enable_pbr:
+                print(f"[Worker] Generating PBR textures...", flush=True)
+                try:
+                    from hy3dgen.texgen import Hunyuan3DPaintPipeline
+                    tex_pipe = Hunyuan3DPaintPipeline.from_pretrained("tencent/Hunyuan3D-2")
+                    processed_img_pil = Image.open(processed_path).convert("RGBA")
+                    mesh = tex_pipe(mesh, image=processed_img_pil)
+                    del tex_pipe
+                except Exception as e:
+                    print(f"[Worker] PBR failed: {e}", flush=True)
+
+            database.update_generation_status(gen_id, "processing", 75)
+            mesh.export(glb_path, file_type='glb')
+            
+            # Explicitly cleanup H3D2 objects
+            del pipe
+            if 'tex_pipe' in locals(): del tex_pipe
+            torch.cuda.empty_cache()
+
+        elif ai_model == "Hunyuan3D-1":
+            print(f"[Worker] Launching Hunyuan3D-1 subprocess...", flush=True)
+            python_exe = r"c:\Develop\diploma\machine_learning\H3D1\venv\Scripts\python.exe"
+            script = r"c:\Develop\diploma\machine_learning\H3D1\run_cli.py"
+            
+            # Map quality for H3D1 (MVD Lite diffusion pipeline)
+            # H3D1 uses gen_steps for multi-view diffusion. Effective range: 20-50.
+            # More steps = more consistent multi-view images → better mesh topology.
+            # octree_resolution and guidance_scale are Hunyuan3D-2 specific, NOT used here.
+            h3d1_quality = {
+                "draft":  {"gen_steps": 20, "max_faces": 25000},
+                "high":   {"gen_steps": 35, "max_faces": 50000},
+                "ultra":  {"gen_steps": 50, "max_faces": 90000},
+            }
+            # Determine quality level from octree_resolution (sent from frontend)
+            ql = "draft" if octree_resolution <= 128 else "ultra" if octree_resolution >= 512 else "high"
+            h3d1_cfg = h3d1_quality[ql]
+            
+            # Override face count from poly_count slider if user explicitly chose it
+            poly_map = {"5K": 5000, "25K": 25000, "50K": 50000, "75K": 75000, "100K+": 100000}
+            face_count = poly_map.get(poly_count, h3d1_cfg["max_faces"])
+            
+            cmd = [
+                python_exe, script,
+                "--image", processed_path,
+                "--output_dir", output_dir,
+                "--gen_steps", str(h3d1_cfg["gen_steps"]),
+                "--max_faces_num", str(face_count),
+                "--do_texture_mapping", "True" if enable_pbr else "False",
+            ]
+            
+            # Merge stderr into stdout to prevent deadlock if stderr buffer fills up
+            proc = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, cwd=r"c:\Develop\diploma\machine_learning\H3D1",
+                bufsize=1, universal_newlines=True # Line-buffered for progress tracking
+            )
+            # Stream stdout and parse progress markers
+            for line in iter(proc.stdout.readline, ''):
+                line = line.strip()
+                if not line:
+                    continue
+                if line.startswith("[PROGRESS:"):
+                    try:
+                        pct = int(line.split(":")[1].rstrip("]"))
+                        database.update_generation_status(gen_id, "processing", pct)
+                    except ValueError:
+                        pass
+                if line.startswith("[H3D1]"):
+                    print(line, flush=True)
+            proc.wait()
+            if proc.returncode != 0:
+                # Since stderr is merged, we already printed most of the output
+                raise RuntimeError(f"H3D1 failed (exit code {proc.returncode}). Check worker logs above for details.")
+            database.update_generation_status(gen_id, "processing", 75)
+            
+        elif ai_model == "TRELLIS2":
+            print(f"[Worker] Launching TRELLIS2 subprocess...", flush=True)
+            python_exe = r"c:\Develop\diploma\machine_learning\TRELLIS2\.venv\Scripts\python.exe"
+            script = r"c:\Develop\diploma\machine_learning\TRELLIS2\run_cli.py"
+            
+            # Map quality for TRELLIS2 (sparse structure latent pipeline)
+            # TRELLIS2 uses 'steps' for shape sampler and 'max_tokens' for voxel budget.
+            # octree_resolution/guidance_scale are Hunyuan3D-2 specific, NOT used here.
+            trellis_quality = {
+                "draft":  {"steps": 12, "max_tokens": 16384},
+                "high":   {"steps": 20, "max_tokens": 32768},
+                "ultra":  {"steps": 30, "max_tokens": 49152},
+            }
+            ql = "draft" if octree_resolution <= 128 else "ultra" if octree_resolution >= 512 else "high"
+            trellis_cfg = trellis_quality[ql]
+            
+            cmd = [
+                python_exe, script,
+                "--image", processed_path,
+                "--output_dir", output_dir,
+                "--poly_count", poly_count,
+                "--steps", str(trellis_cfg["steps"]),
+                "--max_tokens", str(trellis_cfg["max_tokens"]),
+                "--enable_pbr", "True" if enable_pbr else "False",
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=r"c:\Develop\diploma\machine_learning\TRELLIS2")
+            if result.returncode != 0:
+                stderr_lines = result.stderr.strip().splitlines()
+                tb_start = -1
+                for i, line in enumerate(stderr_lines):
+                    if line.startswith("Traceback (most recent call last):"):
+                        tb_start = i
+                error_detail = "\n".join(stderr_lines[tb_start:]) if tb_start >= 0 else "\n".join(stderr_lines[-20:])
+                raise RuntimeError(f"TRELLIS2 failed (exit code {result.returncode}):\n{error_detail}")
+                
+            database.update_generation_status(gen_id, "processing", 75)
+            
+        else:
+            raise ValueError(f"Unknown ai_model: {ai_model}")
+
+        # Free memory before next steps
+        torch.cuda.empty_cache()
+        gc.collect()
+
         print(f"[Worker] GLB saved: {glb_path}", flush=True)
 
         database.update_generation_status(gen_id, "processing", 80)
 
         # ── Step 6: Generate preview image ──
         preview_path = os.path.join(output_dir, "preview.png")
+        if ai_model != "Hunyuan3D-2":
+            mesh = trimesh.load(glb_path, force='mesh')
         _generate_preview(mesh, preview_path)
 
         database.update_generation_status(gen_id, "processing", 85)
@@ -162,14 +272,12 @@ async def generate_model_from_image(
         from supabase import create_client
         supabase = create_client(config.SUPABASE_URL, config.SUPABASE_SERVICE_KEY)
 
-        # Upload model (unique path per generation)
         model_key = f"{user_id}/{gen_id}/model.glb"
         with open(glb_path, "rb") as f:
             supabase.storage.from_("models").upload(model_key, f)
         model_url_result = supabase.storage.from_("models").get_public_url(model_key)
         model_url = model_url_result.get("publicUrl", model_url_result) if isinstance(model_url_result, dict) else model_url_result
 
-        # Upload preview
         preview_key = f"{user_id}/{gen_id}/preview.png"
         with open(preview_path, "rb") as f:
             supabase.storage.from_("previews").upload(preview_key, f)
@@ -178,9 +286,7 @@ async def generate_model_from_image(
 
         database.update_generation_status(gen_id, "processing", 90)
 
-        # ── Step 7: Upload source image ──
         source_image_url = storage.upload_source_image(image_path, gen_id)
-        print(f"[Worker] Source image uploaded: {source_image_url[:40]}...", flush=True)
 
         # ── Step 8: Create model record ──
         model = database.create_model(
@@ -194,6 +300,7 @@ async def generate_model_from_image(
             source_image_url=source_image_url,
             ai_generated=True,
             status="approved",
+            ai_model=ai_model,
             license="view_only",
             vertices_count=len(mesh.vertices) if hasattr(mesh, 'vertices') else None,
             faces_count=len(mesh.faces) if hasattr(mesh, 'faces') else None,
