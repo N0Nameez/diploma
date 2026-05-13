@@ -17,7 +17,7 @@ import {
   checkFollowing,
 } from "../services/api";
 import type { ApiModel } from "../services/api";
-import { Download, Heart, Bookmark, Gamepad2, Box } from "lucide-react";
+import { Download, Heart, Bookmark, Gamepad2, Box, Layers } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
 /**
@@ -130,8 +130,9 @@ export function ModelPage() {
     rig: displayModel.ai_generated ? "Нет" : "Да",
     engines: "Unity, UE5, Blender",
     animationsCount: 0,
-    tags: [displayModel.category || "Персонажи", displayModel.format || "GLB"],
+    tags: [displayModel.category || "Персонажи", displayModel.industry || "Кинопроизводство", displayModel.format || "GLB"],
     category: displayModel.category || "Персонажи",
+    industry: displayModel.industry || "Кинопроизводство",
     aiModel: (displayModel as any).ai_model || "Hunyuan3D-1",
     // Real author stats
     authorModelsCount: (displayModel as any).models_count ?? 0,
@@ -591,8 +592,13 @@ export function ModelPage() {
             <h1 className="font-extrabold text-2xl text-text-primary mb-1.5 tracking-tight">
               {dm.name}
             </h1>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-background-secondary text-text-secondary text-xs font-medium mb-4">
-              <Gamepad2 className="w-3.5 h-3.5" /> Разработка игр
+            <div className="flex flex-wrap gap-2 mb-4">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-background-secondary text-text-secondary text-xs font-medium">
+                <Gamepad2 className="w-3.5 h-3.5" /> {dm.industry}
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent/10 text-accent text-xs font-medium">
+                <Layers className="w-3.5 h-3.5" /> {dm.category}
+              </div>
             </div>
 
             {/* Stats */}
@@ -778,8 +784,8 @@ export function ModelPage() {
                       name: "OBJ",
                       size: "9.2 МБ",
                       desc: "Blender, ZBrush",
-                      color: "rgba(var(--success-rgb), 0.15)",
-                      text: "var(--success)",
+                      color: "rgba(27,199,103,0.15)",
+                      text: "#10B981",
                     },
                     {
                       id: "stl",

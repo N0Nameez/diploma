@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import Section from "../components/Section";
 import { Button } from "@/components/Button";
 import FilterSidebar from "../components/catalog/FilterSidebar";
 import ModelCard from "../components/ModelCard";
@@ -34,6 +33,22 @@ export function CatalogPage() {
   });
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState(filters.search);
+
+  // Sync searchTerm with filters.search (e.g. when cleared from indicator)
+  useEffect(() => {
+    setSearchTerm(filters.search);
+  }, [filters.search]);
+
+  // Debounced search update
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchTerm !== filters.search) {
+        updateFilter("search", searchTerm);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm, updateFilter, filters.search]);
 
   // Sync URL params with filters
   useEffect(() => {
@@ -116,12 +131,31 @@ export function CatalogPage() {
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
+              className="flex-1"
             >
-              <Section
-                label="Каталог"
-                title={filters.contentType === "3d" ? "3D-модели" : "Анимации"}
-                sub={`Найдено ${totalCount} ${filters.contentType === "3d" ? "моделей" : "анимаций"}`}
-              />
+              <h1 className="text-[clamp(28px,3.5vw,42px)] font-extrabold tracking-[-1.5px] mb-2 leading-[1.1] text-text-primary">
+                Каталог моделей
+              </h1>
+              <p className="text-sm text-text-secondary font-light mb-6">
+                Найдено {totalCount} {filters.contentType === "3d" ? "моделей" : "анимаций"}
+              </p>
+
+              <div className="relative max-w-xl group">
+                <Search 
+                  size={20} 
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-accent transition-colors" 
+                />
+                <input
+                  type="text"
+                  placeholder="Поиск по названию или описанию..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 bg-background-secondary border border-border/50 rounded-2xl
+                             text-text-primary text-base outline-none transition-all duration-300
+                             hover:border-accent/30 focus:border-accent focus:bg-background-surface
+                             shadow-sm focus:shadow-lg focus:shadow-accent/5"
+                />
+              </div>
             </motion.div>
 
             <div className="flex items-center gap-3">

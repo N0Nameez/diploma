@@ -32,7 +32,8 @@ export async function startGeneration(
     quality_level?: string;
     ai_model?: string;
     category?: string;
-
+    industry?: string;
+    enable_rig?: boolean;
   },
 ) {
   const form = new FormData();
@@ -48,6 +49,7 @@ export async function startGeneration(
   form.append("quality_level", options?.quality_level || "high");
   form.append("ai_model", options?.ai_model || "Hunyuan3D-1");
   form.append("category", options?.category || "Персонажи");
+  form.append("industry", options?.industry || "Кинопроизводство");
 
 
   const res = await fetch(`${API_BASE}/api/generate`, {
@@ -106,6 +108,7 @@ export interface ApiModel {
   faces_count?: number;
   license?: string;
   source_image_url?: string | null;
+  industry?: string;
   user_profiles?: {
     username: string;
     display_name: string;
@@ -535,6 +538,7 @@ export interface CatalogStats {
   tags: {
     id: string;
     name: string;
+    tag_type: string;
     models_count: number;
     animations_count: number;
   }[];
