@@ -12,6 +12,7 @@ import PreviewPanel from "../components/generation/PreviewPanel";
 import { Viewer3D } from "../components/Viewer3D";
 import { PaymentModal } from "../components/generation/PaymentModal";
 import HistoryPanel from "../components/generation/HistoryPanel";
+import CreditsPanel from "../components/generation/CreditsPanel";
 import { toast } from "react-hot-toast";
 import { Modal } from "../components/Modal";
 import LicenseModal from "../components/model/LicenseModal";

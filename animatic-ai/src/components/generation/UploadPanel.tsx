@@ -201,16 +201,15 @@ export function UploadPanel({
           </div>
           <div className="flex gap-1.5 justify-center flex-wrap">
             {formats.map((fmt, i) => (
-              <>
+              <span key={fmt} className="flex items-center">
                 {i > 0 && <Dot className="w-3 h-3 text-text-muted" />}
                 <span
-                  key={fmt}
                   className="px-[10px] py-[3px] rounded-[6px] bg-background-secondary
                                            text-[11px] font-semibold text-text-secondary border border-border"
                 >
                   {fmt}
                 </span>
-              </>
+              </span>
             ))}
             <Dot className="w-3 h-3 text-text-muted" />
             <span className="text-[11px] font-semibold text-textSecondary">
