@@ -14,6 +14,8 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Bac
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import smtplib
+import io
+from PIL import Image
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import email_templates
@@ -42,6 +44,10 @@ import payments
 from yookassa.domain.notification import WebhookNotificationFactory
 import toxicity
 import nsfw
+from validation import PhotoValidator
+
+# Initialize validators
+pose_validator = PhotoValidator()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -506,6 +512,7 @@ async def generate_model(
     quality_level: str = Form("high"),
     category: str = Form("Персонажи"),
     industry: str = Form("Кинопроизводство"),
+    enable_rig: str = Form("false"),
 ):
     """
     Start 3D model generation from a photo via ARQ queue.
@@ -543,10 +550,21 @@ async def generate_model(
     # Save uploaded image to temp file
     temp_dir = tempfile.mkdtemp()
     image_path = os.path.join(temp_dir, "input.png")
+    
+    # Robust boolean conversion for Form data
+    is_rig_enabled = str(enable_rig).lower() in ("true", "1", "yes", "on")
 
-    # Read image content and check NSFW
+    # Read image content and check NSFW & Pose (if rigging)
     content = await image.read()
     nsfw.validate_image(content)
+    
+    if is_rig_enabled:
+        img_pil = Image.open(io.BytesIO(content))
+        res = pose_validator.validate(img_pil)
+        if not res['valid']:
+            # Return specific reason for failure
+            error_detail = "; ".join(res['errors'])
+            raise HTTPException(status_code=400, detail=error_detail)
 
     with open(image_path, "wb") as f:
         f.write(content)
@@ -557,6 +575,15 @@ async def generate_model(
         return {"error": "Failed to create generation request"}
 
     gen_id = gen["id"]
+    
+    # Upload source image immediately to ensure it's preserved
+    source_image_url = None
+    try:
+        source_image_url = storage.upload_source_image(image_path, gen_id)
+        # Also update the generation request with this URL for session recovery
+        database.update_generation_status(gen_id, "queued", 0, source_image_url=source_image_url)
+    except Exception as se:
+        print(f"[API] Warning: Failed to upload source image: {se}", flush=True)
 
     # Submit to ARQ queue
     try:
@@ -570,13 +597,14 @@ async def generate_model(
             num_steps=num_steps,
             guidance_scale=guidance_scale,
             enable_pbr=enable_pbr,
-            enable_rig=False,
+            enable_rig=is_rig_enabled,
             poly_count=poly_count,
             ai_model=ai_model,
             category=category,
             industry=industry,
             quality_level=quality_level,
             quality_settings=model_cfg.get("quality_settings"),
+            source_image_url=source_image_url,
         )
         print(f"[API] Submitted generation job {gen_id} to queue", flush=True)
     except Exception as e:

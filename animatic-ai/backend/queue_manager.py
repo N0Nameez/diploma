@@ -34,6 +34,7 @@ async def submit_generation_job(
     industry: str = "Кинопроизводство",
     quality_level: str = "high",
     quality_settings: dict = None,
+    source_image_url: str = None,
 ) -> str:
     """
     Submit a generation job to the ARQ queue.
@@ -59,6 +60,7 @@ async def submit_generation_job(
         industry=industry,
         quality_level=quality_level,
         quality_settings=quality_settings,
+        source_image_url=source_image_url,
         _job_id=gen_id,
     )
     

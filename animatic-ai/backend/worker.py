@@ -53,6 +53,7 @@ async def generate_model_from_image(
     industry: str = "Кинопроизводство",
     quality_level: str = "high",
     quality_settings: dict = None,
+    source_image_url: str = None,
 ):
     """
     Run Hunyuan3D-2 generation in the ARQ worker.
@@ -112,12 +113,14 @@ async def generate_model_from_image(
             database.add_generation_log(gen_id, 'preprocess', duration, status='failed', error=str(e))
             raise
 
-        # Upload original image for persistent session preview
-        source_img_url = None
-        try:
-            source_img_url = storage.upload_source_image(image_path, gen_id)
-        except Exception as e:
-            print(f"[Worker] Failed to upload original source: {e}", flush=True)
+        # ── Step 3.1: Ensure source image is available ──
+        # Use the URL passed from the API if available, otherwise upload now
+        source_img_url = source_image_url
+        if not source_img_url:
+            try:
+                source_img_url = storage.upload_source_image(image_path, gen_id)
+            except Exception as e:
+                print(f"[Worker] Failed to upload original source: {e}", flush=True)
 
         # ── Step 4: Branch execution based on AI Model (Geometry) ──
         start_geometry = time.time()
@@ -326,7 +329,8 @@ async def generate_model_from_image(
         # ── Step 8: Export (Create model record) ──
         start_export = time.time()
         try:
-            source_image_url = storage.upload_source_image(image_path, gen_id)
+            # source_img_url was defined early in the process
+            final_source_url = source_img_url
 
             # ── Auto-determine category (type) ──
             # Use CLIP for broad classification, PhotoValidator for character verification
@@ -360,7 +364,7 @@ async def generate_model_from_image(
                 format="GLB",
                 file_url=model_url,
                 preview_url=preview_url,
-                source_image_url=source_image_url,
+                source_image_url=final_source_url,
                 ai_generated=True,
                 status="approved",
                 ai_model=ai_model,
