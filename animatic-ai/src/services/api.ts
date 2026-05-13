@@ -56,7 +56,10 @@ export async function startGeneration(
     method: "POST",
     body: form,
   });
-  if (!res.ok) throw new Error(`Generation failed: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `Generation failed: ${res.status}`);
+  }
   return res.json() as Promise<{ generation_id: string; status: string }>;
 }
 
@@ -210,7 +213,10 @@ export async function updateModel(
   const res = await fetch(`${API_BASE}/api/models/${id}?${qs}`, {
     method: "PUT",
   });
-  if (!res.ok) throw new Error(`Update failed: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `Update failed: ${res.status}`);
+  }
   return res.json() as Promise<ApiModel>;
 }
 
@@ -335,8 +341,8 @@ export async function updateUserProfile(
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Update profile failed: ${res.status}`);
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `Update profile failed: ${res.status}`);
   }
 
   const result = await res.json();
@@ -457,7 +463,10 @@ export async function addComment(
     method: "POST",
     body: form,
   });
-  if (!res.ok) throw new Error(`Failed to add comment: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `Failed to add comment: ${res.status}`);
+  }
   return res.json();
 }
 
