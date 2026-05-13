@@ -5,7 +5,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/Button";
 import ModelCard from "../components/ModelCard";
 import Pagination from "../components/catalog/Pagination";
-import Toast from "../components/model/Toast";
+import { toast } from "react-hot-toast";
 import { CropModal } from "../components/CropModal";
 import {
   fetchUser,
@@ -103,10 +103,6 @@ export function ProfilePage() {
   const [modelFilter, setModelFilter] = useState<string>("Все");
   const [modelSort, setModelSort] = useState<string>("Новые сначала");
   const [currentPage, setCurrentPage] = useState(1);
-  const [toast, setToast] = useState<{ visible: boolean; message: string }>({
-    visible: false,
-    message: "",
-  });
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
@@ -152,9 +148,12 @@ export function ProfilePage() {
   // Cover modal
   const [showCoverModal, setShowCoverModal] = useState(false);
 
-  const showToast = (message: string) => {
-    setToast({ visible: true, message });
-    setTimeout(() => setToast({ visible: false, message: "" }), 2800);
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    if (type === "error") {
+      toast.error(message);
+    } else {
+      toast.success(message);
+    }
   };
 
   // Redirect from private tabs if not owner
@@ -336,8 +335,8 @@ export function ProfilePage() {
       setDisplayName(updated.display_name || updated.username || "");
       setBio(updated.bio || "");
       showToast("Профиль сохранён");
-    } catch {
-      showToast("Ошибка при сохранении");
+    } catch (err: any) {
+      showToast(err.message || "Ошибка при сохранении", "error");
     } finally {
       setSaving(false);
     }
@@ -363,9 +362,9 @@ export function ProfilePage() {
       setProfile(updated);
       setCoverKey((k) => k + 1); // Force re-render just in case
       showToast("Обложка обновлена");
-    } catch {
+    } catch (err: any) {
       setProfile(oldProfile);
-      showToast("Ошибка при обновлении");
+      showToast(err.message || "Ошибка при обновлении", "error");
     }
   };
 
@@ -397,8 +396,8 @@ export function ProfilePage() {
         
         setAvatarKey(Date.now()); // Update cache-busting key
         showToast("Аватарка обновлена");
-      } catch (err) {
-        showToast("Ошибка при загрузке аватарки");
+      } catch (err: any) {
+        showToast(err.message || "Ошибка при загрузке аватарки", "error");
       } finally {
         setUploadingAvatar(false);
         setAvatarCrop(null);
@@ -432,8 +431,8 @@ export function ProfilePage() {
         }
         setCoverKey(Date.now()); // Update cache-busting key
         showToast("Обложка обновлена");
-      } catch (err) {
-        showToast("Ошибка при загрузке обложки");
+      } catch (err: any) {
+        showToast(err.message || "Ошибка при загрузке обложки", "error");
       } finally {
         setUploadingCover(false);
         setCoverCrop(null);
@@ -1161,6 +1160,7 @@ export function ProfilePage() {
                     className="px-3.5 py-2.5 bg-background-secondary border border-border rounded-[10px] text-text text-sm outline-none focus:border-accent transition-all duration-200"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
+                    maxLength={50}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5 mb-4">
@@ -1194,6 +1194,7 @@ export function ProfilePage() {
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
                     rows={3}
+                    maxLength={500}
                   />
                 </div>
                 <div className="flex gap-3">
@@ -1435,12 +1436,6 @@ export function ProfilePage() {
           )}
         </div>
       </div>
-
-      <Toast
-        message={toast.message}
-        isVisible={toast.visible}
-        onClose={() => setToast({ ...toast, visible: false })}
-      />
 
       {/* Hidden file inputs */}
       <input

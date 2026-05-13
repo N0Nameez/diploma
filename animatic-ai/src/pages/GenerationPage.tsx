@@ -10,10 +10,9 @@ import SettingsPanel from "../components/generation/SettingsPanel";
 import QualitySettings from "../components/generation/QualitySettings";
 import PreviewPanel from "../components/generation/PreviewPanel";
 import { Viewer3D } from "../components/Viewer3D";
-import CreditsPanel from "../components/generation/CreditsPanel";
 import { PaymentModal } from "../components/generation/PaymentModal";
 import HistoryPanel from "../components/generation/HistoryPanel";
-import Toast from "../components/model/Toast";
+import { toast } from "react-hot-toast";
 import { Modal } from "../components/Modal";
 import LicenseModal from "../components/model/LicenseModal";
 import { publishModel, downloadModel, fetchModel, fetchTags, type ApiTag } from "../services/api";
@@ -69,11 +68,6 @@ export function GenerationPage() {
   const [editorCategory, setEditorCategory] = useState("Персонажи");
   const [editorSaving, setEditorSaving] = useState(false);
   const [editorError, setEditorError] = useState<string | null>(null);
-
-  const [toast, setToast] = useState<{ visible: boolean; message: string }>({
-    visible: false,
-    message: "",
-  });
 
   // Модальное окно авторизации
   const [authModal, setAuthModal] = useState<
@@ -204,10 +198,14 @@ export function GenerationPage() {
         `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/models/${editorModelId}?${qs}`,
         { method: "PUT" },
       );
-      if (!res.ok) throw new Error("Failed to save");
+      if (!res.ok) {
+        const body = await res.json();
+        throw new Error(body.detail || "Failed to save");
+      }
       showToast("Модель сохранена");
-    } catch {
-      setEditorError("Ошибка при сохранении");
+    } catch (err: any) {
+      setEditorError(err.message || "Ошибка при сохранении");
+      showToast(err.message || "Ошибка при сохранении", "error");
     } finally {
       setEditorSaving(false);
     }
@@ -249,6 +247,13 @@ export function GenerationPage() {
     setPrevStatus(status);
   }, [status, prevStatus]);
 
+  /* Show toast when errorMessage from context changes */
+  useEffect(() => {
+    if (errorMessage) {
+      showToast(errorMessage, "error");
+    }
+  }, [errorMessage]);
+
   /* 
    * Clean up stale generation state on mount.
    * If the user returns to this page and the last model is already finished,
@@ -271,13 +276,16 @@ export function GenerationPage() {
       );
       setTimeout(() => navigate(`/models/${resultModelId}`), 1500);
     } catch (err) {
-      showToast("Ошибка при публикации");
+      showToast("Ошибка при публикации", "error");
     }
   };
 
-  const showToast = (message: string) => {
-    setToast({ visible: true, message });
-    setTimeout(() => setToast({ visible: false, message: "" }), 2800);
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    if (type === "error") {
+      toast.error(message);
+    } else {
+      toast.success(message);
+    }
   };
 
   const handleUpload = async (uploadedFile: File) => {
@@ -323,7 +331,7 @@ export function GenerationPage() {
       URL.revokeObjectURL(blobUrl);
       showToast(`Скачивание: ${data.name}.${data.format.toLowerCase()}`);
     } catch (err) {
-      showToast("Ошибка при скачивании");
+      showToast("Ошибка при скачивании", "error");
     }
   };
 
@@ -383,6 +391,7 @@ export function GenerationPage() {
                   type="text"
                   value={editorName}
                   onChange={(e) => setEditorName(e.target.value)}
+                  maxLength={100}
                   className="w-full px-4 py-2.5 bg-background-primary border border-border rounded-xl text-text-primary text-sm outline-none focus:border-accent hover:border-accent-glow transition-all"
                   placeholder="Введите название..."
                 />
@@ -397,6 +406,7 @@ export function GenerationPage() {
                   value={editorDescription}
                   onChange={(e) => setEditorDescription(e.target.value)}
                   rows={3}
+                  maxLength={1000}
                   className="w-full px-4 py-2.5 bg-background-primary border border-border rounded-xl text-text-primary text-sm outline-none focus:border-accent hover:border-accent-glow transition-all resize-none"
                   placeholder="Опишите модель..."
                 />
@@ -474,7 +484,7 @@ export function GenerationPage() {
                   // Восстанавливаем активную сессию из истории
                   resumeGenerationById(id);
                 } else if (status === "failed") {
-                  showToast("❌ Ошибка генерации");
+                  showToast("❌ Ошибка генерации", "error");
                 }
               }}
             />
@@ -707,7 +717,7 @@ export function GenerationPage() {
                       setEditorModelId(gen.resultModelId);
                     }
                   } else if (status === "failed") {
-                    showToast("❌ Ошибка генерации. Попробуйте другое фото.");
+                    showToast("❌ Ошибка генерации. Попробуйте другое фото.", "error");
                   } else if (status === "processing" || status === "queued") {
                     // Восстанавливаем активную сессию из истории
                     resumeGenerationById(id);
@@ -725,13 +735,6 @@ export function GenerationPage() {
         onClose={() => setLicenseModalOpen(false)}
         onPublish={handlePublish}
         modelId={resultModelId}
-      />
-
-      {/* Toast */}
-      <Toast
-        message={toast.message}
-        isVisible={toast.visible}
-        onClose={() => setToast({ ...toast, visible: false })}
       />
 
       {/* Error Message */}

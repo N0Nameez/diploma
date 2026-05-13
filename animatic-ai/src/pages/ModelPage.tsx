@@ -4,7 +4,7 @@ import { Button } from "@/components/Button";
 import { Viewer3D } from "../components/Viewer3D";
 import DownloadModal from "../components/model/DownloadModal";
 import { Modal as AuthModal } from "../components/Modal";
-import Toast from "../components/model/Toast";
+import { toast } from "react-hot-toast";
 import {
   fetchModel,
   downloadModel,
@@ -39,10 +39,6 @@ export function ModelPage() {
   const [authModalOpen, setAuthModalOpen] = useState<
     "login" | "register" | "reset-password" | "update-password" | null
   >(null);
-  const [toast, setToast] = useState<{ visible: boolean; message: string }>({
-    visible: false,
-    message: "",
-  });
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
@@ -73,9 +69,12 @@ export function ModelPage() {
   }, [id, user]);
 
   /* Show toast notifications */
-  const showToast = (message: string) => {
-    setToast({ visible: true, message });
-    setTimeout(() => setToast({ visible: false, message: "" }), 2800);
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    if (type === "error") {
+      toast.error(message);
+    } else {
+      toast.success(message);
+    }
   };
 
   if (loading) {
@@ -267,8 +266,8 @@ export function ModelPage() {
       setComments((prev) => [comment, ...prev]);
       setNewComment("");
       showToast("Комментарий добавлен");
-    } catch (err) {
-      showToast("Ошибка при отправке");
+    } catch (err: any) {
+      showToast(err.message || "Ошибка при отправке", "error");
     } finally {
       setSubmittingComment(false);
     }
@@ -466,6 +465,7 @@ export function ModelPage() {
                   <div className="flex gap-2">
                     <textarea
                       value={newComment}
+                      maxLength={1000}
                       onChange={(e) => setNewComment(e.target.value)}
                       placeholder="Написать комментарий..."
                       rows={2}
@@ -922,19 +922,14 @@ export function ModelPage() {
         />
       )}
 
-      <DownloadModal
-        isOpen={downloadModalOpen}
-        onClose={() => setDownloadModalOpen(false)}
-        modelName={dm.name}
-        modelId={id ?? ""}
-        onDownload={handleDownloadFormat}
-      />
-
-      <Toast
-        message={toast.message}
-        isVisible={toast.visible}
-        onClose={() => setToast({ ...toast, visible: false })}
-      />
+      {id && (
+        <DownloadModal
+          isOpen={downloadModalOpen}
+          onClose={() => setDownloadModalOpen(false)}
+          onDownload={handleDownloadFormat}
+          modelName={dm.name}
+        />
+      )}
     </div>
   );
 }

@@ -70,6 +70,7 @@ export function SettingsPanel({
               onSettingsChange({ ...settings, name: e.target.value })
             }
             placeholder={isModel ? "Мой персонаж" : "Анимация ходьбы"}
+            maxLength={100}
             className={`px-[14px] py-[11px] bg-background-secondary border rounded-[11px]
                        text-text text-[14px] outline-none focus:border-accent hover:border-accent-glow transition-all duration-200
                        placeholder:text-text-muted
@@ -164,6 +165,7 @@ export function SettingsPanel({
                 : "Опиши движение или действие..."
             }
             rows={3}
+            maxLength={1000}
             className="px-[14px] py-[11px] bg-background-secondary border border-border rounded-[11px]
                        text-text text-[14px] outline-none focus:border-accent hover:border-accent-glow transition-all duration-200
                        placeholder:text-text-muted resize-none"
