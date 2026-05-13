@@ -724,12 +724,27 @@ def list_models(
     return {"items": models, "total": len(models)}
 
 
+@app.get("/api/feed")
+def get_recommended_feed(limit: int = 20, offset: int = 0):
+    """Get personalized/recommended feed of models."""
+    try:
+        models = database.get_recommended_feed(limit=limit, offset=offset)
+        return {"items": models, "total": len(models)}
+    except Exception as e:
+        print(f"FEED ERROR: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/models/{model_id}")
-def get_model(model_id: str):
+def get_model(model_id: str, background_tasks: BackgroundTasks):
     """Get a single model by ID."""
     model = database.get_model(model_id)
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
+    
+    # Increment views in background
+    background_tasks.add_task(database.increment_model_views, model_id)
+    
     return model
 
 

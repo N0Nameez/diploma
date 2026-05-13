@@ -171,7 +171,7 @@ def create_model(author_id: str, name: str, description: str = None, category: s
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id, author_id, name, description, category, format,
                           file_url, preview_url, source_image_url, source, ai_generated, status,
-                          license, vertices_count, faces_count, ai_model, industry, created_at
+                          license, vertices_count, faces_count, ai_model, industry, created_at, views
             """, (
                 author_id,
                 name,
@@ -288,6 +288,43 @@ def get_models(filters: dict = None, limit: int = 20, offset: int = 0, sort: str
             params.append(offset)
 
             cur.execute(query, params)
+            rows = cur.fetchall()
+            if not rows:
+                return []
+            cols = [desc[0] for desc in cur.description]
+            return [dict(zip(cols, row)) for row in rows]
+
+
+def increment_model_views(model_id: str) -> None:
+    """Increment the view counter for a model."""
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE public.models SET views = views + 1 WHERE id = %s",
+                (model_id,),
+            )
+
+
+def get_recommended_feed(limit: int = 20, offset: int = 0) -> list:
+    """
+    Get recommended models using a ranking algorithm.
+    Formula: (Likes * 3) + (Views * 1) - (Penalty for hours since publication)
+    """
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            # Gravity-based ranking formula
+            # We use 0.1 as a penalty factor per hour
+            query = """
+                SELECT m.*, up.username, up.display_name, up.avatar_url,
+                       up.models_count, up.followers_count,
+                       ((m.likes * 3) + (m.views * 1) - (EXTRACT(EPOCH FROM (NOW() - COALESCE(m.published_at, m.created_at))) / 3600 * 0.1)) as weight
+                FROM public.models m
+                LEFT JOIN public.user_profiles up ON m.author_id = up.id
+                WHERE m.status = 'approved' AND m.license != 'private'
+                ORDER BY weight DESC, m.created_at DESC
+                LIMIT %s OFFSET %s
+            """
+            cur.execute(query, (limit, offset))
             rows = cur.fetchall()
             if not rows:
                 return []
