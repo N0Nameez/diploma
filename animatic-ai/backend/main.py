@@ -41,6 +41,7 @@ import storage
 import payments
 from yookassa.domain.notification import WebhookNotificationFactory
 import toxicity
+import nsfw
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -49,6 +50,11 @@ async def lifespan(app: FastAPI):
         toxicity.validator.load_model()
     except Exception as e:
         print(f"FAILED TO LOAD TOXICITY MODEL: {e}")
+
+    try:
+        nsfw.validator.load_model()
+    except Exception as e:
+        print(f"FAILED TO LOAD NSFW MODEL: {e}")
 
     # Start the expiration checker in the background
     sub_task = asyncio.create_task(check_expiring_subscriptions_loop())
@@ -538,8 +544,11 @@ async def generate_model(
     temp_dir = tempfile.mkdtemp()
     image_path = os.path.join(temp_dir, "input.png")
 
+    # Read image content and check NSFW
+    content = await image.read()
+    nsfw.validate_image(content)
+
     with open(image_path, "wb") as f:
-        content = await image.read()
         f.write(content)
 
     # Create generation request in DB
