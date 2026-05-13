@@ -50,6 +50,7 @@ async def generate_model_from_image(
     poly_count: str = "50k",
     ai_model: str = "Hunyuan3D-1",
     category: str = "Персонажи",
+    industry: str = "Кинопроизводство",
     quality_level: str = "high",
     quality_settings: dict = None,
 ):
@@ -111,12 +112,12 @@ async def generate_model_from_image(
             database.add_generation_log(gen_id, 'preprocess', duration, status='failed', error=str(e))
             raise
 
-        # Upload processed image for persistent session preview
+        # Upload original image for persistent session preview
         source_img_url = None
         try:
-            source_img_url = storage.upload_source_image(processed_path, gen_id)
+            source_img_url = storage.upload_source_image(image_path, gen_id)
         except Exception as e:
-            print(f"[Worker] Failed to upload source preview: {e}", flush=True)
+            print(f"[Worker] Failed to upload original source: {e}", flush=True)
 
         # ── Step 4: Branch execution based on AI Model (Geometry) ──
         start_geometry = time.time()
@@ -327,12 +328,35 @@ async def generate_model_from_image(
         try:
             source_image_url = storage.upload_source_image(image_path, gen_id)
 
+            # ── Auto-determine category (type) ──
+            # Use CLIP for broad classification, PhotoValidator for character verification
+            final_category = "Прочее"
+            
+            try:
+                from generation.validation import ContentClassifier, PhotoValidator
+                
+                # 1. Broad classification via CLIP
+                classifier = ContentClassifier()
+                img_for_ai = Image.open(image_path)
+                final_category = classifier.classify(img_for_ai)
+                
+                # 2. Refinement for characters (MediaPipe is more reliable for human detection)
+                if final_category == "Персонажи":
+                    validator = PhotoValidator()
+                    val_res = validator.validate(img_for_ai)
+                    # If CLIP says character but MediaPipe doesn't see a pose, might be a prop/animal
+                    if not (val_res.get('pose_info') and val_res['pose_info'].get('arm_angle')):
+                        # If CLIP was very confident, keep it, otherwise maybe it's something else
+                        pass 
+            except Exception as e:
+                print(f"[Worker] Auto-categorization failed: {e}", flush=True)
+
             # ── Step 8: Create model record ──
             model = database.create_model(
                 author_id=user_id,
                 name=model_name or f"Generated Model {gen_id[:8]}",
                 description=f"AI-generated 3D model (style: {style})",
-                category=category,
+                category=final_category, # This is 'type'
                 format="GLB",
                 file_url=model_url,
                 preview_url=preview_url,
@@ -343,8 +367,18 @@ async def generate_model_from_image(
                 license="view_only",
                 vertices_count=len(mesh.vertices) if hasattr(mesh, 'vertices') else None,
                 faces_count=len(mesh.faces) if hasattr(mesh, 'faces') else None,
+                industry=industry # This is what user chose
             )
             model_id = model["id"]
+            
+            # ── Step 8.1: Link Tags ──
+            try:
+                tags_to_link = [final_category, industry]
+                database.link_model_tags(model_id, tags_to_link)
+                print(f"[Worker] Linked {len(tags_to_link)} tags to model {model_id[:8]}", flush=True)
+            except Exception as te:
+                print(f"[Worker] Failed to link tags: {te}", flush=True)
+
             print(f"[Worker] Model created in DB: {model_id[:8]}", flush=True)
             
             duration = int((time.time() - start_export) * 1000)

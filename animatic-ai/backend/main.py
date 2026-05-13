@@ -492,6 +492,7 @@ async def generate_model(
     ai_model: str = Form("Hunyuan3D-1"),
     quality_level: str = Form("high"),
     category: str = Form("Персонажи"),
+    industry: str = Form("Кинопроизводство"),
 ):
     """
     Start 3D model generation from a photo via ARQ queue.
@@ -554,6 +555,7 @@ async def generate_model(
             poly_count=poly_count,
             ai_model=ai_model,
             category=category,
+            industry=industry,
             quality_level=quality_level,
             quality_settings=model_cfg.get("quality_settings"),
         )
@@ -1030,7 +1032,13 @@ def _run_generation(gen_id: str, user_id: str, image_path: str, style: str, temp
         processed_path = preprocess.process(img, output_dir=temp_dir)
         print(f"[Gen {gen_id[:8]}] Preprocessing done", flush=True)
 
-        database.update_generation_status(gen_id, "processing", progress=20)
+        # Upload original image for preview
+        source_img_url = None
+        try:
+            source_img_url = storage.upload_source_image(image_path, gen_id)
+            database.update_generation_status(gen_id, "processing", progress=20, source_image_url=source_img_url)
+        except Exception as e:
+            print(f"[Gen {gen_id[:8]}] Failed to upload source: {e}")
 
         # ── Step 2: Generate geometry ──
         print(f"[Gen {gen_id[:8]}] Step 2: Generating geometry (res={octree_resolution}, steps={num_steps})...", flush=True)
@@ -1239,11 +1247,13 @@ def _run_generation(gen_id: str, user_id: str, image_path: str, style: str, temp
             format="GLB",
             file_url=model_url,
             preview_url=preview_url,
+            source_image_url=source_img_url if 'source_img_url' in locals() else None,
             ai_generated=True,
             status="pending",
             license="private",
             vertices_count=len(mesh.vertices),
             faces_count=len(mesh.faces),
+            industry=style, # fallback or pass from request
         )
         print(f"[Gen {gen_id[:8]}] Model created in DB: {model['id']}", flush=True)
 
