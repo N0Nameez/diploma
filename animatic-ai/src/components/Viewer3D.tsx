@@ -79,8 +79,8 @@ export function Viewer3D({
         relative w-full overflow-hidden
         ${
           isHero
-            ? "aspect-[4/3] rounded-2xl shadow-[0_24px_80px_rgba(0,0,0,0.4)] border border-border border-[2px]"
-            : "h-[500px] rounded-2xl border border-border"
+            ? "aspect-[4/3] md:aspect-square lg:aspect-[4/3] rounded-2xl shadow-[0_24px_80px_rgba(0,0,0,0.4)] border border-border border-[2px]"
+            : "h-[60dvh] md:h-[500px] rounded-2xl border border-border"
         }
         ${className}
       `}
@@ -92,9 +92,10 @@ export function Viewer3D({
       {/* 3D Canvas */}
       <Canvas
         camera={{ position: [0, 1, 3], fov: 50 }}
-        dpr={isHero ? [1, 1] : [1, 1.5]}
+        dpr={[1, 2]} // Better quality on high-res mobile screens
+        frameloop="demand" // FPS optimization: render only on interaction
         className="w-full h-full z-10"
-        style={{ background: "transparent" }}
+        style={{ background: "transparent", touchAction: "none" }}
       >
         {/* Bright studio lighting */}
         <ambientLight intensity={0.6} />
@@ -119,16 +120,22 @@ export function Viewer3D({
           ref={controlsRef}
           autoRotate={autoRotate}
           autoRotateSpeed={isHero ? 2 : 1.5}
-          enablePan={true}
-          minDistance={1.5}
-          maxDistance={15}
+          enablePan={!isHero}
+          minDistance={1.2}
+          maxDistance={12}
           enableZoom={true}
+          enableDamping={true}
+          dampingFactor={0.07}
+          rotateSpeed={0.8}
+          minPolarAngle={Math.PI / 4}
+          maxPolarAngle={Math.PI / 1.6}
+          makeDefault
         />
       </Canvas>
 
       {/* Grid Overlay — both variants */}
       <div
-        className="absolute inset-0 pointer-events-none z-0 opacity-50"
+        className="absolute inset-0 pointer-events-none z-0 opacity-30"
         style={{
           backgroundImage: `
             linear-gradient(var(--grid-color) 1px, transparent 1px),
@@ -151,26 +158,28 @@ export function Viewer3D({
 
       {/* Badge */}
       {isHero && (
-        <div className="z-10 absolute top-3 left-3 bg-background-surface/80 backdrop-blur-md border border-border rounded-lg px-3 py-1.5 text-[9px] text-accent font-bold tracking-[0.5px] flex items-center gap-2 shadow-sm">
+        <div className="z-20 absolute top-3 left-3 bg-background-surface/80 backdrop-blur-md border border-border rounded-lg px-3 py-1.5 text-[9px] text-accent font-bold tracking-[0.5px] flex items-center gap-2 shadow-sm">
           <span className="w-1 h-1 bg-accent rounded-full animate-pulse" />
           LIVE PREVIEW
         </div>
       )}
 
-      {/* Controls */}
-      <div className="absolute bottom-10 right-5 z-20 flex gap-1.5">
+      {/* Controls - Positioned safely for mobile */}
+      <div className="absolute bottom-6 right-4 z-30 flex flex-col sm:flex-row gap-2">
           <button
             onClick={handleReset}
-            className="w-9 h-9 rounded-lg flex items-center justify-center bg-background-secondary/80 border border-border text-text-secondary hover:bg-accent/10 hover:text-accent transition-all duration-200 text-xs backdrop-blur-md"
+            title="Reset Camera"
+            className="w-10 h-10 rounded-xl flex items-center justify-center bg-background-surface/90 border border-border text-text-secondary hover:bg-accent/10 hover:text-accent transition-all duration-200 text-sm backdrop-blur-xl shadow-lg active:scale-95"
           >
             ⟳
           </button>
           <button
             onClick={() => setAutoRotate(!autoRotate)}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-all duration-200 text-xs backdrop-blur-md ${
+            title="Toggle Auto-Rotate"
+            className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-200 text-sm backdrop-blur-xl shadow-lg active:scale-95 ${
               autoRotate
-                ? "bg-accent/10 border-accent text-accent hover:bg-accent/20"
-                : "bg-background-secondary/80 border-border text-text-secondary hover:bg-accent/10 hover:text-accent"
+                ? "bg-accent text-white border-accent shadow-accent/20"
+                : "bg-background-surface/90 border-border text-text-secondary hover:bg-accent/10 hover:text-accent"
             }`}
           >
             ↻
