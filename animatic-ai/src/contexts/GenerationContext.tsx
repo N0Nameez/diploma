@@ -15,7 +15,7 @@ export type QualityLevel = "draft" | "high" | "ultra";
 
 export interface GenerationSettings {
   name: string;
-  category: string;
+  industry: string;
   description: string;
   stylePreset: string;
   qualityLevel: QualityLevel;
@@ -97,7 +97,7 @@ export function GenerationProvider({ children }: { children: React.ReactNode }) 
 
   const [settings, setSettings] = useState<GenerationSettings>({
     name: "",
-    category: "Персонаж",
+    industry: "Кинопроизводство",
     description: "",
     stylePreset: "realism",
     qualityLevel: "high",
@@ -252,7 +252,8 @@ export function GenerationProvider({ children }: { children: React.ReactNode }) 
           enable_rig: currentSettings.enableRig,
           poly_count: currentSettings.polyCount,
           ai_model: currentSettings.aiModel,
-          category: currentSettings.category,
+          category: currentSettings.industry, // Temporary passing industry as category until API update
+          industry: currentSettings.industry,
           quality_level: currentSettings.qualityLevel,
         }
       );
@@ -287,7 +288,7 @@ export function GenerationProvider({ children }: { children: React.ReactNode }) 
   const loadUserHistory = useCallback(async (userId: string) => {
     try {
       const data = await fetchUserGenerations(userId);
-      const items = data.map((item: any) => {
+      const items = data.items.map((item: any) => {
         const entry: GenerationHistory = {
           id: item.id,
           type: item.type === "animation" ? "animation_video" : "model_photo",

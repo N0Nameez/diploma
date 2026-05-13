@@ -84,12 +84,12 @@ export function SettingsPanel({
 
         <div className="flex flex-col gap-2">
           <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-[0.8px]">
-            {isModel ? "Категория" : "Тип движения"}
+            {isModel ? "Направление" : "Тип движения"}
           </label>
           <select
-            value={settings.category}
+            value={settings.industry}
             onChange={(e) =>
-              onSettingsChange({ ...settings, category: e.target.value })
+              onSettingsChange({ ...settings, industry: e.target.value })
             }
             className="px-[14px] py-[11px] bg-background-secondary border border-border rounded-[11px]
                        text-text text-[14px] outline-none focus:border-accent hover:border-accent-glow transition-all duration-200

@@ -101,8 +101,8 @@ export function GenerationPage() {
 
   // Update default category when tags are loaded if current is empty or still "Персонаж"
   useEffect(() => {
-    if (industryTags.length > 0 && settings.category === "Персонаж") {
-      setSettings(prev => ({ ...prev, category: industryTags[0].name }));
+    if (industryTags.length > 0 && settings.industry === "Персонаж") {
+      setSettings(prev => ({ ...prev, industry: industryTags[0].name }));
     }
   }, [industryTags]);
 
@@ -165,7 +165,7 @@ export function GenerationPage() {
       setEditorModelId(modelId);
       setEditorName(settings.name);
       setEditorDescription(settings.description);
-      setEditorCategory(settings.category || "Персонажи");
+      setEditorCategory(settings.industry || "Персонажи");
     });
     return () => setOnComplete(null);
   }, [settings]);
@@ -247,7 +247,18 @@ export function GenerationPage() {
       showToast("🎨 Генерация началась! GPU обрабатывает вашу модель...");
     }
     setPrevStatus(status);
-  }, [status]);
+  }, [status, prevStatus]);
+
+  /* 
+   * Clean up stale generation state on mount.
+   * If the user returns to this page and the last model is already finished,
+   * we show a fresh generation page.
+   */
+  useEffect(() => {
+    if (status === "completed" || status === "failed") {
+      reset();
+    }
+  }, []);
 
   /* Handle publish with chosen license */
   const handlePublish = async (license: string) => {

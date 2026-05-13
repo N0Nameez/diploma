@@ -1,6 +1,5 @@
 import type { GenerationStatus } from "../../hooks/useGeneration";
 import type { GenerationLog } from "../../services/api";
-import { GenerationTelemetry } from "./GenerationTelemetry";
 import {
   Check,
   RefreshCw,
@@ -245,7 +244,7 @@ export function PreviewPanel({
             </div>
             <div className="flex items-center gap-2 text-[13px] text-accent font-medium mt-2">
               <ArrowRight className="w-4 h-4" />
-              Переключись на 3D Viewer в UploadPanel
+              Открываем редактор модели...
             </div>
           </div>
         )}
