@@ -31,6 +31,7 @@ async def submit_generation_job(
     poly_count: str = "50k",
     ai_model: str = "Hunyuan3D-1",
     category: str = "Персонажи",
+    industry: str = "Кинопроизводство",
     quality_level: str = "high",
     quality_settings: dict = None,
 ) -> str:
@@ -55,6 +56,7 @@ async def submit_generation_job(
         poly_count=poly_count,
         ai_model=ai_model,
         category=category,
+        industry=industry,
         quality_level=quality_level,
         quality_settings=quality_settings,
         _job_id=gen_id,

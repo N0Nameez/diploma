@@ -216,3 +216,79 @@ class PhotoValidator:
     def __del__(self):
         if hasattr(self, '_landmarker'):
             self._landmarker.close()
+
+
+class ContentClassifier:
+    """
+    Классификатор контента на базе CLIP для автоматического определения типа 3D-модели.
+    """
+    
+    def __init__(self, model_id="openai/clip-vit-base-patch32"):
+        from transformers import CLIPProcessor, CLIPModel
+        import torch
+        
+        self._torch = torch
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        
+        print(f"[Classifier] Loading CLIP model {model_id} on {self.device}...", flush=True)
+        self.model = CLIPModel.from_pretrained(model_id).to(self.device)
+        self.processor = CLIPProcessor.from_pretrained(model_id)
+        
+        # Маппинг для базы данных (Russian names as returned in model page)
+        self.labels = {
+            "characters": "Персонажи",
+            "architecture": "Архитектура",
+            "transport": "Транспорт",
+            "weapons": "Оружие",
+            "animals": "Животные",
+            "furniture": "Мебель",
+            "plants": "Растения",
+            "other": "Прочее"
+        }
+        
+        # Промпты для CLIP (на английском работают значительно точнее)
+        self.prompts = [
+            "a 3d character, person, human, or humanoid creature",
+            "architecture, building, house, or structure",
+            "transport, vehicle, car, aircraft, or ship",
+            "a weapon, sword, firearm, or tactical gear",
+            "an animal, wild creature, or pet",
+            "furniture, home decor, chair, or table",
+            "a plant, flower, tree, or nature object",
+            "a small prop, household item, or toy"
+        ]
+        self.slugs = list(self.labels.keys())
+
+    def classify(self, image: Image.Image) -> str:
+        """
+        Анализирует изображение и возвращает наиболее подходящую категорию.
+        """
+        import torch
+        
+        # Convert to RGB if needed
+        if image.mode != "RGB":
+            image = image.convert("RGB")
+            
+        inputs = self.processor(
+            text=self.prompts, 
+            images=image, 
+            return_tensors="pt", 
+            padding=True
+        ).to(self.device)
+        
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+            logits_per_image = outputs.logits_per_image
+            probs = logits_per_image.softmax(dim=1)
+            
+        best_idx = probs.argmax().item()
+        best_slug = self.slugs[best_idx]
+        confidence = probs[0][best_idx].item()
+        
+        print(f"[Classifier] Predicted: {best_slug} ({self.labels[best_slug]}) with confidence {confidence:.2f}", flush=True)
+        
+        # If confidence is too low, fallback to 'other'
+        if confidence < 0.15:
+            return "Прочее"
+            
+        return self.labels.get(best_slug, "Прочее")

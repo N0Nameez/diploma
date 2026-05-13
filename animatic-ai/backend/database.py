@@ -158,7 +158,8 @@ def create_model(author_id: str, name: str, description: str = None, category: s
                  ai_generated: bool = True, status: str = "approved",
                  license: str = "view_only",
                  vertices_count: int = None, faces_count: int = None,
-                 ai_model: str = None) -> dict:
+                 ai_model: str = None,
+                 industry: str = None) -> dict:
     """Create a new model record using direct PostgreSQL (bypasses PostgREST cache)."""
     with _get_pg_connection() as conn:
         with conn.cursor() as cur:
@@ -166,11 +167,11 @@ def create_model(author_id: str, name: str, description: str = None, category: s
                 INSERT INTO public.models (
                     author_id, name, description, category, format,
                     file_url, preview_url, source_image_url, source, ai_generated,
-                    status, license, vertices_count, faces_count, ai_model
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    status, license, vertices_count, faces_count, ai_model, industry
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id, author_id, name, description, category, format,
                           file_url, preview_url, source_image_url, source, ai_generated, status,
-                          license, vertices_count, faces_count, ai_model, created_at
+                          license, vertices_count, faces_count, ai_model, industry, created_at
             """, (
                 author_id,
                 name,
@@ -186,7 +187,8 @@ def create_model(author_id: str, name: str, description: str = None, category: s
                 license,
                 vertices_count,
                 faces_count,
-                ai_model
+                ai_model,
+                industry or "Кинопроизводство"
             ))
             row = cur.fetchone()
             if not row:
@@ -194,6 +196,29 @@ def create_model(author_id: str, name: str, description: str = None, category: s
             # Convert to dict
             cols = [desc[0] for desc in cur.description]
             return dict(zip(cols, row))
+
+
+def link_model_tags(model_id: str, tag_names: list):
+    """Link a model to multiple tags by name. Creates tags if they don't exist."""
+    if not tag_names:
+        return
+
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            for name in tag_names:
+                if not name: continue
+                # 1. Get or create tag
+                cur.execute(
+                    "INSERT INTO public.tags (name) VALUES (%s) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id",
+                    (name,)
+                )
+                tag_id = cur.fetchone()[0]
+                
+                # 2. Link tag to model
+                cur.execute(
+                    "INSERT INTO public.model_tags (model_id, tag_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                    (model_id, tag_id)
+                )
 
 
 def _row_to_dict(cur, row):
@@ -220,9 +245,24 @@ def get_models(filters: dict = None, limit: int = 20, offset: int = 0, sort: str
 
             if filters:
                 if filters.get("categories"):
-                    placeholders = ", ".join(["%s"] * len(filters["categories"]))
-                    query += f" AND m.category IN ({placeholders})"
-                    params.extend(filters["categories"])
+                    # Group tags by type (Industry vs Type) to apply AND logic between groups
+                    selected_names = filters["categories"]
+                    with conn.cursor() as cur_tags:
+                        cur_tags.execute("SELECT name, tag_type FROM public.tags WHERE name = ANY(%s)", (selected_names,))
+                        tag_meta = cur_tags.fetchall()
+                    
+                    type_filters = [t[0] for t in tag_meta if t[1] == 'type']
+                    industry_filters = [t[0] for t in tag_meta if t[1] == 'industry']
+
+                    if type_filters:
+                        placeholders = ", ".join(["%s"] * len(type_filters))
+                        query += f" AND m.category IN ({placeholders})"
+                        params.extend(type_filters)
+                    if industry_filters:
+                        placeholders = ", ".join(["%s"] * len(industry_filters))
+                        query += f" AND m.industry IN ({placeholders})"
+                        params.extend(industry_filters)
+
                 if filters.get("formats"):
                     placeholders = ", ".join(["%s"] * len(filters["formats"]))
                     query += f" AND m.format IN ({placeholders})"
@@ -1141,13 +1181,18 @@ def get_catalog_stats() -> dict:
                     "animations_count": row[4]
                 })
 
-            # 2. Format counts
+            # 2. Format counts (from file_formats table to include all active formats)
             cur.execute("""
-                SELECT format, COUNT(*) 
-                FROM public.models 
-                WHERE status = 'approved' 
-                GROUP BY format
-                ORDER BY COUNT(*) DESC
+                SELECT ff.name, COALESCE(counts.cnt, 0)
+                FROM public.file_formats ff
+                LEFT JOIN (
+                    SELECT format, COUNT(*) as cnt
+                    FROM public.models 
+                    WHERE status = 'approved' 
+                    GROUP BY format
+                ) counts ON ff.name = counts.format
+                WHERE ff.is_active = TRUE
+                ORDER BY ff.name
             """)
             format_rows = cur.fetchall()
             formats = {row[0]: row[1] for row in format_rows}
