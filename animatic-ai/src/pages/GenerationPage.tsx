@@ -248,10 +248,19 @@ export function GenerationPage() {
     setPrevStatus(status);
   }, [status, prevStatus]);
 
+  const activeErrorToastRef = useRef<string | null>(null);
+
   /* Show toast when errorMessage from context changes */
   useEffect(() => {
     if (errorMessage) {
-      showToast(errorMessage, "error");
+      // Prevent duplicate toasts for the same error
+      if (activeErrorToastRef.current) {
+        toast.dismiss(activeErrorToastRef.current);
+      }
+      activeErrorToastRef.current = showToast(errorMessage, "error") as string;
+    } else if (activeErrorToastRef.current) {
+      toast.dismiss(activeErrorToastRef.current);
+      activeErrorToastRef.current = null;
     }
   }, [errorMessage]);
 
@@ -281,11 +290,13 @@ export function GenerationPage() {
     }
   };
 
-  const showToast = (message: string, type: "success" | "error" = "success") => {
+  const showToast = (message: string, type: "success" | "error" | "loading" = "success") => {
     if (type === "error") {
-      toast.error(message);
+      return toast.error(message, { duration: 6000 });
+    } else if (type === "loading") {
+      return toast.loading(message);
     } else {
-      toast.success(message);
+      return toast.success(message);
     }
   };
 
@@ -737,25 +748,6 @@ export function GenerationPage() {
         onPublish={handlePublish}
         modelId={resultModelId}
       />
-
-      {/* Error Message */}
-      {errorMessage && (
-        <div className="fixed bottom-7 left-1/2 -translate-x-1/2 z-[2000] bg-red-500/10 border border-red-500/20 rounded-xl px-5 py-3 text-red-400 text-sm font-medium flex items-center gap-2">
-          <svg
-            width="16"
-            height="16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          {errorMessage}
-        </div>
-      )}
 
       {/* Auth Modal */}
       {authModal && (

@@ -50,6 +50,7 @@ export async function startGeneration(
   form.append("ai_model", options?.ai_model || "Hunyuan3D-1");
   form.append("category", options?.category || "Персонажи");
   form.append("industry", options?.industry || "Кинопроизводство");
+  form.append("enable_rig", options?.enable_rig ? "true" : "false");
 
 
   const res = await fetch(`${API_BASE}/api/generate`, {
