@@ -805,7 +805,7 @@ export function ProfilePage() {
             )}
           </div>
           <div className="flex-1 pb-1.5 min-w-0">
-            <div className="font-extrabold text-[24px] tracking-[-0.5px] mb-1">
+            <div className="font-extrabold text-[24px] tracking-[-0.5px] mb-1 break-all">
               {authorName}
             </div>
             <div className="text-sm text-text-secondary mb-2">

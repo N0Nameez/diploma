@@ -276,7 +276,7 @@ export function ModelPage() {
   return (
     <div className="pt-16 min-h-screen">
       {/* Breadcrumb */}
-      <div className="max-w-[1320px] mx-auto px-8 py-5 flex items-center gap-2 text-sm text-text-secondary">
+      <div className="max-w-[1320px] mx-auto px-8 py-5 flex items-center gap-2 text-sm text-text-secondary min-w-0">
         <Link
           to="/"
           className="hover:text-accent transition-colors duration-200"
@@ -298,7 +298,7 @@ export function ModelPage() {
           {dm.category}
         </Link>
         <span className="opacity-40">/</span>
-        <span className="text-text-primary">{dm.name}</span>
+        <span className="text-text-primary truncate min-w-0" title={dm.name}>{dm.name}</span>
       </div>
 
       {/* Main Content */}
@@ -378,7 +378,7 @@ export function ModelPage() {
                         <line x1="15" y1="9" x2="9" y2="15" />
                       </svg>
                     </div>
-                    <p className="text-sm text-text-secondary">Фото-оригинал недоступен для этой модели</p>
+                    <p className="text-sm text-text-secondary min-w-0">Фото-оригинал недоступен для этой модели</p>
                   </div>
                 )}
               </div>
@@ -589,7 +589,7 @@ export function ModelPage() {
         <div className="flex flex-col gap-4">
           {/* Model Info */}
           <div className="bg-background-surface border border-border rounded-2xl p-6">
-            <h1 className="font-extrabold text-2xl text-text-primary mb-1.5 tracking-tight">
+            <h1 className="font-extrabold text-2xl text-text-primary mb-1.5 tracking-tight break-all">
               {dm.name}
             </h1>
             <div className="flex flex-wrap gap-2 mb-4">
@@ -928,6 +928,8 @@ export function ModelPage() {
           onClose={() => setDownloadModalOpen(false)}
           onDownload={handleDownloadFormat}
           modelName={dm.name}
+          modelId={id}
+
         />
       )}
     </div>
