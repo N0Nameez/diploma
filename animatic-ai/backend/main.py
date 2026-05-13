@@ -40,9 +40,16 @@ import database
 import storage
 import payments
 from yookassa.domain.notification import WebhookNotificationFactory
+import toxicity
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Pre-load toxicity model
+    try:
+        toxicity.validator.load_model()
+    except Exception as e:
+        print(f"FAILED TO LOAD TOXICITY MODEL: {e}")
+
     # Start the expiration checker in the background
     sub_task = asyncio.create_task(check_expiring_subscriptions_loop())
     # Start the credit reset checker in the background
@@ -498,6 +505,9 @@ async def generate_model(
     Start 3D model generation from a photo via ARQ queue.
     Returns immediately with a generation ID — poll /api/generate/{id} for status.
     """
+    if name:
+        toxicity.validate_text(name, "Название", max_length=100)
+
     import queue_manager
 
     # Fetch model config from DB
@@ -689,6 +699,11 @@ def get_model(model_id: str):
 @app.put("/api/models/{model_id}")
 def update_model(model_id: str, name: str = None, description: str = None, category: str = None, license: str = None, author_id: str = None):
     """Update model fields. Only author can edit."""
+    if name:
+        toxicity.validate_text(name, "Название", max_length=100)
+    if description:
+        toxicity.validate_text(description, "Описание", max_length=1000)
+
     model = database.get_model(model_id)
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
@@ -721,6 +736,7 @@ def get_model_comments(model_id: str, limit: int = 50, offset: int = 0):
 @app.post("/api/models/{model_id}/comments")
 def add_model_comment(model_id: str, author_id: str = Form(...), content: str = Form(...), parent_id: str = Form(None)):
     """Add a comment to a model."""
+    toxicity.validate_text(content, "Комментарий", max_length=1000)
     comment = database.add_comment(model_id, "model", author_id, content, parent_id if parent_id != "null" else None)
     if not comment:
         raise HTTPException(status_code=500, detail="Failed to add comment")
@@ -978,6 +994,11 @@ def update_user(user_id: str, data: UserProfileUpdate):
     profile = database.get_user_profile(user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User not found")
+
+    if data.display_name:
+        toxicity.validate_text(data.display_name, "Имя", max_length=50)
+    if data.bio:
+        toxicity.validate_text(data.bio, "О себе", max_length=500)
 
     updates = data.model_dump(exclude_unset=True)
     if not updates:
