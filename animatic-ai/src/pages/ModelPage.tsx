@@ -276,7 +276,7 @@ export function ModelPage() {
   return (
     <div className="pt-16 min-h-screen">
       {/* Breadcrumb */}
-      <div className="max-w-[1320px] mx-auto px-8 py-5 flex items-center gap-2 text-sm text-text-secondary min-w-0">
+      <div className="max-w-[1320px] mx-auto px-6 md:px-8 py-5 flex items-center gap-2 text-sm text-text-secondary min-w-0 overflow-x-auto no-scrollbar">
         <Link
           to="/"
           className="hover:text-accent transition-colors duration-200"
@@ -302,7 +302,7 @@ export function ModelPage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-[1320px] mx-auto px-8 pb-20 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-7">
+      <div className="max-w-[1320px] mx-auto px-6 md:px-8 pb-20 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-7">
         {/* Left Column */}
         <div className="flex flex-col gap-5">
           {/* Viewer / Photo Toggle */}
@@ -344,7 +344,7 @@ export function ModelPage() {
           </div>
 
           {/* Viewer / Photo Area */}
-          <div className="relative aspect-video lg:aspect-[16/9] min-h-[400px] bg-background-surface border border-border rounded-2xl overflow-hidden group">
+          <div className="relative h-[60dvh] md:h-[500px] lg:h-[600px] bg-background-surface border border-border rounded-2xl overflow-hidden group">
             {viewMode === "3d" ? (
               <Viewer3D
                 variant="full"
@@ -425,7 +425,7 @@ export function ModelPage() {
 
           {/* Tabs */}
           <div className="bg-background-surface border border-border rounded-2xl p-5">
-            <div className="flex gap-0 border-b border-border mb-5">
+            <div className="flex gap-0 border-b border-border mb-5 overflow-x-auto no-scrollbar">
               <button
                 onClick={() => setActiveTab("comments")}
                 className={`px-5 py-3 text-sm font-semibold transition-all duration-200 border-b-2 ${activeTab === "comments"

@@ -506,7 +506,7 @@ export function GenerationPage() {
 
       {/* Normal Generation Mode */}
       {!editorMode && (
-        <div className="max-w-[1320px] mx-auto px-10 pb-20 grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-6 items-start">
+        <div className="max-w-[1320px] mx-auto px-6 md:px-10 pb-20 grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-6 items-start">
           {/* Left Column */}
           <div className="flex flex-col gap-4">
             <UploadPanel

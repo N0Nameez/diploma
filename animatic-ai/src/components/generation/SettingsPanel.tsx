@@ -109,16 +109,16 @@ export function SettingsPanel({
             <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-[0.8px]">
               ИИ-Модель
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div 
                 onClick={() => onSettingsChange({ ...settings, aiModel: "Hunyuan3D-1" })}
                 className={`p-3 rounded-xl border cursor-pointer transition-all ${settings.aiModel === "Hunyuan3D-1" ? 'border-accent bg-accent/10' : 'border-border bg-background-secondary hover:border-accent-glow'}`}
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <Sparkles className={`w-4 h-4 ${settings.aiModel === "Hunyuan3D-1" ? 'text-accent' : 'text-text-muted'}`} />
-                  <span className={`text-sm font-semibold ${settings.aiModel === "Hunyuan3D-1" ? 'text-accent' : 'text-text-primary'}`}>Hunyuan3D-1</span>
+                  <Sparkles className={`w-4 h-4 flex-shrink-0 ${settings.aiModel === "Hunyuan3D-1" ? 'text-accent' : 'text-text-muted'}`} />
+                  <span className={`text-[13px] font-bold truncate ${settings.aiModel === "Hunyuan3D-1" ? 'text-accent' : 'text-text-primary'}`}>Hunyuan3D-1</span>
                 </div>
-                <div className="text-xs text-text-secondary">Детальная генерация (2 кредита)</div>
+                <div className="text-[10px] text-text-secondary leading-tight line-clamp-2">Детальная генерация (2 кредита)</div>
               </div>
 
               <div 
@@ -127,11 +127,11 @@ export function SettingsPanel({
                 title={!isPro ? "Требуется подписка Pro или Studio" : ""}
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <Zap className={`w-4 h-4 ${settings.aiModel === "Hunyuan3D-2" ? 'text-accent' : 'text-text-muted'}`} />
-                  <span className={`text-sm font-semibold ${settings.aiModel === "Hunyuan3D-2" ? 'text-accent' : 'text-text-primary'}`}>Hunyuan3D-2</span>
-                  {!isPro && <span className="ml-auto text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded">PRO</span>}
+                  <Zap className={`w-4 h-4 flex-shrink-0 ${settings.aiModel === "Hunyuan3D-2" ? 'text-accent' : 'text-text-muted'}`} />
+                  <span className={`text-[13px] font-bold truncate ${settings.aiModel === "Hunyuan3D-2" ? 'text-accent' : 'text-text-primary'}`}>Hunyuan3D-2</span>
+                  {!isPro && <span className="ml-auto text-[9px] bg-accent/20 text-accent px-1.5 py-0.5 rounded font-black">PRO</span>}
                 </div>
-                <div className="text-xs text-text-secondary">Быстрая генерация (3 кредита)</div>
+                <div className="text-[10px] text-text-secondary leading-tight line-clamp-2">Быстрая генерация (3 кредита)</div>
               </div>
 
               <div 
@@ -140,11 +140,11 @@ export function SettingsPanel({
                 title={!isPro ? "Требуется подписка Pro или Studio" : ""}
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <FlaskConical className={`w-4 h-4 ${settings.aiModel === "TRELLIS2" ? 'text-accent' : 'text-text-muted'}`} />
-                  <span className={`text-sm font-semibold ${settings.aiModel === "TRELLIS2" ? 'text-accent' : 'text-text-primary'}`}>TRELLIS 2</span>
-                  {!isPro && <span className="ml-auto text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded">PRO</span>}
+                  <FlaskConical className={`w-4 h-4 flex-shrink-0 ${settings.aiModel === "TRELLIS2" ? 'text-accent' : 'text-text-muted'}`} />
+                  <span className={`text-[13px] font-bold truncate ${settings.aiModel === "TRELLIS2" ? 'text-accent' : 'text-text-primary'}`}>TRELLIS 2</span>
+                  {!isPro && <span className="ml-auto text-[9px] bg-accent/20 text-accent px-1.5 py-0.5 rounded font-black">PRO</span>}
                 </div>
-                <div className="text-xs text-text-secondary">Экспериментальная (4 кредита)</div>
+                <div className="text-[10px] text-text-secondary leading-tight line-clamp-2">Экспериментальная (4 кредита)</div>
               </div>
             </div>
           </div>

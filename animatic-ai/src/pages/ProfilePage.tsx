@@ -781,8 +781,8 @@ export function ProfilePage() {
       )}
 
       {/* Profile Header */}
-      <div className="max-w-[1320px] mx-auto px-10 relative -mt-16 z-10">
-        <div className="flex items-end gap-6 mb-6 flex-wrap">
+      <div className="max-w-[1320px] mx-auto px-6 md:px-10 relative -mt-16 z-10">
+        <div className="flex flex-col md:flex-row items-center md:items-end gap-6 mb-6">
           <div className="relative flex-shrink-0">
             {avatarSrc ? (
               <img
@@ -804,8 +804,8 @@ export function ProfilePage() {
               </button>
             )}
           </div>
-          <div className="flex-1 pb-1.5 min-w-0">
-            <div className="font-extrabold text-[24px] tracking-[-0.5px] mb-1 break-all">
+          <div className="flex-1 pb-1.5 min-w-0 text-center md:text-left">
+            <div className="font-extrabold text-[24px] md:text-[28px] tracking-[-0.5px] mb-1 break-all">
               {authorName}
             </div>
             <div className="text-sm text-text-secondary mb-2">
@@ -822,7 +822,7 @@ export function ProfilePage() {
               </div>
             )}
           </div>
-          <div className="flex gap-2 pb-1.5 flex-shrink-0">
+          <div className="flex gap-2 pb-1.5 flex-shrink-0 w-full md:w-auto justify-center md:justify-end">
             {isOwner ? (
               <>
                 <button
@@ -849,7 +849,7 @@ export function ProfilePage() {
         </div>
 
         {/* Stats */}
-        <div className="flex bg-background-surface border border-border rounded-2xl overflow-hidden mb-7">
+        <div className="grid grid-cols-2 md:flex bg-border gap-[1px] border border-border rounded-2xl overflow-hidden mb-7">
           {[
             { num: p?.models_count ?? 0, lbl: "Модели" },
             { num: p?.animations_count ?? 0, lbl: "Анимации" },
@@ -858,7 +858,7 @@ export function ProfilePage() {
           ].map((stat, i) => (
             <div
               key={i}
-              className="flex-1 p-4 border-r border-border last:border-0 hover:bg-background-secondary transition-colors duration-200 cursor-default text-center"
+              className="bg-background-surface flex-1 p-4 hover:bg-background-secondary transition-colors duration-200 cursor-default text-center"
             >
               <div className="font-extrabold text-[22px] tracking-[-0.5px]">
                 {stat.num}
@@ -872,12 +872,12 @@ export function ProfilePage() {
       </div>
 
       {/* Main */}
-      <div className="max-w-[1320px] mx-auto px-10 pb-20 grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
+      <div className="max-w-[1320px] mx-auto px-6 md:px-10 pb-20 grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
         {/* Left */}
         <div className="min-w-0">
           {/* Tabs */}
           {/* Tabs */}
-          <div className="flex gap-2 bg-background-surface border border-border rounded-[20px] p-2 mb-8 shadow-sm">
+          <div className="flex gap-2 bg-background-surface border border-border rounded-[20px] p-2 mb-8 shadow-sm overflow-x-auto no-scrollbar">
             {[
               {
                 id: "models" as TabId,
