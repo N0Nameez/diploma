@@ -223,7 +223,7 @@ export function ProfilePage() {
   // Load user models
   useEffect(() => {
     if (!targetId || activeTab !== "models") return;
-    fetchUserModels(targetId, 50)
+    fetchUserModels(targetId, 1000)
       .then((res) => {
         // Security filter: don't even store private models if not owner
         const filtered = isOwner 
@@ -239,12 +239,12 @@ export function ProfilePage() {
     if (!targetId) return;
     
     if (isOwner) {
-      fetchUserFavorites(targetId, 50)
+      fetchUserFavorites(targetId, 1000)
         .then((res) => setUserFavorites(res.items))
         .catch(() => setUserFavorites([]));
     }
     
-    fetchUserLikedModels(targetId, 50)
+    fetchUserLikedModels(targetId, 1000)
       .then((res) => setUserLikedModels(res.items))
       .catch(() => setUserLikedModels([]));
   }, [targetId, isOwner]);
@@ -1023,33 +1023,39 @@ export function ProfilePage() {
                 ))}
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {userModels
-                  .filter((m) => {
-                    if (!isOwner && (m.license === 'private' || m.status !== 'approved')) return false;
-                    if (modelsFilter === "free_use") return (isOwner || m.status === "approved") && m.license === "free_use";
-                    if (modelsFilter === "view_only") return (isOwner || m.status === "approved") && m.license === "view_only";
-                    if (modelsFilter === "private") return m.license === "private";
-                    return true;
-                  })
-                  .map((model) => (
-                    <div key={model.id} className="relative group">
-                      <ModelCard model={model} />
-                      {model.license === "private" && (
-                        <div className="absolute top-10 left-3 px-2 py-0.5 rounded-md bg-yellow-500/12 text-yellow-500 border border-yellow-500/25 text-[10px] font-bold z-10 flex items-center gap-1">
-                          <Lock className="w-3 h-3" /> Приватная
-                        </div>
-                      )}
-                    </div>
-                  ))}
-              </div>
+              {(() => {
+                const displayedModels = userModels.filter((m) => {
+                  if (!isOwner && (m.license === 'private' || m.status !== 'approved')) return false;
+                  if (modelsFilter === "free_use") return (isOwner || m.status === "approved") && m.license === "free_use";
+                  if (modelsFilter === "view_only") return (isOwner || m.status === "approved") && m.license === "view_only";
+                  if (modelsFilter === "private") return m.license === "private";
+                  return true;
+                });
 
-              {userModels.length === 0 && (
-                <div className="text-center py-20 bg-background-surface/50 border-2 border-dashed border-border rounded-3xl">
-                  <div className="text-4xl mb-4">✨</div>
-                  <p className="text-text-secondary font-medium">Здесь пока пусто</p>
-                </div>
-              )}
+                return (
+                  <>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {displayedModels.map((model) => (
+                        <div key={model.id} className="relative group">
+                          <ModelCard model={model} />
+                          {model.license === "private" && (
+                            <div className="absolute top-10 left-3 px-2 py-0.5 rounded-md bg-yellow-500/12 text-yellow-500 border border-yellow-500/25 text-[10px] font-bold z-10 flex items-center gap-1">
+                              <Lock className="w-3 h-3" /> Приватная
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {displayedModels.length === 0 && (
+                      <div className="text-center py-20 bg-background-surface/50 border-2 border-dashed border-border rounded-3xl">
+                        <div className="text-4xl mb-4">✨</div>
+                        <p className="text-text-secondary font-medium">Здесь пока пусто</p>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
 
