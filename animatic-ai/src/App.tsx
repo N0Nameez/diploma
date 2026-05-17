@@ -9,6 +9,7 @@ import { Modal } from "./components/Modal";
 import { ModelPage } from "./pages/ModelPage";
 import { AnimationPage } from "./pages/AnimationPage";
 import { PricingPage } from "./pages/PricingPage";
+import AdminPage from "./pages/AdminPage";
 import { useAuth } from "./hooks/useAuth";
 import { SearchProvider, SearchModal } from "./components/SearchAutocomplete";
 import { supabase } from "./lib/supabase";
@@ -112,6 +113,14 @@ export function App() {
           <Route path="/models/:id" element={<ModelPage />} />
           <Route path="/animations/:id" element={<AnimationPage />} />
           <Route path="/pricing" element={<PricingPage onAuthClick={() => setModal("login")} />} />
+          <Route 
+            path="/admin" 
+            element={
+              <AuthGuard onAccessDenied={() => setModal("login")}>
+                <AdminPage />
+              </AuthGuard>
+            } 
+          />
           <Route 
             path="/generation" 
             element={

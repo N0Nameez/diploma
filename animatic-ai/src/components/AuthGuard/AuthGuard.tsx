@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -14,6 +14,12 @@ interface AuthGuardProps {
 export function AuthGuard({ children, onAccessDenied }: AuthGuardProps) {
   const { user, loading } = useAuth();
 
+  useEffect(() => {
+    if (!loading && !user && onAccessDenied) {
+      onAccessDenied();
+    }
+  }, [loading, user, onAccessDenied]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background-primary">
@@ -23,9 +29,6 @@ export function AuthGuard({ children, onAccessDenied }: AuthGuardProps) {
   }
 
   if (!user) {
-    if (onAccessDenied) {
-      onAccessDenied();
-    }
     return <Navigate to="/" replace />;
   }
 

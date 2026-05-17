@@ -1,4 +1,5 @@
 /* API client for the FastAPI backend */
+import { supabase } from "@/lib/supabase";
 
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_BASE = API_URL;
@@ -284,7 +285,10 @@ export interface ApiUser {
 }
 
 export async function fetchUser(id: string) {
-  return api<ApiUser>(`/api/users/${id}`);
+  const { data: { session } } = await supabase.auth.getSession();
+  const current_user_id = session?.user?.id;
+  const query = current_user_id ? `?current_user_id=${current_user_id}` : '';
+  return api<ApiUser>(`/api/users/${id}${query}`);
 }
 
 export async function fetchUserModels(userId: string, limit = 20) {
@@ -386,12 +390,7 @@ export async function uploadAvatar(userId: string, file: File) {
   const path = `${userId}/avatar.${ext}`;
 
 
-  const { createClient } = await import("@supabase/supabase-js");
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  const client = createClient(supabaseUrl, supabaseKey);
-
-  const { data, error } = await client.storage
+  const { data, error } = await supabase.storage
     .from("avatars")
     .upload(path, file, { cacheControl: "3600", upsert: true });
 
@@ -403,10 +402,10 @@ export async function uploadAvatar(userId: string, file: File) {
 
   const {
     data: { publicUrl },
-  } = client.storage.from("avatars").getPublicUrl(path);
+  } = supabase.storage.from("avatars").getPublicUrl(path);
 
   // Sync with auth metadata so navbar/other components see it immediately
-  await client.auth.updateUser({
+  await supabase.auth.updateUser({
     data: { avatar_url: publicUrl }
   });
 
@@ -417,13 +416,7 @@ export async function uploadCover(userId: string, file: File) {
   const ext = file.name.split(".").pop() || "png";
   const path = `${userId}/cover.${ext}`;
 
-
-  const { createClient } = await import("@supabase/supabase-js");
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  const client = createClient(supabaseUrl, supabaseKey);
-
-  const { data, error } = await client.storage
+  const { data, error } = await supabase.storage
     .from("covers")
     .upload(path, file, { cacheControl: "3600", upsert: true });
 
@@ -435,8 +428,7 @@ export async function uploadCover(userId: string, file: File) {
 
   const {
     data: { publicUrl },
-  } = client.storage.from("covers").getPublicUrl(path);
-
+  } = supabase.storage.from("covers").getPublicUrl(path);
 
   return updateUserProfile(userId, { cover_url: publicUrl });
 }
@@ -572,3 +564,83 @@ export async function fetchTags(tagType?: "type" | "industry") {
   return api<ApiTag[]>(`/api/tags${qs}`);
 }
 
+/* ── Admin & Moderation ── */
+
+export async function createReport(userId: string, entityType: string, entityId: string, reason: string) {
+  return api<{ status: string }>("/api/reports", {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId, entity_type: entityType, entity_id: entityId, reason }),
+  });
+}
+
+export async function getAdminReports(userId: string) {
+  return api<any[]>(`/api/admin/reports?user_id=${userId}`);
+}
+
+export async function getAdminStats(userId: string) {
+  return api<{
+    total_users: number;
+    total_models: number;
+    registrations_trend: Record<string, number>;
+    generations_by_model: Record<string, number>;
+  }>(`/api/admin/stats?user_id=${userId}`);
+}
+
+export async function resolveReport(adminId: string, reportId: string, action: 'dismissed' | 'resolved', moderatorComment?: string) {
+  return api<{ status: string }>(`/api/admin/reports/${reportId}/resolve`, {
+    method: "POST",
+    body: JSON.stringify({ admin_id: adminId, action, moderator_comment: moderatorComment }),
+  });
+}
+
+export async function warnUser(adminId: string, userId: string, reason: string) {
+  return api<{ status: string, warnings_count: number }>(`/api/admin/users/${userId}/warn`, {
+    method: "POST",
+    body: JSON.stringify({ admin_id: adminId, reason }),
+  });
+}
+
+export async function updateModelStatusAdmin(adminId: string, modelId: string, status: string) {
+  return api<{ status: string }>(`/api/admin/models/${modelId}/status`, {
+    method: "POST",
+    body: JSON.stringify({ admin_id: adminId, status }),
+  });
+}
+
+export async function updateCommentStatusAdmin(adminId: string, commentId: string, status: string) {
+  return api<{ status: string }>(`/api/admin/comments/${commentId}/status`, {
+    method: "POST",
+    body: JSON.stringify({ admin_id: adminId, status }),
+  });
+}
+
+export async function getAdminUsers(userId: string) {
+  return api<any[]>(`/api/admin/users?user_id=${userId}`);
+}
+
+export async function updateUserRole(adminId: string, targetUserId: string, role: string) {
+  return api<{ status: string }>(`/api/admin/users/${targetUserId}/role`, {
+    method: "POST",
+    body: JSON.stringify({ admin_id: adminId, role }),
+  });
+}
+
+export async function updateUserStatus(adminId: string, targetUserId: string, status: string) {
+  return api<{ status: string }>(`/api/admin/users/${targetUserId}/status`, {
+    method: "POST",
+    body: JSON.stringify({ admin_id: adminId, status }),
+  });
+}
+
+export async function getAdminFinance(userId: string, timeFilter: string = 'month') {
+  return api<{
+    subscriptions_trend: Record<string, number>;
+    credits_trend: Record<string, number>;
+    total_revenue: number;
+    plan_breakdown: { pro: number; studio: number };
+  }>(`/api/admin/finance?user_id=${userId}&time_filter=${timeFilter}`);
+}
+
+export async function getAdminLogs(userId: string) {
+  return api<any[]>(`/api/admin/logs?user_id=${userId}`);
+}

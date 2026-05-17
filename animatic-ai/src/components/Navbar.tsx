@@ -3,7 +3,7 @@ import { Button } from "@/components/Button";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Moon, Sun, LogOut, User as UserIcon, Crown } from "lucide-react";
+import { Menu, X, Moon, Sun, LogOut, User as UserIcon, Crown, ShieldAlert } from "lucide-react";
 
 interface NavbarProps {
   links: { label: string; href: string }[];
@@ -35,7 +35,17 @@ export function Navbar({
   const location = useLocation();
   const navigate = useNavigate();
 
-  const avatarBuster = useMemo(() => Date.now(), [profile?.avatar_url, profile?.updated_at]);
+  const [avatarBuster, setAvatarBuster] = useState(Date.now());
+
+  useEffect(() => {
+    setAvatarBuster(Date.now());
+  }, [profile?.avatar_url, profile?.updated_at]);
+
+  useEffect(() => {
+    const handleRefresh = () => setAvatarBuster(Date.now());
+    window.addEventListener('profile-refresh', handleRefresh);
+    return () => window.removeEventListener('profile-refresh', handleRefresh);
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -139,6 +149,17 @@ export function Navbar({
                   {user.user_metadata?.display_name ?? user.user_metadata?.username ?? user.user_metadata?.full_name ?? user.email}
                 </span>
               </Link>
+
+              {(profile?.role === 'admin' || profile?.role === 'moderator') && (
+                <Link
+                  to="/admin"
+                  className="w-9 h-9 flex items-center justify-center rounded-[10px] bg-accent/10 border border-accent/20 text-accent hover:bg-accent/20 transition-all duration-200"
+                  title="Панель управления"
+                >
+                  <ShieldAlert size={18} />
+                </Link>
+              )}
+
               <button
                 onClick={onLogout}
                 className="text-sm text-text-secondary hover:text-accent transition-colors"
@@ -241,11 +262,24 @@ export function Navbar({
                       <span className="font-bold">Upgrade to PRO</span>
                     </Link>
                   )}
+                  {/* Admin Panel Link */}
+                  {(profile?.role === 'admin' || profile?.role === 'moderator') && (
+                    <Link
+                      to="/admin"
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-accent hover:bg-accent/5 transition-colors"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <ShieldAlert size={16} />
+                      Панель управления
+                    </Link>
+                  )}
+
                   <button
                     onClick={() => {
                       onLogout();
                       setMobileMenuOpen(false);
                     }}
+
                     className="flex items-center gap-2 text-text-secondary hover:text-accent p-2"
                   >
                     <LogOut size={20} /> Выйти
