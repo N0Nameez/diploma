@@ -24,7 +24,7 @@ import {
   Settings2, X, Check
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const REPORT_REASONS_MAP: Record<string, string> = {
@@ -421,7 +421,13 @@ function ModerationModal({ report, onClose, onUpdate, adminId }: ModerationModal
 }
 
 export default function AdminPage() {
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, profile, loading: authLoading } = useAuth();
+  const isModerator = profile?.role === 'moderator';
+  const availableTabs: Tab[] = isModerator 
+    ? ['overview', 'reports', 'logs'] 
+    : ['overview', 'reports', 'users', 'finance', 'logs'];
+
   const [stats, setStats] = useState<any>(null);
   const [reports, setReports] = useState<any[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
@@ -433,6 +439,23 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+
+  // Enforce access control for non-admin/non-moderator profiles
+  useEffect(() => {
+    if (!authLoading && profile) {
+      if (profile.role !== 'admin' && profile.role !== 'moderator') {
+        toast.error("У вас нет доступа к этой странице");
+        navigate('/', { replace: true });
+      }
+    }
+  }, [authLoading, profile, navigate]);
+
+  // Kick moderator back to overview if they try to access forbidden tabs
+  useEffect(() => {
+    if (isModerator && (activeTab === 'users' || activeTab === 'finance')) {
+      setActiveTab('overview');
+    }
+  }, [isModerator, activeTab]);
 
   const loadData = async () => {
     if (!user) return;
@@ -446,9 +469,9 @@ export default function AdminPage() {
         setReports(reportsData);
       } else if (activeTab === 'reports') {
         setReports(await getAdminReports(user.id));
-      } else if (activeTab === 'users') {
+      } else if (activeTab === 'users' && !isModerator) {
         setUsersList(await getAdminUsers(user.id));
-      } else if (activeTab === 'finance') {
+      } else if (activeTab === 'finance' && !isModerator) {
         setFinance(await getAdminFinance(user.id, financeTimeFilter));
       } else if (activeTab === 'logs') {
         setPerfLogs(await getAdminLogs(user.id));
@@ -559,7 +582,7 @@ export default function AdminPage() {
         </div>
 
         <div className="flex flex-wrap bg-background-surface/50 p-1.5 rounded-[1.5rem] border border-border/40 backdrop-blur-xl shadow-2xl overflow-hidden">
-          {(['overview', 'reports', 'users', 'finance', 'logs'] as Tab[]).map((tab) => (
+          {availableTabs.map((tab) => (
             <button 
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -762,7 +785,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {activeTab === 'users' && (
+      {activeTab === 'users' && !isModerator && (
         <div className="animate-in slide-in-from-bottom-6 duration-700">
           <div className="bg-background-surface border border-border/60 rounded-[3rem] overflow-hidden shadow-2xl backdrop-blur-3xl">
             <div className="overflow-x-auto">
@@ -842,7 +865,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {activeTab === 'finance' && (
+      {activeTab === 'finance' && !isModerator && (
         <div className="space-y-8 animate-in slide-in-from-bottom-6 duration-700">
           <div className="flex justify-between items-center bg-background-surface border border-border/60 p-4 rounded-3xl">
             <h3 className="font-black text-[12px] uppercase tracking-[0.3em] text-text-muted ml-4 flex items-center gap-3">
