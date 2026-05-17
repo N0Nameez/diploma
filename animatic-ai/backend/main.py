@@ -542,6 +542,11 @@ async def generate_model(
         if tier not in ['pro', 'studio']:
             raise HTTPException(status_code=403, detail=f"Model {ai_model} requires Pro or Studio subscription.")
 
+    # Check if user is banned
+    profile = database.get_user_profile(user_id)
+    if profile and profile.get('status') in ['blocked', 'banned']:
+        raise HTTPException(status_code=403, detail="Ваш аккаунт заблокирован. Генерация невозможна.")
+
     # Check and deduct credits
     credit_result = database.deduct_credits(user_id, amount=cost)
     if not credit_result["success"]:
@@ -570,7 +575,7 @@ async def generate_model(
         f.write(content)
 
     # Create generation request in DB
-    gen = database.create_generation_request(user_id, "model_photo", style)
+    gen = database.create_generation_request(user_id, "model_photo", style, ai_model=ai_model)
     if not gen:
         return {"error": "Failed to create generation request"}
 
@@ -788,6 +793,10 @@ def get_model_comments(model_id: str, limit: int = 50, offset: int = 0):
 @app.post("/api/models/{model_id}/comments")
 def add_model_comment(model_id: str, author_id: str = Form(...), content: str = Form(...), parent_id: str = Form(None)):
     """Add a comment to a model."""
+    profile = database.get_user_profile(author_id)
+    if profile and profile.get('status') in ['blocked', 'banned']:
+        raise HTTPException(status_code=403, detail="Ваш аккаунт заблокирован. Оставление комментариев недоступно.")
+
     toxicity.validate_text(content, "Комментарий", max_length=1000)
     comment = database.add_comment(model_id, "model", author_id, content, parent_id if parent_id != "null" else None)
     if not comment:
@@ -800,6 +809,11 @@ def toggle_model_interaction(model_id: str, user_id: str = Form(...), type: str 
     """Toggle like/favorite on a model."""
     if type not in ("like", "favorite"):
         raise HTTPException(status_code=400, detail="Invalid interaction type")
+        
+    profile = database.get_user_profile(user_id)
+    if profile and profile.get('status') in ['blocked', 'banned']:
+        raise HTTPException(status_code=403, detail="Ваш аккаунт заблокирован. Взаимодействие недоступно.")
+
     is_added = database.toggle_interaction(user_id, model_id, "model", type)
     has_it = database.has_interaction(user_id, model_id, "model", type)
     return {"is_active": has_it, "added": is_added}
@@ -820,6 +834,11 @@ def get_model_interactions(model_id: str, user_id: str = None):
 def download_model(model_id: str, user_id: str = Form(None)):
     """Increment download counter and return file URL for direct download.
     Each user can only download once (counter increments on first download only)."""
+    if user_id:
+        profile = database.get_user_profile(user_id)
+        if profile and profile.get('status') in ['blocked', 'banned']:
+            raise HTTPException(status_code=403, detail="Ваш аккаунт заблокирован. Скачивание недоступно.")
+
     model = database.get_model(model_id)
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
@@ -982,11 +1001,29 @@ def prepare_profile_response(profile: dict) -> dict:
 
 
 @app.get("/api/users/{user_id}")
-def get_user_profile(user_id: str):
+def get_user_profile(user_id: str, current_user_id: str | None = None):
     """Get user profile."""
     profile = database.get_user_profile(user_id)
     if not profile:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Hide sensitive data of banned users from others, but return basic info
+    if profile.get('status') in ['blocked', 'banned']:
+        is_owner = current_user_id == user_id
+        is_admin = False
+        if current_user_id:
+            viewer = database.get_user_profile(current_user_id)
+            if viewer and viewer.get('role') in ['admin', 'moderator']:
+                is_admin = True
+                
+        if not is_owner and not is_admin:
+            # Return basic info so frontend can show "Banned" badge
+            profile["bio"] = ""
+            profile["cover_url"] = None
+            profile["cover_preset"] = "default"
+            profile["models_count"] = 0
+            profile["followers_count"] = 0
+            profile["following_count"] = 0
     
     return prepare_profile_response(profile)
 
@@ -1447,6 +1484,128 @@ async def toggle_auto_renew(req: SubscriptionAutoRenewRequest):
     except Exception as e:
         print(f"TOGGLE AUTO-RENEW ERROR: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+class ReportRequest(BaseModel):
+    user_id: str
+    entity_type: str
+    entity_id: str
+    reason: str
+
+@app.post("/api/reports")
+async def create_report(req: ReportRequest):
+    result = database.create_report_v2(req.user_id, req.entity_type, req.entity_id, req.reason)
+    if not result["success"]:
+        err_msg = result.get("error") or ""
+        if "duplicate key" in err_msg or "unique constraint" in err_msg:
+            raise HTTPException(status_code=400, detail="Вы уже отправили жалобу на этот объект")
+        raise HTTPException(status_code=400, detail=err_msg)
+    return {"status": "ok"}
+
+@app.get("/api/admin/reports")
+async def get_admin_reports(user_id: str):
+    # Проверка роли админа/модератора
+    user = database.get_user_profile(user_id)
+    if not user or user.get('role') not in ['admin', 'moderator']:
+        raise HTTPException(status_code=403, detail="Access denied")
+    return database.get_admin_reports()
+
+@app.post("/api/admin/reports/{report_id}/resolve")
+async def resolve_report(report_id: str, data: dict):
+    # data: { action: 'accepted'|'dismissed', comment: '...', user_id: 'admin_id' }
+    success = database.resolve_report(report_id, data.get('action'), data.get('comment'))
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to resolve report")
+    return {"status": "ok"}
+
+@app.get("/api/admin/stats")
+async def get_admin_stats(user_id: str):
+    user = database.get_user_profile(user_id)
+    if not user or user.get('role') not in ['admin', 'moderator']:
+        raise HTTPException(status_code=403, detail="Access denied")
+    return database.get_admin_dashboard_stats()
+
+@app.get("/api/admin/users")
+async def get_admin_users(user_id: str):
+    user = database.get_user_profile(user_id)
+    if not user or user.get('role') != 'admin':
+        raise HTTPException(status_code=403, detail="Access denied")
+    return database.get_admin_users()
+
+@app.post("/api/admin/users/{target_id}/role")
+async def update_user_role(target_id: str, data: dict):
+    # data: { role: 'admin'|'moderator'|'user', admin_id: 'admin_id' }
+    admin_id = data.get('admin_id') or data.get('user_id')
+    admin = database.get_user_profile(admin_id)
+    if not admin or admin.get('role') != 'admin':
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    success = database.update_user_role(target_id, data.get('role'))
+    return {"status": "ok" if success else "error"}
+
+@app.post("/api/admin/users/{target_id}/status")
+async def update_user_status(target_id: str, data: dict):
+    # data: { status: 'active'|'blocked'|'banned', admin_id: 'admin_id' }
+    admin_id = data.get('admin_id') or data.get('user_id')
+    admin = database.get_user_profile(admin_id)
+    if not admin or admin.get('role') not in ['admin', 'moderator']:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    success = database.update_user_status(target_id, data.get('status'))
+    return {"status": "ok" if success else "error"}
+
+@app.post("/api/admin/users/{target_id}/warn")
+async def warn_user_endpoint(target_id: str, data: dict):
+    # data: { admin_id: 'admin_id', reason: 'reason' }
+    admin_id = data.get('admin_id')
+    admin = database.get_user_profile(admin_id)
+    if not admin or admin.get('role') not in ['admin', 'moderator']:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    reason = data.get('reason', 'Нарушение правил')
+    new_warnings_count = database.issue_warning(target_id, admin_id, reason)
+    
+    # If the user reaches 3 warnings, automatically ban them for safety!
+    if new_warnings_count >= 3:
+        database.update_user_status(target_id, 'banned')
+        
+    return {"status": "ok", "warnings_count": new_warnings_count}
+
+@app.post("/api/admin/models/{model_id}/status")
+async def update_model_status_endpoint(model_id: str, data: dict):
+    # data: { admin_id: 'admin_id', status: 'hidden'|'approved' }
+    admin_id = data.get('admin_id')
+    admin = database.get_user_profile(admin_id)
+    if not admin or admin.get('role') not in ['admin', 'moderator']:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    status = data.get('status', 'hidden')
+    success = database.update_model_status_admin(model_id, status)
+    return {"status": "ok" if success else "error"}
+
+@app.post("/api/admin/comments/{comment_id}/status")
+async def update_comment_status_endpoint(comment_id: str, data: dict):
+    # data: { admin_id: 'admin_id', status: 'hidden' }
+    admin_id = data.get('admin_id')
+    admin = database.get_user_profile(admin_id)
+    if not admin or admin.get('role') not in ['admin', 'moderator']:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    status = data.get('status', 'hidden')
+    success = database.update_comment_status_admin(comment_id, status)
+    return {"status": "ok" if success else "error"}
+
+@app.get("/api/admin/logs")
+async def get_admin_logs(user_id: str):
+    user = database.get_user_profile(user_id)
+    if not user or user.get('role') not in ['admin', 'moderator']:
+        raise HTTPException(status_code=403, detail="Access denied")
+    return database.get_admin_logs()
+@app.get("/api/admin/finance")
+async def get_admin_finance(user_id: str, time_filter: str = 'month'):
+    user = database.get_user_profile(user_id)
+    if not user or user.get('role') != 'admin':
+        raise HTTPException(status_code=403, detail="Access denied")
+    return database.get_finance_stats(time_filter)
 
 
 if __name__ == "__main__":

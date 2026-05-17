@@ -60,15 +60,15 @@ def _get_pg_connection():
         p.putconn(conn)
 
 
-# ── Generation Requests ──
 
-def create_generation_request(user_id: str, gen_type: str = "model_photo", style: str = None) -> dict:
+def create_generation_request(user_id: str, gen_type: str = "model_photo", style: str = None, ai_model: str = "Hunyuan3D-1") -> dict:
     """Create a new generation request in queued state."""
     client = get_client()
     data = {
         "user_id": user_id,
         "type": gen_type,
         "style_preset": style,
+        "ai_model": ai_model,
         "quality_level": "high",
         "enable_pbr": True,
         "enable_rig": False,
@@ -150,7 +150,6 @@ def get_user_generations(user_id: str, limit: int = 20) -> list:
             return [dict(zip(cols, row)) for row in rows]
 
 
-# ── Models ──
 
 def create_model(author_id: str, name: str, description: str = None, category: str = None,
                  format: str = "GLB", file_url: str = None, preview_url: str = None,
@@ -240,6 +239,7 @@ def get_models(filters: dict = None, limit: int = 20, offset: int = 0, sort: str
                 FROM public.models m
                 LEFT JOIN public.user_profiles up ON m.author_id = up.id
                 WHERE m.status = 'approved' AND m.license != 'private'
+                AND (up.status IS NULL OR up.status NOT IN ('blocked', 'banned'))
             """
             params = []
 
@@ -321,6 +321,7 @@ def get_recommended_feed(limit: int = 20, offset: int = 0) -> list:
                 FROM public.models m
                 LEFT JOIN public.user_profiles up ON m.author_id = up.id
                 WHERE m.status = 'approved' AND m.license != 'private'
+                AND (up.status IS NULL OR up.status NOT IN ('blocked', 'banned'))
                 ORDER BY weight DESC, m.created_at DESC
                 LIMIT %s OFFSET %s
             """
@@ -451,7 +452,6 @@ def publish_model(model_id: str, user_id: str, license_type: str = "view_only") 
             return dict(zip(cols, row))
 
 
-# ── Comments ──
 
 def get_comments(entity_id: str, entity_type: str = "model", limit: int = 50, offset: int = 0) -> list:
     """Get comments for a model or animation."""
@@ -462,6 +462,7 @@ def get_comments(entity_id: str, entity_type: str = "model", limit: int = 50, of
                 FROM public.comments c
                 LEFT JOIN public.user_profiles up ON c.author_id = up.id
                 WHERE c.entity_id = %s AND c.entity_type = %s AND c.status = 'active'
+                AND (up.status IS NULL OR up.status NOT IN ('blocked', 'banned'))
                 ORDER BY c.created_at DESC
                 LIMIT %s OFFSET %s
             """, (entity_id, entity_type, limit, offset))
@@ -493,7 +494,6 @@ def add_comment(entity_id: str, entity_type: str, author_id: str, content: str, 
             return dict(zip(cols, row))
 
 
-# ── Interactions (likes, favorites) ──
 
 def toggle_interaction(user_id: str, entity_id: str, entity_type: str, interaction_type: str) -> bool:
     """
@@ -637,35 +637,43 @@ def is_following(subscriber_id: str, author_id: str) -> bool:
             return cur.fetchone() is not None
 
 def get_user_followers(user_id: str, limit: int = 50) -> list:
-    """Get followers of a user."""
+    """Get profiles of users who are following the given user_id."""
     with _get_pg_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT up.id, up.username, up.display_name, up.avatar_url, up.bio, up.followers_count
+                SELECT 
+                    up.*
                 FROM public.user_profiles up
                 JOIN public.interactions i ON up.id = i.user_id
                 WHERE i.entity_id = %s AND i.entity_type = 'user' AND i.interaction_type = 'follow'
+                AND (up.status IS NULL OR up.status NOT IN ('blocked', 'banned'))
                 ORDER BY i.created_at DESC
                 LIMIT %s
             """, (user_id, limit))
             rows = cur.fetchall()
+            if not rows:
+                return []
             cols = [desc[0] for desc in cur.description]
             return [dict(zip(cols, row)) for row in rows]
 
 
 def get_user_following(user_id: str, limit: int = 50) -> list:
-    """Get authors a user is following."""
+    """Get profiles of users whom the given user_id is following."""
     with _get_pg_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT up.id, up.username, up.display_name, up.avatar_url, up.bio, up.followers_count
+                SELECT 
+                    up.*
                 FROM public.user_profiles up
                 JOIN public.interactions i ON up.id = i.entity_id
                 WHERE i.user_id = %s AND i.entity_type = 'user' AND i.interaction_type = 'follow'
+                AND (up.status IS NULL OR up.status NOT IN ('blocked', 'banned'))
                 ORDER BY i.created_at DESC
                 LIMIT %s
             """, (user_id, limit))
             rows = cur.fetchall()
+            if not rows:
+                return []
             cols = [desc[0] for desc in cur.description]
             return [dict(zip(cols, row)) for row in rows]
 
@@ -783,7 +791,6 @@ def get_user_activity(user_id: str, days: int = 90) -> dict:
             return {"heatmap": heatmap, "feed": feed}
 
 
-# ── Animations ──
 
 def get_animations(filters: dict = None, limit: int = 20, offset: int = 0) -> list:
     """Get approved animations using direct PostgreSQL."""
@@ -794,6 +801,7 @@ def get_animations(filters: dict = None, limit: int = 20, offset: int = 0) -> li
                 FROM public.animations a
                 LEFT JOIN public.user_profiles up ON a.author_id = up.id
                 WHERE a.status = 'approved' AND a.license != 'private'
+                AND (up.status IS NULL OR up.status NOT IN ('blocked', 'banned'))
             """
             params = []
 
@@ -827,7 +835,6 @@ def get_animation(anim_id: str) -> dict | None:
     return result.data[0] if result.data else None
 
 
-# ── User Profiles ──
 
 def get_user_profile(user_id: str) -> dict | None:
     """Get user profile by ID with live subscription data from subscriptions table."""
@@ -891,7 +898,6 @@ def get_user_models_count(author_id: str) -> int:
             return row[0] if row else 0
 
 
-# ── Credits ──
 
 def get_or_reset_credits(user_id: str) -> dict:
     """
@@ -1306,3 +1312,269 @@ def get_file_formats() -> list:
         print(f"DB ERROR (get_file_formats): {e}")
         return []
 
+
+
+def create_report_v2(user_id: str, entity_type: str, entity_id: str, reason: str) -> dict:
+    try:
+        with _get_pg_connection() as conn:
+            with conn.cursor() as cur:
+                # Use 'pending' for backward compatibility if migration 013 not applied
+                # Use 'new' if migration 013 is applied
+                status = 'pending'
+                cur.execute('INSERT INTO public.interactions (user_id, entity_type, entity_id, interaction_type, report_reason, report_status) VALUES (%s, %s, %s, \'report\', %s, %s)', 
+                            (user_id, entity_type, entity_id, reason, status))
+                return {"success": True, "error": None}
+    except Exception as e:
+        error_msg = str(e)
+        print(f"DB ERROR (create_report): {error_msg}")
+        return {"success": False, "error": error_msg}
+
+
+def create_report(user_id: str, entity_type: str, entity_id: str, reason: str) -> bool:
+    res = create_report_v2(user_id, entity_type, entity_id, reason)
+    return res["success"]
+
+def get_admin_reports() -> list:
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT 
+                    i.*, 
+                    up.username as reporter_name, 
+                    up.avatar_url as reporter_avatar,
+                    CASE 
+                        WHEN i.entity_type = 'comment' THEN c.content
+                        WHEN i.entity_type = 'model' THEN m.name
+                        WHEN i.entity_type = 'user' THEN target_up.username
+                    END as target_content,
+                    CASE 
+                        WHEN i.entity_type = 'comment' THEN c.entity_id
+                        WHEN i.entity_type = 'model' THEN m.id
+                        ELSE NULL
+                    END as target_model_id,
+                    CASE
+                        WHEN i.entity_type = 'user' THEN target_up.id
+                        WHEN i.entity_type = 'model' THEN m.author_id
+                        WHEN i.entity_type = 'comment' THEN c.author_id
+                    END as target_user_id
+                FROM public.interactions i 
+                LEFT JOIN public.user_profiles up ON i.user_id = up.id 
+                LEFT JOIN public.comments c ON i.entity_id = c.id AND i.entity_type = 'comment'
+                LEFT JOIN public.models m ON i.entity_id = m.id AND i.entity_type = 'model'
+                LEFT JOIN public.user_profiles target_up ON i.entity_id = target_up.id AND i.entity_type = 'user'
+                WHERE i.interaction_type = 'report' AND i.report_status = 'pending' 
+                ORDER BY i.created_at DESC
+            """)
+            rows = cur.fetchall()
+            cols = [desc[0] for desc in cur.description]
+            return [dict(zip(cols, row)) for row in rows]
+
+def get_admin_dashboard_stats() -> dict:
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute('SELECT COUNT(*) FROM public.user_profiles')
+            u_count = cur.fetchone()[0]
+            cur.execute('SELECT COUNT(*) FROM public.models')
+            m_count = cur.fetchone()[0]
+            
+            # Trend for registrations (last 7 days)
+            cur.execute("""
+                SELECT date_trunc('day', created_at) as day, COUNT(*) 
+                FROM public.user_profiles 
+                WHERE created_at > now() - interval '7 days'
+                GROUP BY 1 ORDER BY 1
+            """)
+            registrations_trend = {str(r[0].date()): r[1] for r in cur.fetchall()}
+            
+            # Generations by model
+            cur.execute("""
+                SELECT ai_model, COUNT(*) 
+                FROM public.generation_requests 
+                GROUP BY 1
+            """)
+            generations_by_model = {r[0] if r[0] else 'Unknown': r[1] for r in cur.fetchall()}
+            
+            return {
+                'total_users': u_count, 
+                'total_models': m_count,
+                'registrations_trend': registrations_trend,
+                'generations_by_model': generations_by_model
+            }
+
+
+def resolve_report(report_id: str, action: str, moderator_comment: str = None) -> bool:
+    # Map frontend/API actions to valid DB statuses ('accepted', 'rejected')
+    db_status = 'accepted'
+    if action in ['dismissed', 'rejected']:
+        db_status = 'rejected'
+    elif action in ['resolved', 'accepted']:
+        db_status = 'accepted'
+    else:
+        db_status = action # fallback if it's already one of the allowed statuses like 'reviewing', etc.
+
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            # 1. Fetch the entity details of the current report
+            cur.execute('SELECT entity_type, entity_id FROM public.interactions WHERE id = %s', (report_id,))
+            row = cur.fetchone()
+            
+            # 2. Update the target report
+            cur.execute('UPDATE public.interactions SET report_status = %s, moderator_comment = %s WHERE id = %s', (db_status, moderator_comment, report_id))
+            success = cur.rowcount > 0
+            
+            # 3. Auto-resolve other pending reports for this exact entity
+            if success and row and row[0] and row[1]:
+                entity_type, entity_id = row[0], row[1]
+                cur.execute('''
+                    UPDATE public.interactions 
+                    SET report_status = %s, 
+                        moderator_comment = %s 
+                    WHERE entity_type = %s 
+                      AND entity_id = %s 
+                      AND interaction_type = 'report' 
+                      AND report_status IN ('new', 'pending', 'reviewing')
+                      AND id != %s
+                ''', (db_status, f"Автоматически закрыто (дубликат): {moderator_comment or 'решено модератором'}", entity_type, entity_id, report_id))
+                
+            return success
+
+def issue_warning(user_id: str, admin_id: str, reason: str) -> int:
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute('INSERT INTO public.user_warnings (user_id, admin_id, reason) VALUES (%s, %s, %s)', (user_id, admin_id, reason))
+            cur.execute('UPDATE public.user_profiles SET warnings_count = warnings_count + 1 WHERE id = %s RETURNING warnings_count', (user_id,))
+            res = cur.fetchone()
+            return res[0] if res else 0
+
+def update_model_status_admin(model_id: str, status: str) -> bool:
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute('UPDATE public.models SET status = %s WHERE id = %s', (status, model_id))
+            return cur.rowcount > 0
+
+def update_comment_status_admin(comment_id: str, status: str) -> bool:
+    # Logic to either hide or delete
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            # We can use a status column if it exists, or just delete if it is severe
+            cur.execute('DELETE FROM public.comments WHERE id = %s', (comment_id,))
+            return cur.rowcount > 0
+
+def get_admin_users() -> list:
+    """Get list of users for administration."""
+    try:
+        with _get_pg_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute('SELECT id, username, display_name, avatar_url, role, status, warnings_count, created_at FROM public.user_profiles ORDER BY created_at DESC')
+                rows = cur.fetchall()
+                cols = [desc[0] for desc in cur.description]
+                return [dict(zip(cols, row)) for row in rows]
+    except Exception as e:
+        print(f"DB ERROR (get_admin_users): {e}")
+        return []
+
+def update_user_role(user_id: str, role: str) -> bool:
+    """Update user role (e.g., promote to moderator)."""
+    try:
+        with _get_pg_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute('UPDATE public.user_profiles SET role = %s WHERE id = %s', (role, user_id))
+                return cur.rowcount > 0
+    except Exception as e:
+        print(f"DB ERROR (update_user_role): {e}")
+        return False
+
+def update_user_status(user_id: str, status: str) -> bool:
+    """Update user status (e.g., block/unblock)."""
+    try:
+        with _get_pg_connection() as conn:
+            with conn.cursor() as cur:
+                if status == 'active':
+                    # Reset warnings count when activating/unblocking a user!
+                    cur.execute('UPDATE public.user_profiles SET status = %s, warnings_count = 0 WHERE id = %s', (status, user_id))
+                    # Also delete their previous warnings from history so they have a clean slate!
+                    cur.execute('DELETE FROM public.user_warnings WHERE user_id = %s', (user_id,))
+                else:
+                    cur.execute('UPDATE public.user_profiles SET status = %s WHERE id = %s', (status, user_id))
+                return cur.rowcount > 0
+    except Exception as e:
+        print(f"DB ERROR (update_user_status): {e}")
+        return False
+
+def get_finance_stats(time_filter: str = 'month') -> dict:
+    """Fetch revenue data for admin dashboard."""
+    try:
+        interval_map = {
+            'day': "1 day",
+            'week': "7 days",
+            'month': "30 days",
+            '6months': "6 months",
+            'year': "1 year"
+        }
+        interval = interval_map.get(time_filter, "30 days")
+        
+        with _get_pg_connection() as conn:
+            with conn.cursor() as cur:
+                # Subscriptions trend
+                cur.execute(f"""
+                    SELECT date_trunc('day', created_at) as day, SUM(amount) as total 
+                    FROM public.payments 
+                    WHERE status = 'succeeded' AND created_at > now() - interval '{interval}'
+                    AND (description ILIKE '%%подписк%%' OR description ILIKE '%%pro%%' OR description ILIKE '%%studio%%')
+                    GROUP BY 1 ORDER BY 1
+                """)
+                subscriptions_trend = {str(r[0].date()): float(r[1]) for r in cur.fetchall()}
+                
+                # Credits trend
+                cur.execute(f"""
+                    SELECT date_trunc('day', created_at) as day, SUM(amount) as total 
+                    FROM public.payments 
+                    WHERE status = 'succeeded' AND created_at > now() - interval '{interval}'
+                    AND NOT (description ILIKE '%%подписк%%' OR description ILIKE '%%pro%%' OR description ILIKE '%%studio%%')
+                    GROUP BY 1 ORDER BY 1
+                """)
+                credits_trend = {str(r[0].date()): float(r[1]) for r in cur.fetchall()}
+
+                cur.execute("SELECT SUM(amount) FROM public.payments WHERE status = 'succeeded'")
+                total_revenue = float(cur.fetchone()[0] or 0)
+                
+                cur.execute(f"""
+                    SELECT 
+                        SUM(CASE WHEN description ILIKE '%%pro%%' THEN 1 ELSE 0 END) as pro_count,
+                        SUM(CASE WHEN description ILIKE '%%studio%%' THEN 1 ELSE 0 END) as studio_count
+                    FROM public.payments 
+                    WHERE status = 'succeeded' AND created_at > now() - interval '{interval}'
+                """)
+                breakdown = cur.fetchone()
+                plan_breakdown = {
+                    'pro': int(breakdown[0] or 0) if breakdown else 0,
+                    'studio': int(breakdown[1] or 0) if breakdown else 0
+                }
+                
+                return {
+                    'subscriptions_trend': subscriptions_trend,
+                    'credits_trend': credits_trend,
+                    'total_revenue': total_revenue,
+                    'plan_breakdown': plan_breakdown
+                }
+    except Exception as e:
+        print(f"DB ERROR (get_finance_stats): {e}")
+        return {'subscriptions_trend': {}, 'credits_trend': {}, 'total_revenue': 0, 'plan_breakdown': {'pro': 0, 'studio': 0}}
+
+def get_admin_logs() -> list:
+    """Get recent generation logs for performance monitoring."""
+    try:
+        with _get_pg_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT l.*, g.ai_model, g.user_id 
+                    FROM public.generation_logs l
+                    JOIN public.generation_requests g ON l.generation_id = g.id
+                    ORDER BY l.created_at DESC LIMIT 100
+                """)
+                rows = cur.fetchall()
+                cols = [desc[0] for desc in cur.description]
+                return [dict(zip(cols, row)) for row in rows]
+    except Exception as e:
+        print(f"DB ERROR (get_admin_logs): {e}")
+        return []
