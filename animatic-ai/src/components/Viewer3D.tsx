@@ -50,8 +50,13 @@ function ModelContent({
 function Loader() {
   return (
     <mesh>
-      <sphereGeometry args={[0.5, 16, 16]} />
-      <meshStandardMaterial color="#EC4899" wireframe />
+      <torusKnotGeometry args={[0.4, 0.05, 128, 16]} />
+      <meshStandardMaterial 
+        color="#EC4899" 
+        emissive="#EC4899" 
+        emissiveIntensity={2} 
+        wireframe 
+      />
     </mesh>
   );
 }

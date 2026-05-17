@@ -114,7 +114,6 @@ export function GenerationPage() {
       : "";
   const canGenerate = !!file && !generating && !!settings.name.trim();
 
-  /* 🧹 Refactored: 2026-04-21 — merged duplicate useEffect */
   useEffect(() => {
     if (user) {
       loadUserCredits(user.id);
@@ -122,7 +121,6 @@ export function GenerationPage() {
     }
   }, [user]);
 
-  /* Play completion sound using Web Audio API */
   const playCompletionSound = () => {
     try {
       const ctx = new (

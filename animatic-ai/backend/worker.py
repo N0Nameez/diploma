@@ -17,11 +17,9 @@ from datetime import datetime
 from arq import cron
 from arq.connections import RedisSettings
 
-# ── Redis connection ──
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 
-# ── Add generation directory to path ──
 GENERATION_DIR = Path(__file__).parent / "generation"
 HUNYUAN_DIR = GENERATION_DIR / "models" / "Hunyuan3D-2"
 sys.path.insert(0, str(GENERATION_DIR))
@@ -33,7 +31,6 @@ os.environ['HF_HUB_DISABLE_XET'] = '1'
 
 import config
 
-# ── Main generation function ──
 
 async def generate_model_from_image(
     ctx: dict,
@@ -74,7 +71,6 @@ async def generate_model_from_image(
         database.update_generation_status(gen_id, "processing", 5)
         print(f"[Worker] Starting generation: gen_id={gen_id[:8]}, ai_model={ai_model}, enable_pbr={enable_pbr}, poly_count={poly_count}", flush=True)
 
-        # ── Step 1: Validate photo (only if rigging is needed) ──
         database.update_generation_status(gen_id, "processing", 10)
         img = Image.open(image_path).convert("RGBA")
         if enable_rig:
@@ -89,7 +85,6 @@ async def generate_model_from_image(
         else:
             print(f"[Worker] Skipping pose validation (rig disabled)", flush=True)
 
-        # ── Step 2: Remove background & Step 3: Preprocess ──
         start_preprocess = time.time()
         try:
             database.update_generation_status(gen_id, "processing", 15)
@@ -113,7 +108,6 @@ async def generate_model_from_image(
             database.add_generation_log(gen_id, 'preprocess', duration, status='failed', error=str(e))
             raise
 
-        # ── Step 3.1: Ensure source image is available ──
         # Use the URL passed from the API if available, otherwise upload now
         source_img_url = source_image_url
         if not source_img_url:
@@ -122,7 +116,6 @@ async def generate_model_from_image(
             except Exception as e:
                 print(f"[Worker] Failed to upload original source: {e}", flush=True)
 
-        # ── Step 4: Branch execution based on AI Model (Geometry) ──
         start_geometry = time.time()
         try:
             database.update_generation_status(gen_id, "processing", 30, source_image_url=source_img_url)
@@ -291,7 +284,6 @@ async def generate_model_from_image(
 
         database.update_generation_status(gen_id, "processing", 80)
 
-        # ── Step 6: Preview (Render + Cloud Upload) ──
         start_preview = time.time()
         try:
             preview_path = os.path.join(output_dir, "preview.png")
@@ -301,7 +293,6 @@ async def generate_model_from_image(
 
             database.update_generation_status(gen_id, "processing", 85)
 
-            # ── Step 7: Upload to Supabase Storage ──
             from supabase import create_client
             supabase = create_client(config.SUPABASE_URL, config.SUPABASE_SERVICE_KEY)
 
@@ -326,13 +317,11 @@ async def generate_model_from_image(
             database.add_generation_log(gen_id, 'preview', duration, status='failed', error=str(e))
             raise
 
-        # ── Step 8: Export (Create model record) ──
         start_export = time.time()
         try:
             # source_img_url was defined early in the process
             final_source_url = source_img_url
 
-            # ── Auto-determine category (type) ──
             # Use CLIP for broad classification, PhotoValidator for character verification
             final_category = "Прочее"
             
@@ -355,7 +344,6 @@ async def generate_model_from_image(
             except Exception as e:
                 print(f"[Worker] Auto-categorization failed: {e}", flush=True)
 
-            # ── Step 8: Create model record ──
             model = database.create_model(
                 author_id=user_id,
                 name=model_name or f"Generated Model {gen_id[:8]}",
@@ -375,7 +363,6 @@ async def generate_model_from_image(
             )
             model_id = model["id"]
             
-            # ── Step 8.1: Link Tags ──
             try:
                 tags_to_link = [final_category, industry]
                 database.link_model_tags(model_id, tags_to_link)
@@ -392,7 +379,6 @@ async def generate_model_from_image(
             database.add_generation_log(gen_id, 'export', duration, status='failed', error=str(e))
             raise
 
-        # ── Step 9: Mark as completed ──
         database.update_generation_status(
             gen_id, "completed", 100, result_model_id=model_id
         )
@@ -528,7 +514,6 @@ async def generate_animation_from_video(
     raise NotImplementedError("Animation generation not implemented yet")
 
 
-# ── Worker Settings ──
 
 class WorkerSettings:
     redis_settings = RedisSettings(

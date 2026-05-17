@@ -24,10 +24,16 @@ export function useAuth() {
       if (event === "TOKEN_REFRESHED") return;
 
       const u = session?.user ?? null;
-      // Only update if user ID actually changed
-      if (userIdRef.current !== u?.id) {
+      
+      // Update user state if user changed OR if metadata updated (e.g. avatar/name)
+      if (userIdRef.current !== u?.id || event === "USER_UPDATED" || event === "SIGNED_IN") {
         userIdRef.current = u?.id ?? null;
         setUser(u);
+        
+        // If user is updated/signed in, also refresh the DB profile
+        if (u) {
+          refreshProfile();
+        }
       }
     });
 

@@ -4,6 +4,7 @@ import { Button } from "@/components/Button";
 import { Viewer3D } from "../components/Viewer3D";
 import DownloadModal from "../components/model/DownloadModal";
 import { Modal as AuthModal } from "../components/Modal";
+import { ReportModal } from "../components/ReportModal";
 import { toast } from "react-hot-toast";
 import {
   fetchModel,
@@ -17,8 +18,146 @@ import {
   checkFollowing,
 } from "../services/api";
 import type { ApiModel } from "../services/api";
-import { Download, Heart, Bookmark, Gamepad2, Box, Layers } from "lucide-react";
+import { Download, Heart, Bookmark, Gamepad2, Box, Layers, Flag } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+
+interface CommentItemProps {
+  comment: any;
+  allComments: any[];
+  depth?: number;
+  activeReplyId: string | null;
+  setActiveReplyId: (id: string | null) => void;
+  replyContent: Record<string, string>;
+  setReplyContent: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  handleAddComment: (parentId: string | null) => void;
+  submittingComment: boolean;
+  onReport: (type: "comment", id: string) => void;
+  currentUser: any;
+}
+
+const CommentItem = ({
+  comment,
+  allComments,
+  depth = 0,
+  activeReplyId,
+  setActiveReplyId,
+  replyContent,
+  setReplyContent,
+  handleAddComment,
+  submittingComment,
+  onReport,
+  currentUser,
+}: CommentItemProps) => {
+  const replies = allComments.filter(c => c.parent_id === comment.id);
+  const isReplying = activeReplyId === comment.id;
+
+  // Limit visual indentation to 3 levels to prevent horizontal stretching
+  const indentClass = depth > 0 
+    ? (depth <= 3 ? "ml-8 mt-4 border-l-2 border-border/30 pl-4" : "mt-4") 
+    : "";
+
+  return (
+    <div className={`flex flex-col gap-3 ${indentClass} group`}>
+      <div className="flex gap-3">
+        <Link
+          to={`/profile/${comment.author_id}`}
+          className="w-8 h-8 rounded-full overflow-hidden bg-accent/10 border border-accent/20 flex items-center justify-center flex-shrink-0"
+        >
+          {comment.avatar_url ? (
+            <img src={comment.avatar_url} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-[10px] text-accent font-bold">
+              {(comment.display_name || comment.username || "А")[0]?.toUpperCase()}
+            </span>
+          )}
+        </Link>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-0.5">
+            <div className="flex items-center gap-2">
+              <Link
+                to={`/profile/${comment.author_id}`}
+                className="text-xs font-bold text-text-primary hover:text-accent transition-colors"
+              >
+                {comment.display_name || comment.username || "Аноним"}
+              </Link>
+              <span className="text-[9px] font-medium text-text-muted uppercase">
+                {new Date(comment.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}
+              </span>
+            </div>
+            {(!currentUser || comment.author_id !== currentUser.id) && (
+              <button 
+                onClick={() => onReport("comment", comment.id)}
+                className="p-1.5 rounded-lg hover:bg-danger/10 text-text-muted hover:text-danger transition-all opacity-0 group-hover:opacity-100"
+                title="Пожаловаться"
+              >
+                <Flag size={12} />
+              </button>
+            )}
+          </div>
+          <p className="text-[13px] text-text-secondary leading-relaxed">
+            {comment.content}
+          </p>
+          <div className="flex items-center gap-4 mt-1.5">
+            <button
+              onClick={() => setActiveReplyId(isReplying ? null : comment.id)}
+              className="text-[11px] font-bold text-accent hover:underline"
+            >
+              {isReplying ? "Отмена" : "Ответить"}
+            </button>
+          </div>
+
+          {isReplying && (
+            <div className="mt-3 flex gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
+              <textarea
+                autoFocus
+                value={replyContent[comment.id] || ""}
+                onChange={(e) => setReplyContent({ ...replyContent, [comment.id]: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!submittingComment && replyContent[comment.id]?.trim()) {
+                      handleAddComment(comment.id);
+                    }
+                  }
+                }}
+                placeholder={`Ответ для ${comment.display_name || comment.username}...`}
+                rows={2}
+                className="flex-1 px-3 py-2 bg-background-secondary border border-border rounded-xl text-text-primary text-xs outline-none focus:border-accent transition-all resize-none"
+              />
+              <button
+                onClick={() => handleAddComment(comment.id)}
+                disabled={submittingComment || !replyContent[comment.id]?.trim()}
+                className="px-3 py-2 rounded-xl bg-accent text-white text-xs font-semibold hover:brightness-108 transition-all disabled:opacity-50"
+              >
+                {submittingComment ? "..." : "→"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      {replies.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {replies.map(reply => (
+            <CommentItem
+              key={reply.id}
+              comment={reply}
+              allComments={allComments}
+              depth={depth + 1}
+              activeReplyId={activeReplyId}
+              setActiveReplyId={setActiveReplyId}
+              replyContent={replyContent}
+              setReplyContent={setReplyContent}
+              handleAddComment={handleAddComment}
+              submittingComment={submittingComment}
+              onReport={onReport}
+              currentUser={currentUser}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 /**
  * Detail page for a specific 3D model, allowing viewing, downloading, and commenting.
@@ -43,6 +182,19 @@ export function ModelPage() {
   const [newComment, setNewComment] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
   const [viewMode, setViewMode] = useState<"3d" | "photo">("3d");
+  const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
+  const [replyContent, setReplyContent] = useState<Record<string, string>>({});
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportData, setReportData] = useState<{ type: "model" | "user" | "comment"; id: string } | null>(null);
+
+  const handleOpenReport = (type: "model" | "user" | "comment", entityId: string) => {
+    if (!user) {
+      setAuthModalOpen("login");
+      return;
+    }
+    setReportData({ type, id: entityId });
+    setReportModalOpen(true);
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -254,17 +406,25 @@ export function ModelPage() {
     }
   };
 
-  const handleAddComment = async () => {
+  const handleAddComment = async (parentId: string | null = null) => {
     if (!user) {
       setAuthModalOpen("register");
       return;
     }
-    if (!newComment.trim()) return;
+    
+    const content = parentId ? replyContent[parentId] : newComment;
+    if (!content?.trim()) return;
+    
     setSubmittingComment(true);
     try {
-      const comment = await addComment(id!, user.id, newComment.trim());
+      const comment = await addComment(id!, user.id, content.trim(), parentId || undefined);
       setComments((prev) => [comment, ...prev]);
-      setNewComment("");
+      if (parentId) {
+        setReplyContent(prev => ({ ...prev, [parentId]: "" }));
+        setActiveReplyId(null);
+      } else {
+        setNewComment("");
+      }
       showToast("Комментарий добавлен");
     } catch (err: any) {
       showToast(err.message || "Ошибка при отправке", "error");
@@ -467,12 +627,20 @@ export function ModelPage() {
                       value={newComment}
                       maxLength={1000}
                       onChange={(e) => setNewComment(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          if (!submittingComment && newComment.trim()) {
+                            handleAddComment();
+                          }
+                        }
+                      }}
                       placeholder="Написать комментарий..."
                       rows={2}
                       className="flex-1 px-4 py-3 bg-background-secondary border border-border rounded-xl text-text-primary text-sm outline-none focus:border-accent transition-all duration-200 resize-none placeholder:text-text-secondary"
                     />
                     <button
-                      onClick={handleAddComment}
+                      onClick={() => handleAddComment()}
                       disabled={submittingComment || !newComment.trim()}
                       className="px-4 py-3 rounded-xl bg-accent text-white text-sm font-semibold hover:brightness-108 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -496,45 +664,26 @@ export function ModelPage() {
                     Пока нет комментариев. Будьте первым!
                   </div>
                 ) : (
-                  comments.map((c) => (
-                    <div
-                      key={c.id}
-                      className="flex gap-4 p-4 rounded-2xl bg-background-secondary/40 border border-border/40 hover:border-border/80 transition-all duration-300"
-                    >
-                      <Link 
-                        to={`/profile/${c.author_id}`}
-                        className="w-10 h-10 rounded-full overflow-hidden bg-accent/10 border border-accent/20 flex items-center justify-center flex-shrink-0 transition-transform duration-200 hover:scale-105"
-                      >
-                        {c.avatar_url ? (
-                          <img src={c.avatar_url} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-xs text-accent font-bold">
-                            {(c.display_name || c.username || "А")[0]?.toUpperCase()}
-                          </span>
-                        )}
-                      </Link>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <Link 
-                            to={`/profile/${c.author_id}`}
-                            className="text-sm font-bold text-text-primary hover:text-accent transition-colors duration-200"
-                          >
-                            {c.display_name || c.username || "Аноним"}
-                          </Link>
-                          <span className="text-[10px] font-medium text-text-muted uppercase tracking-wider">
-                            {new Date(c.created_at).toLocaleDateString(
-                              "ru-RU",
-                              { day: "numeric", month: "short" },
-                            )}
-                          </span>
-                        </div>
-                        <p className="text-[13px] text-text-secondary leading-relaxed font-medium">
-                          {c.content}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                )}
+                  <div className="flex flex-col gap-6">
+                    {comments
+                      .filter(c => !c.parent_id)
+                      .map((c) => (
+                        <CommentItem
+                          key={c.id}
+                          comment={c}
+                          allComments={comments}
+                          activeReplyId={activeReplyId}
+                          setActiveReplyId={setActiveReplyId}
+                          replyContent={replyContent}
+                          setReplyContent={setReplyContent}
+                          handleAddComment={handleAddComment}
+                          submittingComment={submittingComment}
+                          onReport={handleOpenReport}
+                          currentUser={user}
+                        />
+                      ))
+                    }
+                  </div>                )}
               </div>
             )}
 
@@ -738,28 +887,39 @@ export function ModelPage() {
               </button>
             </div>
 
-            <Button
-              label="Поделиться"
-              variant="ghost"
-              onClick={handleShare}
-              className="w-full py-3.5 mb-2 gap-2"
-              icon={
-                <svg
-                  width="14"
-                  height="14"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
+            <div className={`grid ${user?.id !== displayModel?.author_id ? "grid-cols-2" : "grid-cols-1"} gap-2 mb-2`}>
+              <Button
+                label="Поделиться"
+                variant="ghost"
+                onClick={handleShare}
+                className="w-full py-3.5 gap-2"
+                icon={
+                  <svg
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle cx="18" cy="5" r="3" />
+                    <circle cx="6" cy="12" r="3" />
+                    <circle cx="18" cy="19" r="3" />
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                  </svg>
+                }
+              />
+              {user?.id !== displayModel?.author_id && (
+                <button
+                  onClick={() => handleOpenReport("model", id!)}
+                  className="flex items-center justify-center gap-2 py-3.5 rounded-xl border border-border text-text-secondary text-sm font-medium hover:bg-danger/5 hover:border-danger/30 hover:text-danger transition-all duration-200"
                 >
-                  <circle cx="18" cy="5" r="3" />
-                  <circle cx="6" cy="12" r="3" />
-                  <circle cx="18" cy="19" r="3" />
-                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-                </svg>
-              }
-            />
+                  <Flag size={14} />
+                  Жалоба
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Formats */}
@@ -932,7 +1092,17 @@ export function ModelPage() {
 
         />
       )}
+
+      {reportModalOpen && reportData && user && (
+        <ReportModal
+          isOpen={reportModalOpen}
+          onClose={() => setReportModalOpen(false)}
+          userId={user.id}
+          entityType={reportData.type}
+          entityId={reportData.id}
+          onSuccess={() => toast.success("Жалоба отправлена и будет рассмотрена модераторами")}
+        />
+      )}
     </div>
   );
 }
-

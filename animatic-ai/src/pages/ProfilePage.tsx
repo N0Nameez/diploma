@@ -7,6 +7,7 @@ import ModelCard from "../components/ModelCard";
 import Pagination from "../components/catalog/Pagination";
 import { toast } from "react-hot-toast";
 import { CropModal } from "../components/CropModal";
+import { ReportModal } from "../components/ReportModal";
 import {
   fetchUser,
   fetchUserModels,
@@ -41,6 +42,7 @@ import {
   Download,
   ShieldCheck,
   CreditCard,
+  Flag,
 } from "lucide-react";
 
 type TabId = "models" | "favorites" | "liked" | "social" | "settings";
@@ -76,7 +78,7 @@ const COVER_PRESETS = [
     id: "ember",
     name: "Угли",
     gradient:
-      "linear-gradient(135deg, #1a0a0a 0%, #3a1a0a 30%, #5a2a0a 60%, #2a0a0a 100%)",
+      "linear-gradient(135deg, #1a0a0a 0%, #3a1a0a 30%, #5a2a0a 60%, #2a0a1a 100%)",
   },
   {
     id: "midnight",
@@ -144,6 +146,9 @@ export function ProfilePage() {
   const [bio, setBio] = useState("");
   const [isFollowing, setIsFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
+
+  // Report
+  const [reportModalOpen, setReportModalOpen] = useState(false);
 
   // Cover modal
   const [showCoverModal, setShowCoverModal] = useState(false);
@@ -512,6 +517,25 @@ export function ProfilePage() {
     );
   }
 
+  if (!profile) {
+    return (
+      <div className="pt-16 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-background-secondary rounded-full flex items-center justify-center mx-auto mb-4">
+            <User className="w-8 h-8 text-text-secondary" />
+          </div>
+          <div className="text-2xl text-text-primary font-bold mb-2">
+            Профиль недоступен
+          </div>
+          <p className="text-text-secondary mb-6">Возможно, пользователь был заблокирован или удален.</p>
+          <Link to="/" className="text-accent hover:underline">
+            На главную
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const p = profile;
   const authorName = p?.display_name || p?.username || "Пользователь";
   const authorInitial = authorName[0]?.toUpperCase() || "П";
@@ -608,6 +632,7 @@ export function ProfilePage() {
   };
 
   const heatmapData = buildHeatmapData();
+  const isBanned = (profile as any)?.status === "blocked" || (profile as any)?.status === "banned";
 
   const sortedModels = getSortedModels();
 
@@ -805,8 +830,13 @@ export function ProfilePage() {
             )}
           </div>
           <div className="flex-1 pb-1.5 min-w-0 text-center md:text-left">
-            <div className="font-extrabold text-[24px] md:text-[28px] tracking-[-0.5px] mb-1 break-all">
-              {authorName}
+            <div className="font-extrabold text-[24px] md:text-[28px] tracking-[-0.5px] mb-1 break-all flex flex-col md:flex-row items-center gap-2">
+              <span>{authorName}</span>
+              {isBanned && (
+                <span className="bg-red-500/10 text-red-500 text-[11px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border border-red-500/20 flex-shrink-0">
+                  Заблокирован
+                </span>
+              )}
             </div>
             <div className="text-sm text-text-secondary mb-2">
               @{p?.username} · {joinYear}
@@ -835,15 +865,30 @@ export function ProfilePage() {
 
               </>
             ) : (
-              <button
-                onClick={handleToggleFollow}
-                className={`px-8 py-2.5 rounded-[10px] text-sm font-bold cursor-pointer transition-all duration-300 shadow-lg ${isFollowing
-                    ? "bg-background-secondary border border-border-elevated text-text-secondary hover:bg-red-500/10 hover:text-red-500 hover:border-red-500"
-                    : "bg-accent text-white hover:bg-accent-hover hover:scale-[1.02] active:scale-[0.98]"
-                  }`}
-              >
-                {isFollowing ? "Отписаться" : "Подписаться"}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleToggleFollow}
+                  className={`px-8 py-2.5 rounded-[10px] text-sm font-bold cursor-pointer transition-all duration-300 shadow-lg ${isFollowing
+                      ? "bg-background-secondary border border-border-elevated text-text-secondary hover:bg-red-500/10 hover:text-red-500 hover:border-red-500"
+                      : "bg-accent text-white hover:bg-accent-hover hover:scale-[1.02] active:scale-[0.98]"
+                    }`}
+                >
+                  {isFollowing ? "Отписаться" : "Подписаться"}
+                </button>
+                <button
+                  onClick={() => {
+                    if (!user) {
+                      showToast("Войдите, чтобы отправить жалобу", "error");
+                      return;
+                    }
+                    setReportModalOpen(true);
+                  }}
+                  className="p-2.5 rounded-[10px] bg-background-secondary border border-border-elevated text-text-secondary hover:text-danger hover:border-danger transition-all duration-200 shadow-lg"
+                  title="Пожаловаться на пользователя"
+                >
+                  <Flag className="w-4 h-4" />
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -873,10 +918,21 @@ export function ProfilePage() {
 
       {/* Main */}
       <div className="max-w-[1320px] mx-auto px-6 md:px-10 pb-20 grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
-        {/* Left */}
-        <div className="min-w-0">
-          {/* Tabs */}
-          {/* Tabs */}
+        {isBanned && !isOwner ? (
+          <div className="col-span-full mt-8 bg-red-500/5 border border-red-500/10 rounded-2xl p-10 text-center">
+            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ShieldCheck className="w-8 h-8 text-red-500" />
+            </div>
+            <h2 className="text-xl font-bold text-red-500 mb-2">Профиль заблокирован</h2>
+            <p className="text-text-secondary max-w-md mx-auto">
+              Этот пользователь был заблокирован за нарушение правил платформы. Его модели, комментарии и активность скрыты.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Left */}
+            <div className="min-w-0">
+              {/* Tabs */}
           <div className="flex gap-2 bg-background-surface border border-border rounded-[20px] p-2 mb-8 shadow-sm overflow-x-auto no-scrollbar">
             {[
               {
@@ -946,10 +1002,10 @@ export function ProfilePage() {
               {/* Sub-filters */}
               <div className="flex items-center gap-2 border-b border-border pb-4 overflow-x-auto no-scrollbar">
                 {[
-                  { id: "all", label: "Все", count: userModels.filter(m => isOwner || m.license !== 'private').length },
+                  { id: "all", label: "Все", count: userModels.filter(m => isOwner || (m.license !== 'private' && m.status === 'approved')).length },
                   { id: "free_use", label: "Free Use", count: userModels.filter(m => m.status === 'approved' && m.license === 'free_use').length },
                   { id: "view_only", label: "Only Watch", count: userModels.filter(m => m.status === 'approved' && m.license === 'view_only').length },
-                  ...(isOwner ? [{ id: "private", label: "Приватные", count: userModels.filter(m => m.status === 'approved' && m.license === 'private').length }] : []),
+                  ...(isOwner ? [{ id: "private", label: "Приватные", count: userModels.filter(m => m.license === 'private').length }] : []),
                 ].map((f) => (
                   <button
                     key={f.id}
@@ -970,10 +1026,10 @@ export function ProfilePage() {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {userModels
                   .filter((m) => {
-                    if (!isOwner && m.license === 'private') return false;
+                    if (!isOwner && (m.license === 'private' || m.status !== 'approved')) return false;
                     if (modelsFilter === "free_use") return m.status === "approved" && m.license === "free_use";
                     if (modelsFilter === "view_only") return m.status === "approved" && m.license === "view_only";
-                    if (modelsFilter === "private") return m.status === "approved" && m.license === "private";
+                    if (modelsFilter === "private") return m.license === "private";
                     return true;
                   })
                   .map((model) => (
@@ -1435,6 +1491,8 @@ export function ProfilePage() {
             </div>
           )}
         </div>
+          </>
+        )}
       </div>
 
       {/* Hidden file inputs */}
@@ -1483,7 +1541,17 @@ export function ProfilePage() {
           title="Обложка"
         />
       )}
+
+      {reportModalOpen && targetId && user && (
+        <ReportModal
+          isOpen={reportModalOpen}
+          onClose={() => setReportModalOpen(false)}
+          userId={user.id}
+          entityType="user"
+          entityId={targetId}
+          onSuccess={() => toast.success("Жалоба на пользователя отправлена")}
+        />
+      )}
     </div>
   );
 }
-
