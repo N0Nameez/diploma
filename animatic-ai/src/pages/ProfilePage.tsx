@@ -1003,8 +1003,8 @@ export function ProfilePage() {
               <div className="flex items-center gap-2 border-b border-border pb-4 overflow-x-auto no-scrollbar">
                 {[
                   { id: "all", label: "Все", count: userModels.filter(m => isOwner || (m.license !== 'private' && m.status === 'approved')).length },
-                  { id: "free_use", label: "Free Use", count: userModels.filter(m => m.status === 'approved' && m.license === 'free_use').length },
-                  { id: "view_only", label: "Only Watch", count: userModels.filter(m => m.status === 'approved' && m.license === 'view_only').length },
+                  { id: "free_use", label: "Free Use", count: userModels.filter(m => (isOwner || m.status === 'approved') && m.license === 'free_use').length },
+                  { id: "view_only", label: "Only Watch", count: userModels.filter(m => (isOwner || m.status === 'approved') && m.license === 'view_only').length },
                   ...(isOwner ? [{ id: "private", label: "Приватные", count: userModels.filter(m => m.license === 'private').length }] : []),
                 ].map((f) => (
                   <button
@@ -1027,8 +1027,8 @@ export function ProfilePage() {
                 {userModels
                   .filter((m) => {
                     if (!isOwner && (m.license === 'private' || m.status !== 'approved')) return false;
-                    if (modelsFilter === "free_use") return m.status === "approved" && m.license === "free_use";
-                    if (modelsFilter === "view_only") return m.status === "approved" && m.license === "view_only";
+                    if (modelsFilter === "free_use") return (isOwner || m.status === "approved") && m.license === "free_use";
+                    if (modelsFilter === "view_only") return (isOwner || m.status === "approved") && m.license === "view_only";
                     if (modelsFilter === "private") return m.license === "private";
                     return true;
                   })
