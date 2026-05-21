@@ -126,6 +126,8 @@ CREATE INDEX idx_generation_requests_created ON public.generation_requests(creat
 CREATE TABLE public.tags (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT UNIQUE NOT NULL,
+  tag_type VARCHAR(50) DEFAULT 'type',
+  slug TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
