@@ -45,6 +45,9 @@ def _get_pg_connection():
     if not conn:
         raise RuntimeError("Failed to obtain a live database connection from the pool.")
         
+    # Force UTF8 encoding to prevent errors with Cyrillic on Windows
+    conn.set_client_encoding('UTF8')
+        
     try:
         yield conn
         conn.commit()
