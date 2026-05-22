@@ -22,11 +22,13 @@ REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 
 GENERATION_DIR = Path(__file__).parent / "generation"
 HUNYUAN_DIR = GENERATION_DIR / "models" / "Hunyuan3D-2"
+LOCAL_TEMP_DIR = Path(__file__).parent / "temp"
+LOCAL_TEMP_DIR.mkdir(parents=True, exist_ok=True)
 sys.path.insert(0, str(GENERATION_DIR))
 sys.path.insert(0, str(HUNYUAN_DIR))
 sys.path.insert(0, str(HUNYUAN_DIR / "hy3dgen" / "texgen" / "custom_rasterizer"))
 
-os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128'
 os.environ['HF_HUB_DISABLE_XET'] = '1'
 
 import config
@@ -39,6 +41,7 @@ async def generate_model_from_image(
     image_path: str,
     style: str,
     model_name: str = "",
+    description: str = "",
     octree_resolution: int = 256,
     num_steps: int = 30,
     guidance_scale: float = 5.5,
@@ -66,6 +69,7 @@ async def generate_model_from_image(
     from validation import PhotoValidator
 
     temp_dir = None
+    rig_status = 'none'
     try:
         # Update status: processing
         database.update_generation_status(gen_id, "processing", 5)
@@ -97,7 +101,7 @@ async def generate_model_from_image(
             processed_img = processor.process(img_no_bg)
 
             # Save processed image for generation
-            temp_dir = tempfile.mkdtemp()
+            temp_dir = tempfile.mkdtemp(dir=str(LOCAL_TEMP_DIR))
             processed_path = os.path.join(temp_dir, "processed.png")
             processed_img.save(processed_path)
             
@@ -253,17 +257,36 @@ async def generate_model_from_image(
                     "--enable_pbr", "True" if enable_pbr else "False",
                 ]
                 
-                result = subprocess.run(cmd, capture_output=True, text=True, cwd=r"c:\Develop\diploma\machine_learning\TRELLIS2")
-                if result.returncode != 0:
-                    stderr_lines = result.stderr.strip().splitlines()
-                    tb_start = -1
-                    for i, line in enumerate(stderr_lines):
-                        if line.startswith("Traceback (most recent call last):"):
-                            tb_start = i
-                    error_detail = "\n".join(stderr_lines[tb_start:]) if tb_start >= 0 else "\n".join(stderr_lines[-20:])
-                    raise RuntimeError(f"TRELLIS2 failed (exit code {result.returncode}):\n{error_detail}")
+                print(f"[Worker] Running: {' '.join(cmd)}", flush=True)
+                
+                # Use Popen to stream output in real-time
+                proc = subprocess.Popen(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    text=True, cwd=r"c:\Develop\diploma\machine_learning\TRELLIS2",
+                    bufsize=1, universal_newlines=True
+                )
+                
+                all_output = []
+                for line in iter(proc.stdout.readline, ''):
+                    line = line.strip()
+                    if line:
+                        print(f"[TRELLIS2-STREAM] {line}", flush=True)
+                        all_output.append(line)
+                        if line.startswith("[PROGRESS:"):
+                            try:
+                                pct = int(line.split(":")[1].rstrip("]"))
+                                database.update_generation_status(gen_id, "processing", pct)
+                            except: pass
+                
+                proc.wait()
+                if proc.returncode != 0:
+                    stdout_tail = "\n".join(all_output[-20:])
+                    raise RuntimeError(f"TRELLIS2 failed (exit code {proc.returncode}):\nSTDOUT/STDERR:\n{stdout_tail}")
                     
                 database.update_generation_status(gen_id, "processing", 75)
+                
+                if not os.path.exists(glb_path):
+                    raise RuntimeError(f"TRELLIS2 finished but model.glb was not created at {glb_path}")
                 
             else:
                 raise ValueError(f"Unknown ai_model: {ai_model}")
@@ -281,6 +304,45 @@ async def generate_model_from_image(
         gc.collect()
 
         print(f"[Worker] GLB saved: {glb_path}", flush=True)
+
+        if enable_rig:
+            start_rig = time.time()
+            try:
+                database.update_generation_status(gen_id, "processing", 78)
+                print(f"[Worker] Running auto-rigging on the generated model...", flush=True)
+                
+                rigger_script = os.path.join(GENERATION_DIR, "auto_rigger.py")
+                skeleton_path = os.path.join(GENERATION_DIR, "base_skeleton.glb")
+                rigged_glb_path = os.path.join(output_dir, "model_rigged.glb")
+                
+                cmd = [
+                    config.BLENDER_PATH,
+                    "-b",
+                    "-P", rigger_script,
+                    "--",
+                    "--input", glb_path,
+                    "--skeleton", skeleton_path,
+                    "--output", rigged_glb_path
+                ]
+                
+                import subprocess
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                
+                if result.returncode == 0 and os.path.exists(rigged_glb_path):
+                    print(f"[Worker] Auto-rigging successful. Replacing base model with rigged model.", flush=True)
+                    os.replace(rigged_glb_path, glb_path)
+                    rig_status = 'rigged'
+                else:
+                    error_detail = result.stderr or result.stdout
+                    print(f"[Worker] Auto-rigging failed (exit code {result.returncode}):\n{error_detail}", flush=True)
+                    print("[Worker] Falling back to unrigged model.", flush=True)
+                
+                duration = int((time.time() - start_rig) * 1000)
+                database.add_generation_log(gen_id, 'rigging', duration)
+            except Exception as e:
+                duration = int((time.time() - start_rig) * 1000)
+                database.add_generation_log(gen_id, 'rigging', duration, status='failed', error=str(e))
+                print(f"[Worker] Exception during auto-rigging: {e}. Falling back to unrigged model.", flush=True)
 
         database.update_generation_status(gen_id, "processing", 80)
 
@@ -347,7 +409,7 @@ async def generate_model_from_image(
             model = database.create_model(
                 author_id=user_id,
                 name=model_name or f"Generated Model {gen_id[:8]}",
-                description=f"AI-generated 3D model (style: {style})",
+                description=description or f"AI-generated 3D model (style: {style})",
                 category=final_category, # This is 'type'
                 format="GLB",
                 file_url=model_url,
@@ -359,7 +421,8 @@ async def generate_model_from_image(
                 license="view_only",
                 vertices_count=len(mesh.vertices) if hasattr(mesh, 'vertices') else None,
                 faces_count=len(mesh.faces) if hasattr(mesh, 'faces') else None,
-                industry=industry # This is what user chose
+                industry=industry, # This is what user chose
+                rig_status=rig_status
             )
             model_id = model["id"]
             
@@ -506,12 +569,163 @@ async def generate_animation_from_video(
     gen_id: str,
     user_id: str,
     video_path: str,
-    model_id: str,
+    model_id: str = None,
+    source_video_url: str = None,
 ):
-    """Placeholder for animation generation — not implemented yet."""
+    """
+    Run video pose extraction and retargeting pipeline in ARQ worker.
+    """
     import database
-    database.update_generation_status(gen_id, "failed", 0, error="Animation generation not implemented yet")
-    raise NotImplementedError("Animation generation not implemented yet")
+    import storage
+    import subprocess
+    import json
+    import os
+    import time
+    import tempfile
+    import shutil
+    import traceback
+    from pathlib import Path
+
+    temp_dir = None
+    try:
+        # Update status to processing (10%)
+        database.update_generation_status(gen_id, "processing", 10)
+        print(f"[Worker] Starting animation generation: gen_id={gen_id[:8]}, user_id={user_id[:8]}", flush=True)
+
+        temp_dir = tempfile.mkdtemp(dir=str(LOCAL_TEMP_DIR))
+        
+        # Stage 1: landmark extraction from video
+        database.update_generation_status(gen_id, "processing", 15)
+        print(f"[Worker] Stage 1: Extracting landmarks from video...", flush=True)
+        start_extract = time.time()
+        
+        motion_json_path = os.path.join(temp_dir, "motion_data.json")
+        try:
+            # Import process_video from video_to_motion
+            from video_to_motion import process_video
+            process_video(video_path, motion_json_path, min_cutoff=1.0, beta=0.05)
+            
+            duration = int((time.time() - start_extract) * 1000)
+            database.add_generation_log(gen_id, 'landmark_extraction', duration)
+        except Exception as e:
+            duration = int((time.time() - start_extract) * 1000)
+            database.add_generation_log(gen_id, 'landmark_extraction', duration, status='failed', error=str(e))
+            raise
+            
+        # Parse duration_seconds from JSON
+        with open(motion_json_path, 'r', encoding='utf-8') as f:
+            motion_data = json.load(f)
+        duration_seconds = int(round(motion_data.get("duration_seconds", 0)))
+        print(f"[Worker] Extraction finished: {duration_seconds} seconds", flush=True)
+
+        # Stage 2: retargeting motion in Blender
+        database.update_generation_status(gen_id, "processing", 50)
+        print(f"[Worker] Stage 2: Retargeting landmarks to skeleton in Blender...", flush=True)
+        start_retarget = time.time()
+        
+        skeleton_path = os.path.join(GENERATION_DIR, "base_skeleton.glb")
+        output_glb_path = os.path.join(temp_dir, "animation.glb")
+        rigger_script = os.path.join(GENERATION_DIR, "motion_transfer.py")
+        
+        cmd = [
+            config.BLENDER_PATH,
+            "-b",
+            "-P", rigger_script,
+            "--",
+            "--skeleton", skeleton_path,
+            "--landmarks", motion_json_path,
+            "--output", output_glb_path
+        ]
+        
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode != 0 or not os.path.exists(output_glb_path):
+                error_detail = result.stderr or result.stdout
+                raise RuntimeError(f"Blender retargeting failed (code {result.returncode}): {error_detail}")
+                
+            duration = int((time.time() - start_retarget) * 1000)
+            database.add_generation_log(gen_id, 'retargeting', duration)
+        except Exception as e:
+            duration = int((time.time() - start_retarget) * 1000)
+            database.add_generation_log(gen_id, 'retargeting', duration, status='failed', error=str(e))
+            raise
+
+        # Stage 3: upload to Supabase Storage
+        database.update_generation_status(gen_id, "processing", 80)
+        print(f"[Worker] Stage 3: Uploading animated GLB to Storage...", flush=True)
+        
+        start_upload = time.time()
+        try:
+            # Upload animation
+            animation_url = storage.upload_animation(output_glb_path, gen_id)
+            if not animation_url:
+                raise RuntimeError("Failed to upload animation GLB to Storage")
+                
+            # Create a fallback preview image for animation
+            preview_path = os.path.join(temp_dir, "preview.png")
+            _generate_fallback_preview(preview_path)
+            preview_url = storage.upload_preview(preview_path, gen_id)
+            
+            duration = int((time.time() - start_upload) * 1000)
+            database.add_generation_log(gen_id, 'storage_upload', duration)
+        except Exception as e:
+            duration = int((time.time() - start_upload) * 1000)
+            database.add_generation_log(gen_id, 'storage_upload', duration, status='failed', error=str(e))
+            raise
+
+        # Stage 4: create db record and update status
+        database.update_generation_status(gen_id, "processing", 95)
+        print(f"[Worker] Stage 4: Creating database record...", flush=True)
+        
+        anim_record = database.create_animation(
+            author_id=user_id,
+            name=f"Animation {gen_id[:8]}",
+            description="AI-generated animation from video",
+            file_url=animation_url,
+            preview_url=preview_url,
+            source_video_url=source_video_url,
+            model_id=model_id,
+            duration_seconds=duration_seconds,
+            ai_generated=True,
+            status="approved",
+            license="view_only"
+        )
+        animation_id = anim_record["id"]
+        
+        # Link default tags
+        try:
+            database.link_model_tags(animation_id, ["Анимация", "ИИ"])
+        except Exception as tag_err:
+            print(f"[Worker] Failed to link tags for animation: {tag_err}", flush=True)
+
+        database.update_generation_status(
+            gen_id, "completed", 100, result_animation_id=animation_id
+        )
+        print(f"[Worker] Animation generation completed: gen_id={gen_id[:8]}, animation_id={animation_id[:8]}", flush=True)
+        return animation_id
+
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
+        print(f"[Worker] Animation generation failed: gen_id={gen_id[:8]}\n{error_msg}", flush=True)
+        database.update_generation_status(gen_id, "failed", 0, error=error_msg)
+
+        # Refund credits on failure
+        try:
+            refund_result = database.refund_credits(user_id, amount=3)
+            print(f"[Worker] Refunded 3 credits to user {user_id[:8]}: {refund_result}", flush=True)
+        except Exception as refund_err:
+            print(f"[Worker] Failed to refund credits: {refund_err}", flush=True)
+            
+        raise
+    finally:
+        # Clean up local temp directory and video path
+        if temp_dir and os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+        if video_path and os.path.exists(video_path):
+            try:
+                os.remove(video_path)
+            except:
+                pass
 
 
 

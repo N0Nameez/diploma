@@ -23,6 +23,7 @@ async def submit_generation_job(
     image_path: str,
     style: str,
     model_name: str = "",
+    description: str = "",
     octree_resolution: int = 256,
     num_steps: int = 30,
     guidance_scale: float = 5.5,
@@ -49,6 +50,7 @@ async def submit_generation_job(
         image_path=image_path,
         style=style,
         model_name=model_name,
+        description=description,
         octree_resolution=octree_resolution,
         num_steps=num_steps,
         guidance_scale=guidance_scale,
@@ -65,6 +67,33 @@ async def submit_generation_job(
     )
     
     print(f"[Queue] Submitted job {gen_id}", flush=True)
+    return gen_id
+
+
+async def submit_animation_job(
+    gen_id: str,
+    user_id: str,
+    video_path: str,
+    model_id: str = None,
+    source_video_url: str = None,
+) -> str:
+    """
+    Submit an animation generation job to the ARQ queue.
+    Returns the job ID (same as gen_id).
+    """
+    pool = await get_redis_pool()
+
+    await pool.enqueue_job(
+        "generate_animation_from_video",
+        gen_id=gen_id,
+        user_id=user_id,
+        video_path=video_path,
+        model_id=model_id,
+        source_video_url=source_video_url,
+        _job_id=gen_id,
+    )
+    
+    print(f"[Queue] Submitted animation job {gen_id}", flush=True)
     return gen_id
 
 async def get_queue_position(job_id: str) -> int | None:

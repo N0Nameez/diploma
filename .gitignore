@@ -34,6 +34,7 @@ output_3d/
 # Backend generation output
 backend/generation/output/
 !backend/generation/output/.gitkeep
+animatic-ai/backend/temp/
 
 # =============================================================================
 # Large Images (оставить только маленькие превью)

@@ -54,6 +54,13 @@ def upload_model(file_path: str, generation_id: str) -> str | None:
     return upload_file(config.BUCKET_MODELS, file_path, destination)
 
 
+def upload_animation(file_path: str, generation_id: str) -> str | None:
+    """Upload a GLB animation file to the animations bucket."""
+    ext = Path(file_path).suffix  # .glb
+    destination = f"{generation_id}/animation{ext}"
+    return upload_file(config.BUCKET_ANIMATIONS, file_path, destination)
+
+
 def upload_preview(file_path: str, generation_id: str) -> str | None:
     """Upload a preview image to the previews bucket."""
     destination = f"{generation_id}/preview.png"
@@ -64,6 +71,13 @@ def upload_source_image(file_path: str, generation_id: str) -> str | None:
     """Upload the source input image to the previews bucket."""
     destination = f"{generation_id}/source.png"
     return upload_file(config.BUCKET_PREVIEWS, file_path, destination)
+
+
+def upload_source_video(file_path: str, generation_id: str) -> str | None:
+    """Upload the source input video to the generation-inputs bucket."""
+    ext = Path(file_path).suffix or ".mp4"
+    destination = f"{generation_id}/source{ext}"
+    return upload_file(config.BUCKET_GENERATION_INPUTS, file_path, destination)
 
 
 def _guess_content_type(file_path: str) -> str:
@@ -77,5 +91,6 @@ def _guess_content_type(file_path: str) -> str:
         ".png": "image/png",
         ".jpg": "image/jpeg",
         ".jpeg": "image/jpeg",
+        ".mp4": "video/mp4",
     }
     return types.get(ext, "application/octet-stream")

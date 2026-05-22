@@ -82,7 +82,7 @@ def create_generation_request(user_id: str, gen_type: str = "model_photo", style
     return result.data[0] if result.data else None
 
 
-def update_generation_status(gen_id: str, status: str, progress: int = None, error: str = None, result_model_id: str = None, source_image_url: str = None) -> dict:
+def update_generation_status(gen_id: str, status: str, progress: int = None, error: str = None, result_model_id: str = None, source_image_url: str = None, result_animation_id: str = None) -> dict:
     """Update generation request status and progress."""
     client = get_client()
     updates = {"status": status}
@@ -94,8 +94,48 @@ def update_generation_status(gen_id: str, status: str, progress: int = None, err
         updates["result_model_id"] = result_model_id
     if source_image_url is not None:
         updates["source_image_url"] = source_image_url
+    if result_animation_id is not None:
+        updates["result_animation_id"] = result_animation_id
     result = client.table("generation_requests").update(updates).eq("id", gen_id).execute()
     return result.data[0] if result.data else None
+
+
+def create_animation(author_id: str, name: str, description: str = None,
+                     file_url: str = None, preview_url: str = None,
+                     source_video_url: str = None, model_id: str = None,
+                     duration_seconds: int = None, ai_generated: bool = True,
+                     status: str = "approved", license: str = "view_only") -> dict:
+    """Create a new animation record using direct PostgreSQL."""
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO public.animations (
+                    author_id, name, description, file_url, preview_url,
+                    source_video_url, model_id, duration_seconds, source,
+                    status, license
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, author_id, name, description, file_url, preview_url,
+                          source_video_url, model_id, duration_seconds, source,
+                          status, license, created_at
+            """, (
+                author_id,
+                name,
+                description or "",
+                file_url,
+                preview_url,
+                source_video_url,
+                model_id,
+                duration_seconds or 0,
+                "ai_generated" if ai_generated else "user_upload",
+                status,
+                license
+            ))
+            row = cur.fetchone()
+            if not row:
+                return None
+            cols = [desc[0] for desc in cur.description]
+            return dict(zip(cols, row))
+
 
 
 def get_generation_request(gen_id: str) -> dict | None:
@@ -161,7 +201,8 @@ def create_model(author_id: str, name: str, description: str = None, category: s
                  license: str = "view_only",
                  vertices_count: int = None, faces_count: int = None,
                  ai_model: str = None,
-                 industry: str = None) -> dict:
+                 industry: str = None,
+                 rig_status: str = 'none') -> dict:
     """Create a new model record using direct PostgreSQL (bypasses PostgREST cache)."""
     with _get_pg_connection() as conn:
         with conn.cursor() as cur:
@@ -169,11 +210,13 @@ def create_model(author_id: str, name: str, description: str = None, category: s
                 INSERT INTO public.models (
                     author_id, name, description, category, format,
                     file_url, preview_url, source_image_url, source, ai_generated,
-                    status, license, vertices_count, faces_count, ai_model, industry
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    status, license, vertices_count, faces_count, ai_model, industry,
+                    rig_status
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id, author_id, name, description, category, format,
                           file_url, preview_url, source_image_url, source, ai_generated, status,
-                          license, vertices_count, faces_count, ai_model, industry, created_at, views
+                          license, vertices_count, faces_count, ai_model, industry, created_at, views,
+                          rig_status
             """, (
                 author_id,
                 name,
@@ -190,7 +233,8 @@ def create_model(author_id: str, name: str, description: str = None, category: s
                 vertices_count,
                 faces_count,
                 ai_model,
-                industry or "Кинопроизводство"
+                industry or "Кинопроизводство",
+                rig_status
             ))
             row = cur.fetchone()
             if not row:

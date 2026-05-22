@@ -122,6 +122,7 @@ class GenerationStatus(BaseModel):
     status: str
     progress: int
     result_model_id: str | None = None
+    result_animation_id: str | None = None
     error_message: str | None = None
     created_at: str | None = None
     completed_at: str | None = None
@@ -503,6 +504,7 @@ async def generate_model(
     style: str = Form("realism"),
     user_id: str = Form(...),
     name: str = Form(""),
+    description: str = Form(""),
     octree_resolution: int = Form(256),
     num_steps: int = Form(30),
     guidance_scale: float = Form(5.5),
@@ -598,6 +600,7 @@ async def generate_model(
             image_path=image_path,
             style=style,
             model_name=name,
+            description=description,
             octree_resolution=octree_resolution,
             num_steps=num_steps,
             guidance_scale=guidance_scale,
@@ -616,6 +619,77 @@ async def generate_model(
         print(f"[API] Failed to submit job: {e}", flush=True)
         database.update_generation_status(gen_id, "failed", 0, error=str(e))
         raise HTTPException(status_code=500, detail=f"Failed to queue generation: {str(e)}")
+
+    return {"generation_id": gen_id, "status": "queued"}
+
+
+@app.post("/api/animations/generate")
+async def generate_animation(
+    video: UploadFile = File(...),
+    user_id: str = Form(...),
+    model_id: str = Form(None),
+):
+    """
+    Start animation generation from a video via ARQ queue.
+    Deducts 3 credits.
+    """
+    import queue_manager
+
+    # Check if user is banned
+    profile = database.get_user_profile(user_id)
+    if profile and profile.get('status') in ['blocked', 'banned']:
+        raise HTTPException(status_code=403, detail="Ваш аккаунт заблокирован. Генерация невозможна.")
+
+    # Deduct 3 credits
+    credit_result = database.deduct_credits(user_id, amount=3)
+    if not credit_result["success"]:
+        raise HTTPException(status_code=402, detail=credit_result["error"])
+
+    # Save uploaded video to temp file
+    temp_dir = tempfile.mkdtemp()
+    
+    # Keep original extension if possible
+    orig_ext = Path(video.filename).suffix or ".mp4" if video.filename else ".mp4"
+    video_path = os.path.join(temp_dir, f"input{orig_ext}")
+
+    content = await video.read()
+    with open(video_path, "wb") as f:
+        f.write(content)
+
+    # Create generation request in DB
+    gen = database.create_generation_request(user_id, "animation_video", None, ai_model="MediaPipe")
+    if not gen:
+        # Refund credits if generation request creation failed
+        database.refund_credits(user_id, amount=3)
+        return {"error": "Failed to create generation request"}
+
+    gen_id = gen["id"]
+
+    # Upload source video immediately
+    source_video_url = None
+    try:
+        source_video_url = storage.upload_source_video(video_path, gen_id)
+        # Update request with video URL and set status to queued
+        database.update_generation_status(gen_id, "queued", 0, source_image_url=source_video_url)
+    except Exception as se:
+        print(f"[API] Warning: Failed to upload source video: {se}", flush=True)
+
+    # Submit to ARQ queue
+    try:
+        await queue_manager.submit_animation_job(
+            gen_id=gen_id,
+            user_id=user_id,
+            video_path=video_path,
+            model_id=model_id,
+            source_video_url=source_video_url,
+        )
+        print(f"[API] Submitted animation generation job {gen_id} to queue", flush=True)
+    except Exception as e:
+        print(f"[API] Failed to submit animation job: {e}", flush=True)
+        database.update_generation_status(gen_id, "failed", 0, error=str(e))
+        # Refund credits
+        database.refund_credits(user_id, amount=3)
+        raise HTTPException(status_code=500, detail=f"Failed to queue animation generation: {str(e)}")
 
     return {"generation_id": gen_id, "status": "queued"}
 
@@ -665,6 +739,7 @@ def get_generation_status(gen_id: str):
         status=gen["status"],
         progress=gen.get("progress", 0),
         result_model_id=gen.get("result_model_id"),
+        result_animation_id=gen.get("result_animation_id"),
         error_message=gen.get("error_message"),
         created_at=str(gen.get("created_at")) if gen.get("created_at") else None,
         completed_at=str(gen.get("completed_at")) if gen.get("completed_at") else None,
@@ -882,7 +957,17 @@ def list_animations(
     return {"items": animations, "total": len(animations)}
 
 
+@app.get("/api/animations/{animation_id}")
+def get_animation_endpoint(animation_id: str):
+    """Get a single animation by ID."""
+    animation = database.get_animation(animation_id)
+    if not animation:
+        raise HTTPException(status_code=404, detail="Animation not found")
+    return animation
+
+
 @app.post("/api/models/{model_id}/convert")
+
 async def convert_model(model_id: str, format: str = Form(...)):
     """Convert GLB model to another format (OBJ, STL). Returns download URL."""
     import httpx

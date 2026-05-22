@@ -35,6 +35,7 @@ BUCKET_MODELS = "models"
 BUCKET_PREVIEWS = "previews"
 BUCKET_GENERATION_INPUTS = "generation-inputs"
 BUCKET_AVATARS = "avatars"
+BUCKET_ANIMATIONS = "animations"
 
 # -- Server --
 HOST = os.environ.get("HOST", "0.0.0.0")
@@ -42,6 +43,13 @@ PORT = int(os.environ.get("PORT", "8001"))
 
 # -- Generation --
 GENERATION_PYTHON = os.environ.get("GENERATION_PYTHON", "python")
+
+# -- Blender --
+BLENDER_PATH = os.environ.get("BLENDER_PATH") or (
+    r"C:\Program Files (x86)\Steam\steamapps\common\Blender\blender.exe"
+    if os.name == "nt" and os.path.exists(r"C:\Program Files (x86)\Steam\steamapps\common\Blender\blender.exe")
+    else "blender"
+)
 
 # -- Yookassa --
 YOOKASSA_SHOP_ID = os.environ.get("YOOKASSA_SHOP_ID")
