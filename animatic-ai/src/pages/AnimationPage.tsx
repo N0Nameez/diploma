@@ -2,7 +2,10 @@ import { useParams, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { fetchAnimation, type ApiAnimation } from "../services/api";
 import Toast from "../components/model/Toast";
-import { Clapperboard, Play } from "lucide-react";
+import { Clapperboard, Play, Gamepad2 } from "lucide-react";
+import { Viewer3D } from "../components/Viewer3D";
+import { Button } from "@/components/Button";
+import { MixMatchModal } from "../components/catalog/MixMatchModal";
 
 /**
  * Page for viewing and managing a specific animation.
@@ -20,6 +23,10 @@ export function AnimationPage() {
     visible: false,
     message: "",
   });
+
+  const [selectedModelUrl, setSelectedModelUrl] = useState<string>("/models/mannequin.glb");
+  const [selectedModelName, setSelectedModelName] = useState<string>("Стандартный манекен");
+  const [mixMatchOpen, setMixMatchOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -95,21 +102,15 @@ export function AnimationPage() {
       <div className="max-w-[1320px] mx-auto px-8 pb-20 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-7">
         <div className="flex flex-col gap-5">
           <div className="relative w-full border border-border rounded-2xl overflow-hidden bg-background-surface shadow-[0_24px_80px_rgba(0,0,0,0.4)] aspect-video">
-            {animation.preview_url ? (
-              <img
-                src={animation.preview_url}
-                alt={animation.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center bg-background-secondary">
-                <Play className="w-16 h-16 text-textSecondary" />
-              </div>
-            )}
-            <div className="absolute top-4 left-4 bg-background-secondary/80 backdrop-blur border border-border rounded-lg px-3 py-1.5 text-[11px] text-accent2 font-bold tracking-[0.5px] flex items-center gap-2">
-              <span className="w-2 h-2 bg-accent2 rounded-full animate-pulse-dot" />
-              ANIMATION PREVIEW
-            </div>
+            <Viewer3D
+              variant="full"
+              modelUrl={selectedModelUrl}
+              animationUrl={animation.file_url || undefined}
+              showToolbar={true}
+              showBadge={true}
+              autoRotate={false}
+              className="w-full h-full"
+            />
           </div>
 
           <div className="bg-background-surface border border-border rounded-2xl p-5">
@@ -207,6 +208,14 @@ export function AnimationPage() {
               </button>
             </div>
 
+            <Button
+              label={selectedModelUrl === "/models/mannequin.glb" ? "Примерить на модель" : `Модель: ${selectedModelName}`}
+              variant="ghost"
+              onClick={() => setMixMatchOpen(true)}
+              className="w-full py-3 mb-2 gap-2 border-accent text-accent hover:bg-accent/10"
+              icon={<Gamepad2 className="w-4 h-4" />}
+            />
+
             <button
               onClick={() => showToast("Загрузка...")}
               className="w-full py-3 rounded-xl bg-accent text-white font-bold text-sm hover:opacity-[0.88] hover:-translate-y-px transition-all duration-200 shadow-[0_0_20px_var(--accent-glow)]"
@@ -222,6 +231,18 @@ export function AnimationPage() {
         isVisible={toast.visible}
         onClose={() => setToast({ ...toast, visible: false })}
       />
+
+      {mixMatchOpen && (
+        <MixMatchModal
+          isOpen={mixMatchOpen}
+          onClose={() => setMixMatchOpen(false)}
+          mode="models"
+          onSelect={(url, id, name) => {
+            setSelectedModelUrl(url);
+            setSelectedModelName(name);
+          }}
+        />
+      )}
     </div>
   );
 }

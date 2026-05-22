@@ -25,6 +25,7 @@ export async function startGeneration(
   userId: string,
   options?: {
     name?: string;
+    description?: string;
     octree_resolution?: number;
     num_steps?: number;
     guidance_scale?: number;
@@ -42,6 +43,7 @@ export async function startGeneration(
   form.append("style", style);
   form.append("user_id", userId);
   form.append("name", options?.name || "");
+  form.append("description", options?.description || "");
   form.append("octree_resolution", String(options?.octree_resolution ?? 256));
   form.append("num_steps", String(options?.num_steps ?? 30));
   form.append("guidance_scale", String(options?.guidance_scale ?? 5.5));
@@ -65,12 +67,36 @@ export async function startGeneration(
   return res.json() as Promise<{ generation_id: string; status: string }>;
 }
 
+export async function startAnimationGeneration(
+  video: File,
+  userId: string,
+  modelId?: string,
+) {
+  const form = new FormData();
+  form.append("video", video);
+  form.append("user_id", userId);
+  if (modelId) {
+    form.append("model_id", modelId);
+  }
+
+  const res = await fetch(`${API_BASE}/api/animations/generate`, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `Animation generation failed: ${res.status}`);
+  }
+  return res.json() as Promise<{ generation_id: string; status: string }>;
+}
+
 export async function getGenerationStatus(genId: string) {
   return api<{
     id: string;
     status: "queued" | "processing" | "completed" | "failed";
     progress: number;
     result_model_id: string | null;
+    result_animation_id: string | null;
     error_message: string | null;
     created_at: string | null;
     completed_at: string | null;
@@ -114,6 +140,7 @@ export interface ApiModel {
   license?: string;
   source_image_url?: string | null;
   industry?: string;
+  rig_status?: string | null;
   user_profiles?: {
     username: string;
     display_name: string;

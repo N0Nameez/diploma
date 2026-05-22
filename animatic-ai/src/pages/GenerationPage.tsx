@@ -41,6 +41,7 @@ export function GenerationPage() {
     history,
     resultModelId,
     modelFileUrl,
+    animationFileUrl,
     queuePosition,
     queueLength,
     totalDurationMs,
@@ -381,6 +382,7 @@ export function GenerationPage() {
             <Viewer3D
               variant="full"
               modelUrl={modelFileUrl || editorFileUrl || undefined}
+              animationUrl="/animations/idle_clean.glb"
               showToolbar={true}
               showBadge={false}
               autoRotate={true}
@@ -516,6 +518,7 @@ export function GenerationPage() {
               progress={progress}
               status={status}
               modelFileUrl={modelFileUrl}
+              animationFileUrl={animationFileUrl}
               onUpload={handleUpload}
               onRemove={removeFile}
             />

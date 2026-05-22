@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
 import {
   startGeneration,
+  startAnimationGeneration,
   getGenerationStatus,
   fetchModel,
+  fetchAnimation,
   getUserCredits,
   fetchUserGenerations,
   getGenerationLogs,
@@ -56,6 +58,8 @@ interface GenerationContextType {
   history: GenerationHistory[];
   resultModelId: string | null;
   modelFileUrl: string | null;
+  resultAnimationId: string | null;
+  animationFileUrl: string | null;
   queuePosition: number | null;
   queueLength: number;
   totalDurationMs: number | null;
@@ -90,6 +94,8 @@ export function GenerationProvider({ children }: { children: React.ReactNode }) 
   const [history, setHistory] = useState<GenerationHistory[]>([]);
   const [resultModelId, setResultModelId] = useState<string | null>(null);
   const [modelFileUrl, setModelFileUrl] = useState<string | null>(null);
+  const [resultAnimationId, setResultAnimationId] = useState<string | null>(null);
+  const [animationFileUrl, setAnimationFileUrl] = useState<string | null>(null);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [queueLength, setQueueLength] = useState<number>(0);
   const [totalDurationMs, setTotalDurationMs] = useState<number | null>(null);
@@ -141,15 +147,28 @@ export function GenerationProvider({ children }: { children: React.ReactNode }) 
           setErrorMessage(res.error_message || "Generation failed");
         }
         
-        if (res.status === "completed" && res.result_model_id) {
-          setResultModelId(res.result_model_id);
-          try {
-            const model = await fetchModel(res.result_model_id);
-            setModelFileUrl(model.file_url);
-          } catch (err) {}
-          
-          if (onCompleteRef.current) {
-            onCompleteRef.current(res.result_model_id);
+        if (res.status === "completed") {
+          if (res.result_model_id) {
+            setResultModelId(res.result_model_id);
+            try {
+              const model = await fetchModel(res.result_model_id);
+              setModelFileUrl(model.file_url);
+            } catch (err) {}
+            
+            if (onCompleteRef.current) {
+              onCompleteRef.current(res.result_model_id);
+            }
+          }
+          if (res.result_animation_id) {
+            setResultAnimationId(res.result_animation_id);
+            try {
+              const anim = await fetchAnimation(res.result_animation_id);
+              setAnimationFileUrl(anim.file_url);
+            } catch (err) {}
+            
+            if (onCompleteRef.current) {
+              onCompleteRef.current(res.result_animation_id);
+            }
           }
         }
         
@@ -184,10 +203,14 @@ export function GenerationProvider({ children }: { children: React.ReactNode }) 
         } else if (res.status === "completed") {
           setStatus("completed");
           setProgress(100);
-          setResultModelId(res.result_model_id);
           if (res.source_image_url) setFileUrl(res.source_image_url);
           if (res.result_model_id) {
+            setResultModelId(res.result_model_id);
             fetchModel(res.result_model_id).then(m => setModelFileUrl(m.file_url)).catch(() => {});
+          }
+          if (res.result_animation_id) {
+            setResultAnimationId(res.result_animation_id);
+            fetchAnimation(res.result_animation_id).then(a => setAnimationFileUrl(a.file_url)).catch(() => {});
           }
           fetchLogs(savedGenId);
         }
@@ -223,6 +246,40 @@ export function GenerationProvider({ children }: { children: React.ReactNode }) 
       return null;
     }
 
+    if (mode === "animation") {
+      try {
+        setGenerating(true);
+        setStatus("queued");
+        setProgress(0);
+        setErrorMessage(null);
+        setResultAnimationId(null);
+        setAnimationFileUrl(null);
+        setLogs([]);
+
+        const result = await startAnimationGeneration(
+          file,
+          userId,
+          resultModelId || undefined
+        );
+
+        const genId = result.generation_id;
+        genIdRef.current = genId;
+        sessionStorage.setItem("active_gen_id", genId);
+
+        if (pollRef.current) clearInterval(pollRef.current);
+        pollRef.current = window.setInterval(() => {
+          pollStatus(genId);
+        }, POLL_INTERVAL);
+
+        return genId;
+      } catch (err: any) {
+        setGenerating(false);
+        setStatus("failed");
+        setErrorMessage(err.message || "Failed to start animation generation");
+        return null;
+      }
+    }
+
     const qualityMap: Record<string, { resolution: number; steps: number; guidance: number }> = {
       draft: { resolution: 128, steps: 20, guidance: 4.0 },
       high: { resolution: 256, steps: 30, guidance: 5.5 },
@@ -237,6 +294,8 @@ export function GenerationProvider({ children }: { children: React.ReactNode }) 
       setErrorMessage(null);
       setResultModelId(null);
       setModelFileUrl(null);
+      setResultAnimationId(null);
+      setAnimationFileUrl(null);
       setLogs([]);
 
       const result = await startGeneration(
@@ -245,6 +304,7 @@ export function GenerationProvider({ children }: { children: React.ReactNode }) 
         userId,
         {
           name: currentSettings.name,
+          description: currentSettings.description,
           octree_resolution: q.resolution,
           num_steps: q.steps,
           guidance_scale: q.guidance,
@@ -341,6 +401,8 @@ export function GenerationProvider({ children }: { children: React.ReactNode }) 
     setErrorMessage(null);
     setResultModelId(null);
     setModelFileUrl(null);
+    setResultAnimationId(null);
+    setAnimationFileUrl(null);
     setQueuePosition(null);
     setQueueLength(0);
     setTotalDurationMs(null);
@@ -358,10 +420,10 @@ export function GenerationProvider({ children }: { children: React.ReactNode }) 
   const value = {
     mode, setMode, file, fileUrl, uploading, generating, progress, status,
     errorMessage, credits, creditsResetDate, creditsExpiringSoon, history,
-    resultModelId, modelFileUrl, queuePosition, queueLength, totalDurationMs,
-    logs, fetchLogs, setOnComplete, uploadFile, startGeneration: startGenerationProcess,
-    loadUserCredits, loadUserHistory, resumeGenerationById, removeFile, reset,
-    settings, setSettings
+    resultModelId, modelFileUrl, resultAnimationId, animationFileUrl, queuePosition,
+    queueLength, totalDurationMs, logs, fetchLogs, setOnComplete, uploadFile,
+    startGeneration: startGenerationProcess, loadUserCredits, loadUserHistory,
+    resumeGenerationById, removeFile, reset, settings, setSettings
   };
 
   return <GenerationContext.Provider value={value}>{children}</GenerationContext.Provider>;

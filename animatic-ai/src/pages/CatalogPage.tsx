@@ -134,7 +134,7 @@ export function CatalogPage() {
               className="flex-1"
             >
               <h1 className="text-[clamp(28px,3.5vw,42px)] font-extrabold tracking-[-1.5px] mb-2 leading-[1.1] text-text-primary">
-                Каталог моделей
+                {filters.contentType === "animation" ? "Каталог анимаций" : "Каталог 3D-моделей"}
               </h1>
               <p className="text-sm text-text-secondary font-light mb-6">
                 Найдено {totalCount} {filters.contentType === "3d" ? "моделей" : "анимаций"}
@@ -352,7 +352,7 @@ export function CatalogPage() {
                   >
                     {paginatedData.map((m) => (
                       <motion.div key={m.id} variants={itemVariants}>
-                        <ModelCard model={m as any} />
+                        <ModelCard model={m as any} type={filters.contentType} />
                       </motion.div>
                     ))}
                   </motion.div>
@@ -363,7 +363,7 @@ export function CatalogPage() {
                     className="flex flex-col gap-4"
                   >
                     {paginatedData.map((m) => (
-                      <ModelListItem key={m.id} model={m as any} />
+                      <ModelListItem key={m.id} model={m as any} type={filters.contentType} />
                     ))}
                   </motion.div>
                 )}

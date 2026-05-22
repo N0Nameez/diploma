@@ -5,6 +5,7 @@ import { Viewer3D } from "../components/Viewer3D";
 import DownloadModal from "../components/model/DownloadModal";
 import { Modal as AuthModal } from "../components/Modal";
 import { ReportModal } from "../components/ReportModal";
+import { MixMatchModal } from "../components/catalog/MixMatchModal";
 import { toast } from "react-hot-toast";
 import {
   fetchModel,
@@ -187,6 +188,11 @@ export function ModelPage() {
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportData, setReportData] = useState<{ type: "model" | "user" | "comment"; id: string } | null>(null);
 
+  const [selectedAnimationUrl, setSelectedAnimationUrl] = useState<string | null>(null);
+  const [selectedAnimationName, setSelectedAnimationName] = useState<string | null>(null);
+  const [hasBones, setHasBones] = useState(false);
+  const [mixMatchOpen, setMixMatchOpen] = useState(false);
+
   const handleOpenReport = (type: "model" | "user" | "comment", entityId: string) => {
     if (!user) {
       setAuthModalOpen("login");
@@ -278,7 +284,7 @@ export function ModelPage() {
       ? displayModel.faces_count.toLocaleString("ru-RU")
       : "N/A",
     textures: "PBR",
-    rig: displayModel.ai_generated ? "Нет" : "Да",
+    rig: displayModel.rig_status === "rigged" ? "Да" : "Нет",
     engines: "Unity, UE5, Blender",
     animationsCount: 0,
     tags: [displayModel.category || "Персонажи", displayModel.industry || "Кинопроизводство", displayModel.format || "GLB"],
@@ -509,9 +515,11 @@ export function ModelPage() {
               <Viewer3D
                 variant="full"
                 modelUrl={dm.fileUrl || undefined}
+                animationUrl={selectedAnimationUrl || undefined}
                 showToolbar={true}
                 showBadge={true}
-                autoRotate={true}
+                autoRotate={!selectedAnimationUrl}
+                onLoaded={(bonesFound) => setHasBones(bonesFound)}
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center bg-background-secondary/30">
@@ -798,6 +806,16 @@ export function ModelPage() {
                   icon={<Download className="w-4 h-4" />}
                 />
               )}
+
+            {hasBones && (
+              <Button
+                label={selectedAnimationName ? `Примерка: ${selectedAnimationName}` : "Примерить анимацию"}
+                variant="ghost"
+                onClick={() => setMixMatchOpen(true)}
+                className="w-full py-3.5 mb-2 gap-2 border-accent text-accent hover:bg-accent/10"
+                icon={<Gamepad2 className="w-4 h-4" />}
+              />
+            )}
 
             {/* Edit button for author */}
             {user &&
@@ -1101,6 +1119,18 @@ export function ModelPage() {
           entityType={reportData.type}
           entityId={reportData.id}
           onSuccess={() => toast.success("Жалоба отправлена и будет рассмотрена модераторами")}
+        />
+      )}
+
+      {mixMatchOpen && (
+        <MixMatchModal
+          isOpen={mixMatchOpen}
+          onClose={() => setMixMatchOpen(false)}
+          mode="animations"
+          onSelect={(url, id, name) => {
+            setSelectedAnimationUrl(url);
+            setSelectedAnimationName(name);
+          }}
         />
       )}
     </div>

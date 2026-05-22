@@ -11,6 +11,7 @@ interface UploadPanelProps {
   progress: number; /* 0-100 прогресс генерации */
   status: string | null; /* queued | processing | completed | failed */
   modelFileUrl: string | null;
+  animationFileUrl: string | null;
   onUpload: (file: File) => Promise<void>;
   onRemove: () => void;
 }
@@ -22,21 +23,27 @@ const MAX_SIZE_ANIMATION = 200; // MB
 
 /**
  * Maps real backend progress to a user-friendly stage label.
- * Backend stages: 5(start) → 10(validate) → 15(rembg) → 20(preprocess)
- * → 30(subprocess start) → 35/45/50/60/65(subprocess phases)
- * → 75(subprocess done) → 80(preview) → 85(upload start) → 90(upload done)
- * → 100(complete)
  */
-function getProgressLabel(p: number): string {
-  if (p < 10) return "Подготовка...";
-  if (p < 20) return "Удаление фона...";
-  if (p < 30) return "Предобработка изображения...";
-  if (p < 40) return "Загрузка ИИ модели...";
-  if (p < 55) return "Генерация мультивидов...";
-  if (p < 70) return "Генерация 3D геометрии...";
-  if (p < 80) return "Рендеринг превью...";
-  if (p < 90) return "Загрузка на сервер...";
-  return "Финализация...";
+function getProgressLabel(p: number, isModel: boolean): string {
+  if (isModel) {
+    if (p < 10) return "Подготовка...";
+    if (p < 20) return "Удаление фона...";
+    if (p < 30) return "Предобработка изображения...";
+    if (p < 40) return "Загрузка ИИ модели...";
+    if (p < 55) return "Генерация мультивидов...";
+    if (p < 70) return "Генерация 3D геометрии...";
+    if (p < 80) return "Рендеринг превью...";
+    if (p < 90) return "Загрузка на сервер...";
+    return "Финализация...";
+  } else {
+    if (p < 15) return "Подготовка видео...";
+    if (p < 30) return "Извлечение 3D-координат (MediaPipe)...";
+    if (p < 50) return "Сглаживание движений (1€ Filter)...";
+    if (p < 65) return "Запуск Blender в фоновом режиме...";
+    if (p < 80) return "Ретаргетинг на скелет манекена...";
+    if (p < 95) return "Сохранение анимации в облако...";
+    return "Финализация...";
+  }
 }
 
 export function UploadPanel({
@@ -48,6 +55,7 @@ export function UploadPanel({
   progress,
   status,
   modelFileUrl,
+  animationFileUrl,
   onUpload,
   onRemove,
 }: UploadPanelProps) {
@@ -61,7 +69,9 @@ export function UploadPanel({
   /* Toggle between photo and 3D viewer */
   const [viewMode, setViewMode] = useState<"photo" | "3d">("photo");
 
-  const isCompleted = status === "completed" && modelFileUrl;
+  const isCompleted = mode === "animation"
+    ? (status === "completed" && !!animationFileUrl)
+    : (status === "completed" && !!modelFileUrl);
 
   /**
    * Smooth progress interpolation:
@@ -232,19 +242,30 @@ export function UploadPanel({
           />
         </div>
       ) : generating && fileUrl ? (
-        /* Генерация — показываем фото + прогресс */
+        /* Генерация — показываем фото/видео + прогресс */
         <div className="relative rounded-[14px] overflow-hidden border border-border bg-black/40">
-          <img
-            src={fileUrl}
-            alt="Source"
-            className="w-full aspect-[4/3] object-contain"
-          />
+          {isModel ? (
+            <img
+              src={fileUrl}
+              alt="Source"
+              className="w-full aspect-[4/3] object-contain"
+            />
+          ) : (
+            <video
+              src={fileUrl}
+              muted
+              loop
+              autoPlay
+              playsInline
+              className="w-full aspect-[4/3] object-contain"
+            />
+          )}
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/60">
             <div className="text-[40px] font-extrabold text-accent tabular-nums">
               {shownProgress}%
             </div>
             <div className="text-[13px] text-text-secondary">
-              {getProgressLabel(shownProgress)}
+              {getProgressLabel(shownProgress, isModel)}
             </div>
             <div className="w-3/4 h-[6px] bg-background-primary rounded-[3px] overflow-hidden">
               <div
@@ -254,7 +275,7 @@ export function UploadPanel({
             </div>
           </div>
         </div>
-      ) : isCompleted && modelFileUrl ? (
+      ) : isCompleted ? (
         /* Готово — показываем 3D Viewer с toggle */
         <div className="space-y-3">
           {/* Toggle buttons */}
@@ -280,7 +301,7 @@ export function UploadPanel({
                 <circle cx="8.5" cy="8.5" r="1.5" />
                 <path d="m21 15-5-5L5 21" />
               </svg>
-              Фото
+              {isModel ? "Фото" : "Видео"}
             </button>
             <button
               onClick={() => setViewMode("3d")}
@@ -308,11 +329,22 @@ export function UploadPanel({
           {/* Content */}
           {viewMode === "photo" ? (
             <div className="relative rounded-[14px] overflow-hidden border border-border bg-black/40">
-              <img
-                src={fileUrl!}
-                alt="Source"
-                className="w-full aspect-[4/3] object-contain"
-              />
+              {isModel ? (
+                <img
+                  src={fileUrl!}
+                  alt="Source"
+                  className="w-full aspect-[4/3] object-contain"
+                />
+              ) : (
+                <video
+                  src={fileUrl!}
+                  muted
+                  loop
+                  autoPlay
+                  playsInline
+                  className="w-full aspect-[4/3] object-contain"
+                />
+              )}
               <button
                 onClick={handleRemove}
                 className="absolute top-2 right-2 w-7 h-7 rounded-[7px] bg-background-surface/90 backdrop-blur border border-border
@@ -326,7 +358,8 @@ export function UploadPanel({
             <div className="relative rounded-[14px] overflow-hidden border border-border bg-black/40">
               <Viewer3D
                 variant="full"
-                modelUrl={modelFileUrl}
+                modelUrl={modelFileUrl || "/models/mannequin.glb"}
+                animationUrl={mode === "animation" ? (animationFileUrl || "/animations/idle_clean.glb") : "/animations/idle_clean.glb"}
                 showBadge={true}
                 showToolbar={true}
                 autoRotate={false}
@@ -336,13 +369,24 @@ export function UploadPanel({
           )}
         </div>
       ) : fileUrl ? (
-        /* Фото загружено, генерация ещё не началась */
+        /* Фото/видео загружено, генерация ещё не началась */
         <div className="relative rounded-[14px] overflow-hidden border border-border bg-black/40">
-          <img
-            src={fileUrl}
-            alt="Source"
-            className="w-full aspect-[4/3] object-contain"
-          />
+          {isModel ? (
+            <img
+              src={fileUrl}
+              alt="Source"
+              className="w-full aspect-[4/3] object-contain"
+            />
+          ) : (
+            <video
+              src={fileUrl}
+              muted
+              loop
+              autoPlay
+              playsInline
+              className="w-full aspect-[4/3] object-contain"
+            />
+          )}
           <button
             onClick={handleRemove}
             className="absolute top-2 right-2 w-7 h-7 rounded-[7px] bg-background-surface/90 backdrop-blur border border-border
@@ -353,7 +397,7 @@ export function UploadPanel({
           </button>
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-3 py-2">
             <div className="text-[12px] text-white font-medium">
-              {file?.name || "Исходное изображение"}
+              {file?.name || (isModel ? "Исходное изображение" : "Исходное видео")}
             </div>
             <div className="flex items-center gap-0.5 text-[11px] text-white/60">
               {file ? `${(file.size / (1024 * 1024)).toFixed(1)} МБ` : "Загружено"}
