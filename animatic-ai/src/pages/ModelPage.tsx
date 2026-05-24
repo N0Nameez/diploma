@@ -520,6 +520,7 @@ export function ModelPage() {
                 showBadge={true}
                 autoRotate={!selectedAnimationUrl}
                 onLoaded={(bonesFound) => setHasBones(bonesFound)}
+                className="!h-full !border-none !bg-transparent"
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center bg-background-secondary/30">

@@ -71,12 +71,22 @@ export async function startAnimationGeneration(
   video: File,
   userId: string,
   modelId?: string,
+  options?: {
+    name?: string;
+    description?: string;
+  },
 ) {
   const form = new FormData();
   form.append("video", video);
   form.append("user_id", userId);
   if (modelId) {
     form.append("model_id", modelId);
+  }
+  if (options?.name) {
+    form.append("name", options.name);
+  }
+  if (options?.description) {
+    form.append("description", options.description);
   }
 
   const res = await fetch(`${API_BASE}/api/animations/generate`, {
@@ -88,6 +98,116 @@ export async function startAnimationGeneration(
     throw new Error(body.detail || `Animation generation failed: ${res.status}`);
   }
   return res.json() as Promise<{ generation_id: string; status: string }>;
+}
+
+export async function publishAnimation(
+  id: string,
+  userId: string,
+  licenseType: string,
+) {
+  const form = new FormData();
+  form.append("user_id", userId);
+  form.append("license_type", licenseType);
+
+  const res = await fetch(`${API_BASE}/api/animations/${id}/publish`, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) throw new Error(`Publish failed: ${res.status}`);
+  return res.json() as Promise<{
+    id: string;
+    name: string;
+    license: string;
+    status: string;
+  }>;
+}
+
+export async function toggleAnimationInteraction(
+  animationId: string,
+  userId: string,
+  type: "like" | "favorite",
+) {
+  const form = new FormData();
+  form.append("user_id", userId);
+  form.append("type", type);
+
+  const res = await fetch(`${API_BASE}/api/animations/${animationId}/interact`, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) throw new Error(`Failed to toggle interaction: ${res.status}`);
+  return res.json() as Promise<{ is_active: boolean; added: boolean }>;
+}
+
+export async function getAnimationInteractions(animationId: string, userId: string) {
+  return api<{ is_liked: boolean; is_favorited: boolean }>(
+    `/api/animations/${animationId}/interactions?user_id=${userId}`,
+  );
+}
+
+export async function downloadAnimation(animationId: string, userId?: string) {
+  const form = new FormData();
+  if (userId) form.append("user_id", userId);
+
+  const res = await fetch(`${API_BASE}/api/animations/${animationId}/download`, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+  return res.json() as Promise<{
+    file_url: string;
+    name: string;
+    format: string;
+  }>;
+}
+
+export async function updateAnimation(
+  id: string,
+  userId: string,
+  data: { name?: string; description?: string; license?: string },
+) {
+  const qs = new URLSearchParams();
+  if (data.name) qs.set("name", data.name);
+  if (data.description !== undefined) qs.set("description", data.description);
+  if (data.license) qs.set("license", data.license);
+  qs.set("author_id", userId);
+
+  const res = await fetch(`${API_BASE}/api/animations/${id}?${qs}`, {
+    method: "PUT",
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `Update failed: ${res.status}`);
+  }
+  return res.json() as Promise<ApiAnimation>;
+}
+
+export async function fetchAnimationComments(animationId: string, limit = 50, offset = 0) {
+  return api<{ items: any[]; total: number }>(
+    `/api/animations/${animationId}/comments?limit=${limit}&offset=${offset}`,
+  );
+}
+
+export async function addAnimationComment(
+  animationId: string,
+  authorId: string,
+  content: string,
+  parentId?: string,
+) {
+  const form = new FormData();
+  form.append("author_id", authorId);
+  form.append("content", content);
+  if (parentId) form.append("parent_id", parentId);
+
+  const res = await fetch(`${API_BASE}/api/animations/${animationId}/comments`, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `Failed to add comment: ${res.status}`);
+  }
+  return res.json();
 }
 
 export async function getGenerationStatus(genId: string) {
@@ -231,12 +351,13 @@ export async function publishModel(
 export async function updateModel(
   id: string,
   userId: string,
-  data: { name?: string; description?: string; license?: string },
+  data: { name?: string; description?: string; license?: string; category?: string },
 ) {
   const qs = new URLSearchParams();
   if (data.name) qs.set("name", data.name);
   if (data.description !== undefined) qs.set("description", data.description);
   if (data.license) qs.set("license", data.license);
+  if (data.category) qs.set("category", data.category);
   qs.set("author_id", userId);
 
   const res = await fetch(`${API_BASE}/api/models/${id}?${qs}`, {
@@ -262,6 +383,7 @@ export interface ApiAnimation {
   downloads: number;
   likes: number;
   duration_seconds: number | null;
+  license: string;
   created_at: string;
   user_profiles?: {
     username: string;
