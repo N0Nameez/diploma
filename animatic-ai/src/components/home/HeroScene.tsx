@@ -95,7 +95,7 @@ export function HeroScene({ onRegisterClick, user }: HeroSceneProps) {
             y: heroY,
             pointerEvents: useTransform(smoothProgress, (v) => v < 0.15 ? "auto" : "none") as any
           }}
-          className="absolute inset-0 z-10 flex flex-col justify-end pb-20"
+          className="absolute inset-0 z-10 flex flex-col justify-start"
         >
           <Hero onRegisterClick={onRegisterClick} user={user} hideCanvas />
         </motion.div>

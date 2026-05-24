@@ -86,7 +86,7 @@ export function Hero({ onRegisterClick, user, hideCanvas = false }: HeroProps) {
   };
 
   return (
-    <section className={`min-h-screen relative flex flex-col justify-end overflow-hidden pt-40 pb-16 lg:pt-0 lg:pb-20 ${hideCanvas ? 'bg-transparent' : 'bg-background-primary'}`}>
+    <section className={`min-h-screen relative flex flex-col justify-start overflow-hidden pt-[120px] lg:pt-[15vh] pb-12 ${hideCanvas ? 'bg-transparent' : 'bg-background-primary'}`}>
       {!hideCanvas && (
         <>
           <CursorGlow />
