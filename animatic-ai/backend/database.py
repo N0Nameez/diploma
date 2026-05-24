@@ -267,6 +267,29 @@ def link_model_tags(model_id: str, tag_names: list):
                 )
 
 
+def link_animation_tags(animation_id: str, tag_names: list):
+    """Link an animation to multiple tags by name. Creates tags if they don't exist."""
+    if not tag_names:
+        return
+
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            for name in tag_names:
+                if not name: continue
+                # 1. Get or create tag
+                cur.execute(
+                    "INSERT INTO public.tags (name) VALUES (%s) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id",
+                    (name,)
+                )
+                tag_id = cur.fetchone()[0]
+                
+                # 2. Link tag to animation
+                cur.execute(
+                    "INSERT INTO public.animation_tags (animation_id, tag_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                    (animation_id, tag_id)
+                )
+
+
 def _row_to_dict(cur, row):
     """Convert a psycopg2 row to dict."""
     if not row:
@@ -871,15 +894,117 @@ def get_animations(filters: dict = None, limit: int = 20, offset: int = 0) -> li
 
 
 def get_animation(anim_id: str) -> dict | None:
-    """Get a single animation by ID."""
-    client = get_client()
-    result = (
-        client.table("animations")
-        .select("*, user_profiles(username, display_name, avatar_url)")
-        .eq("id", anim_id)
-        .execute()
-    )
-    return result.data[0] if result.data else None
+    """Get a single animation by ID with author info using direct PostgreSQL."""
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT a.*, up.username, up.display_name, up.avatar_url
+                FROM public.animations a
+                LEFT JOIN public.user_profiles up ON a.author_id = up.id
+                WHERE a.id = %s
+            """, (anim_id,))
+            row = cur.fetchone()
+            if not row:
+                return None
+            cols = [desc[0] for desc in cur.description]
+            animation = dict(zip(cols, row))
+            
+            # Nest user_profiles to match the structure expected by the frontend
+            animation["user_profiles"] = {
+                "username": animation.pop("username"),
+                "display_name": animation.pop("display_name"),
+                "avatar_url": animation.pop("avatar_url")
+            }
+            return animation
+
+
+def update_animation(animation_id: str, author_id: str, updates: dict) -> dict | None:
+    """Update animation fields (name, description, license). Only by author."""
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            allowed = {}
+            if "name" in updates and updates["name"]:
+                allowed["name"] = updates["name"]
+            if "description" in updates:
+                allowed["description"] = updates["description"]
+            if "license" in updates and updates["license"] in ("private", "view_only", "free_use"):
+                allowed["license"] = updates["license"]
+
+            if not allowed:
+                return get_animation(animation_id)
+
+            set_clause = ", ".join([f"{k} = %s" for k in allowed.keys()]) + ", updated_at = NOW()"
+            params = list(allowed.values()) + [animation_id, author_id]
+
+            cur.execute(f"""
+                UPDATE public.animations SET {set_clause}
+                WHERE id = %s AND author_id = %s
+                RETURNING *
+            """, params)
+
+            row = cur.fetchone()
+            if row:
+                cols = [desc[0] for desc in cur.description]
+                return dict(zip(cols, row))
+            return None
+
+
+def publish_animation(animation_id: str, user_id: str, license_type: str = "view_only") -> dict | None:
+    """
+    Publish an animation (set status='approved') with chosen license.
+    Only the author can publish their own animation.
+    """
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            # Verify ownership
+            cur.execute(
+                "SELECT author_id FROM public.animations WHERE id = %s",
+                (animation_id,)
+            )
+            row = cur.fetchone()
+            if not row or row[0] != user_id:
+                return None
+
+            cur.execute("""
+                UPDATE public.animations
+                SET status = 'approved', license = %s, published_at = NOW()
+                WHERE id = %s
+                RETURNING id, name, file_url, license, status
+            """, (license_type, animation_id))
+            row = cur.fetchone()
+            if not row:
+                return None
+            cols = [desc[0] for desc in cur.description]
+            return dict(zip(cols, row))
+
+
+def record_animation_download(animation_id: str, user_id: str) -> bool:
+    """
+    Record a download of an animation. Returns True if download was counted (new),
+    False if user already downloaded this animation before.
+    """
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT 1 FROM public.interactions
+                WHERE user_id = %s AND entity_id = %s AND entity_type = 'animation' AND interaction_type = 'download'
+            """, (user_id, animation_id))
+
+            if cur.fetchone():
+                return False
+
+            cur.execute("""
+                INSERT INTO public.interactions (user_id, entity_id, entity_type, interaction_type)
+                VALUES (%s, %s, 'animation', 'download')
+                ON CONFLICT DO NOTHING
+            """, (user_id, animation_id))
+
+            cur.execute("UPDATE public.animations SET downloads = downloads + 1 WHERE id = %s RETURNING author_id", (animation_id,))
+            author_row = cur.fetchone()
+            if author_row and author_row[0]:
+                cur.execute("UPDATE public.user_profiles SET total_downloads = total_downloads + 1 WHERE id = %s", (author_row[0],))
+            return True
+
 
 
 

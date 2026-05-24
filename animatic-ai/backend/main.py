@@ -628,11 +628,18 @@ async def generate_animation(
     video: UploadFile = File(...),
     user_id: str = Form(...),
     model_id: str = Form(None),
+    name: str = Form(""),
+    description: str = Form(""),
 ):
     """
     Start animation generation from a video via ARQ queue.
     Deducts 3 credits.
     """
+    if name:
+        toxicity.validate_text(name, "Название", max_length=100)
+    if description:
+        toxicity.validate_text(description, "Описание", max_length=1000)
+
     import queue_manager
 
     # Check if user is banned
@@ -682,6 +689,8 @@ async def generate_animation(
             video_path=video_path,
             model_id=model_id,
             source_video_url=source_video_url,
+            animation_name=name,
+            description=description,
         )
         print(f"[API] Submitted animation generation job {gen_id} to queue", flush=True)
     except Exception as e:
@@ -964,6 +973,111 @@ def get_animation_endpoint(animation_id: str):
     if not animation:
         raise HTTPException(status_code=404, detail="Animation not found")
     return animation
+
+
+@app.put("/api/animations/{animation_id}")
+def update_animation_endpoint(animation_id: str, name: str = None, description: str = None, license: str = None, author_id: str = None):
+    """Update animation fields. Only author can edit."""
+    if name:
+        toxicity.validate_text(name, "Название", max_length=100)
+    if description:
+        toxicity.validate_text(description, "Описание", max_length=1000)
+
+    animation = database.get_animation(animation_id)
+    if not animation:
+        raise HTTPException(status_code=404, detail="Animation not found")
+    if author_id and animation["author_id"] != author_id:
+        raise HTTPException(status_code=403, detail="Only the author can edit this animation")
+
+    updates = {}
+    if name is not None:
+        updates["name"] = name
+    if description is not None:
+        updates["description"] = description
+    if license is not None:
+        updates["license"] = license
+
+    updated = database.update_animation(animation_id, animation["author_id"], updates)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Failed to update animation")
+    return updated
+
+
+@app.get("/api/animations/{animation_id}/comments")
+def get_animation_comments(animation_id: str, limit: int = 50, offset: int = 0):
+    """Get comments for an animation."""
+    comments = database.get_comments(animation_id, "animation", limit, offset)
+    return {"items": comments, "total": len(comments)}
+
+
+@app.post("/api/animations/{animation_id}/comments")
+def add_animation_comment(animation_id: str, author_id: str = Form(...), content: str = Form(...), parent_id: str = Form(None)):
+    """Add a comment to an animation."""
+    profile = database.get_user_profile(author_id)
+    if profile and profile.get('status') in ['blocked', 'banned']:
+        raise HTTPException(status_code=403, detail="Ваш аккаунт заблокирован. Оставление комментариев недоступно.")
+
+    toxicity.validate_text(content, "Комментарий", max_length=1000)
+    comment = database.add_comment(animation_id, "animation", author_id, content, parent_id if parent_id != "null" else None)
+    if not comment:
+        raise HTTPException(status_code=500, detail="Failed to add comment")
+    return comment
+
+
+@app.post("/api/animations/{animation_id}/interact")
+def toggle_animation_interaction(animation_id: str, user_id: str = Form(...), type: str = Form(...)):
+    """Toggle like/favorite on an animation."""
+    if type not in ("like", "favorite"):
+        raise HTTPException(status_code=400, detail="Invalid interaction type")
+        
+    profile = database.get_user_profile(user_id)
+    if profile and profile.get('status') in ['blocked', 'banned']:
+        raise HTTPException(status_code=403, detail="Ваш аккаунт заблокирован. Взаимодействие недоступно.")
+
+    is_added = database.toggle_interaction(user_id, animation_id, "animation", type)
+    has_it = database.has_interaction(user_id, animation_id, "animation", type)
+    return {"is_active": has_it, "added": is_added}
+
+
+@app.get("/api/animations/{animation_id}/interactions")
+def get_animation_interactions(animation_id: str, user_id: str = None):
+    """Check if user has liked/favorited an animation."""
+    if not user_id:
+        return {"is_liked": False, "is_favorited": False}
+    return {
+        "is_liked": database.has_interaction(user_id, animation_id, "animation", "like"),
+        "is_favorited": database.has_interaction(user_id, animation_id, "animation", "favorite"),
+    }
+
+
+@app.post("/api/animations/{animation_id}/publish")
+def publish_animation_endpoint(animation_id: str, user_id: str = Form(...), license_type: str = Form("view_only")):
+    """Publish an animation with chosen license. Only the author can do this."""
+    result = database.publish_animation(animation_id, user_id, license_type)
+    if not result:
+        raise HTTPException(status_code=403, detail="Not authorized or animation not found")
+    return result
+
+
+@app.post("/api/animations/{animation_id}/download")
+def download_animation(animation_id: str, user_id: str = Form(None)):
+    """Increment download counter and return file URL for direct download."""
+    if user_id:
+        profile = database.get_user_profile(user_id)
+        if profile and profile.get('status') in ['blocked', 'banned']:
+            raise HTTPException(status_code=403, detail="Ваш аккаунт заблокирован. Скачивание недоступно.")
+
+    animation = database.get_animation(animation_id)
+    if not animation:
+        raise HTTPException(status_code=404, detail="Animation not found")
+    if not animation.get("file_url"):
+        raise HTTPException(status_code=404, detail="Animation file not available")
+
+    # Record download (only counts if first time for this user)
+    if user_id:
+        database.record_animation_download(animation_id, user_id)
+
+    return {"file_url": animation["file_url"], "name": animation["name"], "format": "GLB"}
 
 
 @app.post("/api/models/{model_id}/convert")

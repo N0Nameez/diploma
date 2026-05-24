@@ -76,6 +76,8 @@ async def submit_animation_job(
     video_path: str,
     model_id: str = None,
     source_video_url: str = None,
+    animation_name: str = "",
+    description: str = "",
 ) -> str:
     """
     Submit an animation generation job to the ARQ queue.
@@ -90,6 +92,8 @@ async def submit_animation_job(
         video_path=video_path,
         model_id=model_id,
         source_video_url=source_video_url,
+        animation_name=animation_name,
+        description=description,
         _job_id=gen_id,
     )
     
