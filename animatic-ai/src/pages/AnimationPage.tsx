@@ -664,7 +664,7 @@ export function AnimationPage() {
             />
 
             {/* Edit button for author */}
-            {user && animation.author_id === user.id && dm.license !== "free_use" && (
+            {user && animation.author_id === user.id && (
               <Button
                 label="Редактировать"
                 variant="ghost"

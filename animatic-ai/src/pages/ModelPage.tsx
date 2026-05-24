@@ -820,8 +820,7 @@ export function ModelPage() {
 
             {/* Edit button for author */}
             {user &&
-              displayModel.author_id === user.id &&
-              dm.license !== "free_use" && (
+              displayModel.author_id === user.id && (
                 <Button
                   label="Редактировать"
                   variant="ghost"
