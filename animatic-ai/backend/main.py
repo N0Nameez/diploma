@@ -943,6 +943,13 @@ def get_user_models(user_id: str, limit: int = 20):
     return {"items": models, "total": len(models)}
 
 
+@app.get("/api/users/{user_id}/animations")
+def get_user_animations_endpoint(user_id: str, limit: int = 20):
+    """Get animations by a specific user (includes private animations for the user themselves)."""
+    animations = database.get_animations_by_author(user_id, limit=limit)
+    return {"items": animations, "total": len(animations)}
+
+
 @app.post("/api/models/{model_id}/publish")
 def publish_model_endpoint(model_id: str, user_id: str = Form(...), license_type: str = Form("view_only")):
     """Publish a model with chosen license. Only the author can do this."""
@@ -1241,10 +1248,24 @@ def get_user_favorites(user_id: str, limit: int = 20):
     return {"items": favorites, "total": len(favorites)}
 
 
+@app.get("/api/users/{user_id}/animations/favorites")
+def get_user_favorite_animations_endpoint(user_id: str, limit: int = 20):
+    """Get animations favorited by user."""
+    favorites = database.get_user_favorite_animations(user_id, limit=limit)
+    return {"items": favorites, "total": len(favorites)}
+
+
 @app.get("/api/users/{user_id}/liked")
 def get_user_liked(user_id: str, limit: int = 20):
     """Get models liked by user."""
     liked = database.get_user_liked_models(user_id, limit=limit)
+    return {"items": liked, "total": len(liked)}
+
+
+@app.get("/api/users/{user_id}/animations/liked")
+def get_user_liked_animations_endpoint(user_id: str, limit: int = 20):
+    """Get animations liked by user."""
+    liked = database.get_user_liked_animations(user_id, limit=limit)
     return {"items": liked, "total": len(liked)}
 
 

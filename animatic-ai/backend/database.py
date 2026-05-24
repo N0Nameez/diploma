@@ -648,6 +648,48 @@ def get_user_liked_models(user_id: str, limit: int = 20) -> list:
             return [dict(zip(cols, row)) for row in rows]
 
 
+def get_user_favorite_animations(user_id: str, limit: int = 20) -> list:
+    """Get animations favorited by user."""
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT a.*, up.username, up.display_name, up.avatar_url
+                FROM public.animations a
+                JOIN public.interactions i ON a.id = i.entity_id
+                LEFT JOIN public.user_profiles up ON a.author_id = up.id
+                WHERE i.user_id = %s AND i.entity_type = 'animation' AND i.interaction_type = 'favorite'
+                  AND a.status = 'approved'
+                ORDER BY i.created_at DESC
+                LIMIT %s
+            """, (user_id, limit))
+            rows = cur.fetchall()
+            if not rows:
+                return []
+            cols = [desc[0] for desc in cur.description]
+            return [dict(zip(cols, row)) for row in rows]
+
+
+def get_user_liked_animations(user_id: str, limit: int = 20) -> list:
+    """Get animations liked by user."""
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT a.*, up.username, up.display_name, up.avatar_url
+                FROM public.animations a
+                JOIN public.interactions i ON a.id = i.entity_id
+                LEFT JOIN public.user_profiles up ON a.author_id = up.id
+                WHERE i.user_id = %s AND i.entity_type = 'animation' AND i.interaction_type = 'like'
+                  AND a.status = 'approved'
+                ORDER BY i.created_at DESC
+                LIMIT %s
+            """, (user_id, limit))
+            rows = cur.fetchall()
+            if not rows:
+                return []
+            cols = [desc[0] for desc in cur.description]
+            return [dict(zip(cols, row)) for row in rows]
+
+
 def toggle_subscription(subscriber_id: str, author_id: str) -> bool:
     """Toggle subscription to an author. Returns (is_subscribed, followers_count)."""
     if subscriber_id == author_id:
@@ -886,6 +928,26 @@ def get_animations(filters: dict = None, limit: int = 20, offset: int = 0) -> li
             params.append(offset)
 
             cur.execute(query, params)
+            rows = cur.fetchall()
+            if not rows:
+                return []
+            cols = [desc[0] for desc in cur.description]
+            return [dict(zip(cols, row)) for row in rows]
+
+
+def get_animations_by_author(author_id: str, limit: int = 20) -> list:
+    """Get animations by a specific author using direct PostgreSQL.
+    Returns ALL animations (including private) for the author themselves."""
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT a.*, up.username, up.display_name, up.avatar_url
+                FROM public.animations a
+                LEFT JOIN public.user_profiles up ON a.author_id = up.id
+                WHERE a.author_id = %s
+                ORDER BY a.created_at DESC
+                LIMIT %s
+            """, (author_id, limit))
             rows = cur.fetchall()
             if not rows:
                 return []
