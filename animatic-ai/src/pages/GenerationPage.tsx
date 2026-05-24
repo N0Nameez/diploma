@@ -449,34 +449,6 @@ export function GenerationPage() {
                 />
               </div>
 
-              {/* Category */}
-              <div className="mb-4">
-                <label className="block text-sm font-semibold text-text-primary mb-2">
-                  Категория
-                </label>
-                <select
-                  value={editorCategory}
-                  onChange={(e) => setEditorCategory(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-background-primary border border-border rounded-xl text-text-primary text-sm outline-none focus:border-accent hover:border-accent-glow transition-all"
-                >
-                  {typeTags.length > 0 ? (
-                    typeTags.map(tag => (
-                      <option key={tag.id} value={tag.name}>{tag.name}</option>
-                    ))
-                  ) : (
-                    <>
-                      <option value="Персонажи">Персонажи</option>
-                      <option value="Архитектура">Архитектура</option>
-                      <option value="Природа">Природа</option>
-                      <option value="Транспорт">Транспорт</option>
-                      <option value="Оружие">Оружие</option>
-                      <option value="Животные">Животные</option>
-                      <option value="Интерьер">Интерьер</option>
-                    </>
-                  )}
-                </select>
-              </div>
-
               {/* Locked Fields Notice */}
               <div className="p-3 rounded-xl bg-background-secondary border border-border mb-4">
                 <p className="text-xs text-text-secondary">
@@ -560,21 +532,23 @@ export function GenerationPage() {
                   industryTags={industryTags}
                 />
 
-                <QualitySettings
-                  qualityLevel={settings.qualityLevel}
-                  polyCount={settings.polyCount}
-                  enablePbr={settings.enablePbr}
-                  enableRig={settings.enableRig}
-                  autoPublish={settings.autoPublish}
-                  aiModel={settings.aiModel}
-                  onQualityChange={(level) =>
-                    setSettings({ ...settings, qualityLevel: level as any })
-                  }
-                  onPolyChange={(count) =>
-                    setSettings({ ...settings, polyCount: count })
-                  }
-                  onToggle={handleToggle}
-                />
+                {mode === "model" && (
+                  <QualitySettings
+                    qualityLevel={settings.qualityLevel}
+                    polyCount={settings.polyCount}
+                    enablePbr={settings.enablePbr}
+                    enableRig={settings.enableRig}
+                    autoPublish={settings.autoPublish}
+                    aiModel={settings.aiModel}
+                    onQualityChange={(level) =>
+                      setSettings({ ...settings, qualityLevel: level as any })
+                    }
+                    onPolyChange={(count) =>
+                      setSettings({ ...settings, polyCount: count })
+                    }
+                    onToggle={handleToggle}
+                  />
+                )}
               </>
             )}
           </div>
