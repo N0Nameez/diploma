@@ -11,8 +11,11 @@ import { ReportModal } from "../components/ReportModal";
 import {
   fetchUser,
   fetchUserModels,
+  fetchUserAnimations,
   fetchUserFavorites,
+  fetchUserFavoriteAnimations,
   fetchUserLikedModels,
+  fetchUserLikedAnimations,
   fetchUserActivity,
   updateUserProfile,
   updateModel,
@@ -25,6 +28,7 @@ import {
   cancelSubscription,
   toggleAutoRenew,
   type ApiModel,
+  type ApiAnimation,
   type ApiUser,
 } from "../services/api";
 import {
@@ -43,10 +47,12 @@ import {
   ShieldCheck,
   CreditCard,
   Flag,
+  Play,
 } from "lucide-react";
 
-type TabId = "models" | "favorites" | "liked" | "social" | "settings";
+type TabId = "works" | "favorites" | "liked" | "social" | "settings";
 type ModelsFilter = "all" | "free_use" | "view_only" | "private";
+type WorksTypeFilter = "all" | "models" | "animations";
 type SocialTab = "followers" | "following";
 
 const COVER_PRESETS = [
@@ -99,10 +105,10 @@ export function ProfilePage() {
   const isOwner = user ? (!id || id === user.id) : false;
   const targetId = id || user?.id;
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<TabId>("models");
+  const [activeTab, setActiveTab] = useState<TabId>("works");
   const [modelsFilter, setModelsFilter] = useState<ModelsFilter>("all");
+  const [worksTypeFilter, setWorksTypeFilter] = useState<WorksTypeFilter>("all");
   const [socialTab, setSocialTab] = useState<SocialTab>("followers");
-  const [modelFilter, setModelFilter] = useState<string>("Все");
   const [modelSort, setModelSort] = useState<string>("Новые сначала");
   const [currentPage, setCurrentPage] = useState(1);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -127,8 +133,11 @@ export function ProfilePage() {
   // Real data
   const [profile, setProfile] = useState<ApiUser | null>(null);
   const [userModels, setUserModels] = useState<ApiModel[]>([]);
+  const [userAnimations, setUserAnimations] = useState<ApiAnimation[]>([]);
   const [userFavorites, setUserFavorites] = useState<ApiModel[]>([]);
+  const [userFavoriteAnimations, setUserFavoriteAnimations] = useState<ApiAnimation[]>([]);
   const [userLikedModels, setUserLikedModels] = useState<ApiModel[]>([]);
+  const [userLikedAnimations, setUserLikedAnimations] = useState<ApiAnimation[]>([]);
   const [userFollowers, setUserFollowers] = useState<ApiUser[]>([]);
   const [userFollowing, setUserFollowing] = useState<ApiUser[]>([]);
   const [activity, setActivity] = useState<{
@@ -220,18 +229,29 @@ export function ProfilePage() {
       .finally(() => setLoading(false));
   }, [targetId, user, isOwner]);
 
-  // Load user models
+  // Load user models and animations
   useEffect(() => {
-    if (!targetId || activeTab !== "models") return;
+    if (!targetId || activeTab !== "works") return;
+    
+    // Load models
     fetchUserModels(targetId, 1000)
       .then((res) => {
-        // Security filter: don't even store private models if not owner
         const filtered = isOwner 
           ? res.items 
           : res.items.filter(m => m.license !== 'private' && m.status === 'approved');
         setUserModels(filtered);
       })
       .catch(() => setUserModels([]));
+
+    // Load animations
+    fetchUserAnimations(targetId, 1000)
+      .then((res) => {
+        const filtered = isOwner
+          ? res.items
+          : res.items.filter(a => a.license !== 'private' && a.status === 'approved');
+        setUserAnimations(filtered);
+      })
+      .catch(() => setUserAnimations([]));
   }, [targetId, activeTab, isOwner]);
 
   // Load favorites (only for owner) and liked immediately
@@ -242,11 +262,19 @@ export function ProfilePage() {
       fetchUserFavorites(targetId, 1000)
         .then((res) => setUserFavorites(res.items))
         .catch(() => setUserFavorites([]));
+
+      fetchUserFavoriteAnimations(targetId, 1000)
+        .then((res) => setUserFavoriteAnimations(res.items))
+        .catch(() => setUserFavoriteAnimations([]));
     }
     
     fetchUserLikedModels(targetId, 1000)
       .then((res) => setUserLikedModels(res.items))
       .catch(() => setUserLikedModels([]));
+
+    fetchUserLikedAnimations(targetId, 1000)
+      .then((res) => setUserLikedAnimations(res.items))
+      .catch(() => setUserLikedAnimations([]));
   }, [targetId, isOwner]);
 
   // Load activity
@@ -454,25 +482,29 @@ export function ProfilePage() {
   // Reset page on filter/sort change
   useEffect(() => {
     setCurrentPage(1);
-  }, [modelFilter, modelSort]);
+  }, [modelsFilter, worksTypeFilter, modelSort]);
 
-  // Sort models
-  const getSortedModels = () => {
-    let list =
-      modelFilter === "Все"
-        ? userModels.filter(
-          (m) => m.status === "approved" && m.license !== "private",
-        )
-        : userModels.filter((m) => {
-          if (modelFilter === "Приватные")
-            return m.license === "private";
-          return true;
-        });
-
-    // Final security filter: non-owners never see private models
-    if (!isOwner) {
-      list = list.filter(m => m.license !== 'private');
+  // Sort models and animations
+  const getSortedWorks = () => {
+    // Combine both lists based on type filter
+    let list: (ApiModel | ApiAnimation)[] = [];
+    
+    if (worksTypeFilter === "all") {
+      list = [...userModels, ...userAnimations];
+    } else if (worksTypeFilter === "models") {
+      list = [...userModels];
+    } else if (worksTypeFilter === "animations") {
+      list = [...userAnimations];
     }
+
+    // Filter by type/license
+    list = list.filter((item) => {
+      if (!isOwner && (item.license === 'private' || item.status !== 'approved')) return false;
+      if (modelsFilter === "free_use") return (isOwner || item.status === "approved") && item.license === "free_use";
+      if (modelsFilter === "view_only") return (isOwner || item.status === "approved") && item.license === "view_only";
+      if (modelsFilter === "private") return item.license === "private";
+      return true;
+    });
 
     switch (modelSort) {
       case "По лайкам":
@@ -489,10 +521,7 @@ export function ProfilePage() {
     }
   };
 
-  // Check if there are drafts/private models
-  const hasPrivate = userModels.some(
-    (m) => m.license === "private",
-  );
+  const displayedWorks = getSortedWorks();
 
   if (!targetId) {
     return (
@@ -633,8 +662,6 @@ export function ProfilePage() {
 
   const heatmapData = buildHeatmapData();
   const isBanned = (profile as any)?.status === "blocked" || (profile as any)?.status === "banned";
-
-  const sortedModels = getSortedModels();
 
   return (
     <div className="min-h-screen">
@@ -936,7 +963,7 @@ export function ProfilePage() {
           <div className="flex gap-2 bg-background-surface border border-border rounded-[20px] p-2 mb-8 shadow-sm overflow-x-auto no-scrollbar">
             {[
               {
-                id: "models" as TabId,
+                id: "works" as TabId,
                 label: (
                   <>
                     <Folder className="w-4 h-4" /> Работы
@@ -996,81 +1023,143 @@ export function ProfilePage() {
             ))}
           </div>
 
-          {/* Models */}
-          {activeTab === "models" && (
+          {/* Works (Models + Animations) */}
+          {activeTab === "works" && (
             <div className="space-y-6">
-              {/* Sub-filters */}
-              <div className="flex items-center gap-2 border-b border-border pb-4 overflow-x-auto no-scrollbar">
-                {[
-                  { id: "all", label: "Все", count: userModels.filter(m => isOwner || (m.license !== 'private' && m.status === 'approved')).length },
-                  { id: "free_use", label: "Free Use", count: userModels.filter(m => (isOwner || m.status === 'approved') && m.license === 'free_use').length },
-                  { id: "view_only", label: "Only Watch", count: userModels.filter(m => (isOwner || m.status === 'approved') && m.license === 'view_only').length },
-                  ...(isOwner ? [{ id: "private", label: "Приватные", count: userModels.filter(m => m.license === 'private').length }] : []),
-                ].map((f) => (
-                  <button
-                    key={f.id}
-                    onClick={() => setModelsFilter(f.id as ModelsFilter)}
-                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
-                      modelsFilter === f.id
-                        ? "bg-accent/10 text-accent border border-accent/20"
-                        : "text-text-secondary hover:text-text-primary border border-transparent"
-                    }`}
+              {/* Filters and Sort Row */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Type Filter */}
+                  <div className="flex bg-background-secondary p-1 rounded-xl mr-2">
+                    {[
+                      { id: "all", label: "Все", count: userModels.length + userAnimations.length },
+                      { id: "models", label: "3D Модели", count: userModels.length },
+                      { id: "animations", label: "Анимации", count: userAnimations.length },
+                    ].map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => setWorksTypeFilter(t.id as WorksTypeFilter)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+                          worksTypeFilter === t.id
+                            ? "bg-background-surface text-text-primary shadow-sm"
+                            : "text-text-secondary hover:text-text-primary"
+                        }`}
+                      >
+                        {t.label}
+                        <span className={`text-[10px] opacity-50 ${worksTypeFilter === t.id ? "text-accent" : ""}`}>{t.count}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* License/Status Filter */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {[
+                      { id: "all", label: "Все статусы", count: userModels.length + userAnimations.length },
+                      { id: "free_use", label: "Free Use", count: userModels.filter(m => (isOwner || m.status === 'approved') && m.license === 'free_use').length + userAnimations.filter(a => (isOwner || a.status === 'approved') && a.license === 'free_use').length },
+                      { id: "view_only", label: "Only Watch", count: userModels.filter(m => (isOwner || m.status === 'approved') && m.license === 'view_only').length + userAnimations.filter(a => (isOwner || a.status === 'approved') && a.license === 'view_only').length },
+                      ...(isOwner ? [{ id: "private", label: "Приватные", count: userModels.filter(m => m.license === 'private').length + userAnimations.filter(a => a.license === 'private').length }] : []),
+                    ].map((f) => (
+                      <button
+                        key={f.id}
+                        onClick={() => setModelsFilter(f.id as ModelsFilter)}
+                        className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${
+                          modelsFilter === f.id
+                            ? "bg-accent/10 text-accent border border-accent/20"
+                            : "text-text-secondary hover:text-text-primary border border-transparent"
+                        }`}
+                      >
+                        {f.id === 'private' && <Lock className="w-3 h-3" />}
+                        {f.label}
+                        <span className="opacity-50 text-[10px]">{f.count}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Sort Dropdown */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider">Сортировка:</span>
+                  <select
+                    value={modelSort}
+                    onChange={(e) => setModelSort(e.target.value)}
+                    className="bg-background-secondary border border-border rounded-xl px-3 py-1.5 text-xs font-bold text-text-primary outline-none focus:border-accent transition-all cursor-pointer"
                   >
-                    {f.id === 'private' && <Lock className="w-3 h-3" />}
-                    {f.label}
-                    <span className="opacity-50 text-[10px]">{f.count}</span>
-                  </button>
+                    <option>Новые сначала</option>
+                    <option>По лайкам</option>
+                    <option>По скачиваниям</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {displayedWorks.map((item) => (
+                  <div key={item.id} className="relative group">
+                    <ModelCard 
+                      model={item} 
+                      type={'duration_seconds' in item ? 'animation' : '3d'} 
+                    />
+                    {item.license === "private" && (
+                      <div className="absolute top-10 left-3 px-2 py-0.5 rounded-md bg-yellow-500/12 text-yellow-500 border border-yellow-500/25 text-[10px] font-bold z-10 flex items-center gap-1">
+                        <Lock className="w-3 h-3" /> Приватная
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
 
-              {(() => {
-                const displayedModels = userModels.filter((m) => {
-                  if (!isOwner && (m.license === 'private' || m.status !== 'approved')) return false;
-                  if (modelsFilter === "free_use") return (isOwner || m.status === "approved") && m.license === "free_use";
-                  if (modelsFilter === "view_only") return (isOwner || m.status === "approved") && m.license === "view_only";
-                  if (modelsFilter === "private") return m.license === "private";
-                  return true;
-                });
-
-                return (
-                  <>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {displayedModels.map((model) => (
-                        <div key={model.id} className="relative group">
-                          <ModelCard model={model} />
-                          {model.license === "private" && (
-                            <div className="absolute top-10 left-3 px-2 py-0.5 rounded-md bg-yellow-500/12 text-yellow-500 border border-yellow-500/25 text-[10px] font-bold z-10 flex items-center gap-1">
-                              <Lock className="w-3 h-3" /> Приватная
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    {displayedModels.length === 0 && (
-                      <div className="text-center py-20 bg-background-surface/50 border-2 border-dashed border-border rounded-3xl">
-                        <div className="text-4xl mb-4">✨</div>
-                        <p className="text-text-secondary font-medium">Здесь пока пусто</p>
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
+              {displayedWorks.length === 0 && (
+                <div className="text-center py-20 bg-background-surface/50 border-2 border-dashed border-border rounded-3xl">
+                  <div className="text-4xl mb-4">✨</div>
+                  <p className="text-text-secondary font-medium">Здесь пока пусто</p>
+                </div>
+              )}
             </div>
           )}
 
           {/* Favorites */}
           {activeTab === "favorites" && (
             <div className="space-y-6">
-              <div className="font-extrabold text-lg flex items-center gap-2">
-                <Bookmark className="w-5 h-5 text-pink-500" /> Избранные модели
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="font-extrabold text-lg flex items-center gap-2">
+                  <Bookmark className="w-5 h-5 text-pink-500" /> Избранное
+                </div>
+                
+                {/* Type Filter */}
+                <div className="flex bg-background-secondary p-1 rounded-xl">
+                  {[
+                    { id: "all", label: "Все", count: userFavorites.length + userFavoriteAnimations.length },
+                    { id: "models", label: "3D Модели", count: userFavorites.length },
+                    { id: "animations", label: "Анимации", count: userFavoriteAnimations.length },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setWorksTypeFilter(t.id as WorksTypeFilter)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+                        worksTypeFilter === t.id
+                          ? "bg-background-surface text-text-primary shadow-sm"
+                          : "text-text-secondary hover:text-text-primary"
+                      }`}
+                    >
+                      {t.label}
+                      <span className={`text-[10px] opacity-50 ${worksTypeFilter === t.id ? "text-accent" : ""}`}>{t.count}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
+
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {userFavorites.map((model) => (
-                  <ModelCard key={model.id} model={model} />
+                {[
+                  ...(worksTypeFilter === "all" || worksTypeFilter === "models" ? userFavorites : []),
+                  ...(worksTypeFilter === "all" || worksTypeFilter === "animations" ? userFavoriteAnimations : [])
+                ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((item) => (
+                  <ModelCard 
+                    key={item.id} 
+                    model={item} 
+                    type={'duration_seconds' in item ? 'animation' : '3d'}
+                  />
                 ))}
               </div>
-              {userFavorites.length === 0 && (
+              {userFavorites.length === 0 && userFavoriteAnimations.length === 0 && (
                 <div className="text-center py-20 bg-background-surface/50 border-2 border-dashed border-border rounded-3xl">
                   <div className="text-4xl mb-4">❤️</div>
                   <p className="text-text-secondary font-medium">Вы еще ничего не добавили в избранное</p>
@@ -1082,18 +1171,50 @@ export function ProfilePage() {
           {/* Liked */}
           {activeTab === "liked" && (
             <div className="space-y-6">
-              <div className="font-extrabold text-lg flex items-center gap-2">
-                <Heart className="w-5 h-5 text-accent" /> Понравившиеся
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="font-extrabold text-lg flex items-center gap-2">
+                  <Heart className="w-5 h-5 text-accent" /> Понравившиеся
+                </div>
+
+                {/* Type Filter */}
+                <div className="flex bg-background-secondary p-1 rounded-xl">
+                  {[
+                    { id: "all", label: "Все", count: userLikedModels.length + userLikedAnimations.length },
+                    { id: "models", label: "3D Модели", count: userLikedModels.length },
+                    { id: "animations", label: "Анимации", count: userLikedAnimations.length },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setWorksTypeFilter(t.id as WorksTypeFilter)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+                        worksTypeFilter === t.id
+                          ? "bg-background-surface text-text-primary shadow-sm"
+                          : "text-text-secondary hover:text-text-primary"
+                      }`}
+                    >
+                      {t.label}
+                      <span className={`text-[10px] opacity-50 ${worksTypeFilter === t.id ? "text-accent" : ""}`}>{t.count}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
+
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {userLikedModels.map((model) => (
-                  <ModelCard key={model.id} model={model} />
+                {[
+                  ...(worksTypeFilter === "all" || worksTypeFilter === "models" ? userLikedModels : []),
+                  ...(worksTypeFilter === "all" || worksTypeFilter === "animations" ? userLikedAnimations : [])
+                ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((item) => (
+                  <ModelCard 
+                    key={item.id} 
+                    model={item} 
+                    type={'duration_seconds' in item ? 'animation' : '3d'}
+                  />
                 ))}
               </div>
-              {userLikedModels.length === 0 && (
+              {userLikedModels.length === 0 && userLikedAnimations.length === 0 && (
                 <div className="text-center py-20 bg-background-surface/50 border-2 border-dashed border-border rounded-3xl">
                   <div className="text-4xl mb-4">👍</div>
-                  <p className="text-text-secondary font-medium">Вы еще не ставили лайки моделям</p>
+                  <p className="text-text-secondary font-medium">Вы еще не ставили лайки</p>
                 </div>
               )}
             </div>

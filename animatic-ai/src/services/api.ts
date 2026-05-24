@@ -446,6 +446,12 @@ export async function fetchUserModels(userId: string, limit = 20) {
   );
 }
 
+export async function fetchUserAnimations(userId: string, limit = 20) {
+  return api<{ items: ApiAnimation[]; total: number }>(
+    `/api/users/${userId}/animations?limit=${limit}`,
+  );
+}
+
 export async function fetchUserGenerations(userId: string, limit = 20) {
   return api<{ items: any[]; total: number }>(
     `/api/users/${userId}/generations?limit=${limit}`,
@@ -458,9 +464,21 @@ export async function fetchUserFavorites(userId: string, limit = 20) {
   );
 }
 
+export async function fetchUserFavoriteAnimations(userId: string, limit = 20) {
+  return api<{ items: ApiAnimation[]; total: number }>(
+    `/api/users/${userId}/animations/favorites?limit=${limit}`,
+  );
+}
+
 export async function fetchUserLikedModels(userId: string, limit = 20) {
   return api<{ items: ApiModel[]; total: number }>(
     `/api/users/${userId}/liked?limit=${limit}`,
+  );
+}
+
+export async function fetchUserLikedAnimations(userId: string, limit = 20) {
+  return api<{ items: ApiAnimation[]; total: number }>(
+    `/api/users/${userId}/animations/liked?limit=${limit}`,
   );
 }
 
