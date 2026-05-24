@@ -224,7 +224,7 @@ export function ModelPage() {
       })
       .catch(() => setDisplayModel(null))
       .finally(() => setLoading(false));
-  }, [id, user]);
+  }, [id, user?.id]);
 
   /* Show toast notifications */
   const showToast = (message: string, type: "success" | "error" = "success") => {

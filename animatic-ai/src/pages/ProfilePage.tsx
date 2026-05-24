@@ -227,7 +227,7 @@ export function ProfilePage() {
       })
       .catch(() => setProfile(null))
       .finally(() => setLoading(false));
-  }, [targetId, user, isOwner]);
+  }, [targetId, user?.id, isOwner]);
 
   // Load user models and animations
   useEffect(() => {

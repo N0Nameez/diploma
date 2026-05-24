@@ -226,7 +226,7 @@ export function AnimationPage() {
       })
       .catch(() => setAnimation(null))
       .finally(() => setLoading(false));
-  }, [id, user]);
+  }, [id, user?.id]);
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
     if (type === "error") {
