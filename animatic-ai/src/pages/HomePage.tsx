@@ -42,14 +42,12 @@ export function HomePage({ onRegisterClick, user }: HomePageProps) {
   useEffect(() => {
     // We consider it ready when progress is 100 AND loading is no longer active
     // This handles both fresh loads and cached assets
-    if (progress >= 100 && !active) {
+    if (progress >= 100 && !active && !isLoaded) {
       const timer = setTimeout(() => setIsLoaded(true), 2000);
       return () => clearTimeout(timer);
-    } else if (active) {
-      // If loading starts again (e.g. models re-requesting), hide content
-      setIsLoaded(false);
     }
-  }, [progress, active]);
+    // Remove the `else if (active)` block that reverts isLoaded to false
+  }, [progress, active, isLoaded]);
 
   useEffect(() => {
     // Safety fallback: show content after 20s no matter what
