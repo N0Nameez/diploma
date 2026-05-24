@@ -53,12 +53,12 @@ export function CatalogPage() {
   // Sync URL params with filters
   useEffect(() => {
     const content = searchParams.get("content");
-    if (content === "animation") {
+    if (content === "animation" && filters.contentType !== "animation") {
       updateFilter("contentType", "animation");
-    } else {
+    } else if (content === "3d" && filters.contentType !== "3d") {
       updateFilter("contentType", "3d");
     }
-  }, []);
+  }, [searchParams]);
 
   // Sync search from navbar
   useEffect(() => {
@@ -240,7 +240,7 @@ export function CatalogPage() {
 
           {/* Active filters */}
           <AnimatePresence>
-            {(filters.categories.length > 0 ||
+            {filters.contentType === "3d" && (filters.categories.length > 0 ||
               filters.formats.length > 0 ||
               filters.onlyAI) && (
               <motion.div 

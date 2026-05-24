@@ -134,84 +134,88 @@ export function FilterSidebar({
           </div>
 
           {/* Industry Tags */}
-          <div className="mb-8">
-            <p className="text-[10px] font-bold tracking-[2px] uppercase text-text-muted mb-4 flex items-center gap-2">
-              <Briefcase size={12} /> Направление
-            </p>
-            <div className="space-y-1">
-              {stats === null ? (
-                <div className="text-[10px] text-text-muted italic px-2 py-1 text-center">Загрузка...</div>
-              ) : industryTags.length > 0 ? (
-                visibleIndustryTags.map((tag) => (
-                  <FilterCheckbox
-                    key={tag.id}
-                    label={tag.name}
-                    count={tagCount(tag)}
-                    checked={selectedCats.includes(tag.name)}
-                    onChange={() =>
-                      onCatsChange(
-                        selectedCats.includes(tag.name)
-                          ? selectedCats.filter((x) => x !== tag.name)
-                          : [...selectedCats, tag.name],
-                      )
-                    }
-                  />
-                ))
-              ) : (
-                <div className="text-[10px] text-text-muted italic px-2 py-1">Нет направлений</div>
-              )}
-              
-              {hasMoreIndustries && (
-                <button
-                  onClick={() => setShowAllIndustries(!showAllIndustries)}
-                  className="flex items-center gap-2 w-full px-2 py-2 text-[10px] font-bold text-accent hover:text-accent/80 transition-colors"
-                >
-                  {showAllIndustries ? "Скрыть" : `Показать еще (${industryTags.length - 6})`}
-                  <ChevronDown size={12} className={`transition-transform duration-300 ${showAllIndustries ? "rotate-180" : ""}`} />
-                </button>
-              )}
+          {contentType === "3d" && (
+            <div className="mb-8">
+              <p className="text-[10px] font-bold tracking-[2px] uppercase text-text-muted mb-4 flex items-center gap-2">
+                <Briefcase size={12} /> Направление
+              </p>
+              <div className="space-y-1">
+                {stats === null ? (
+                  <div className="text-[10px] text-text-muted italic px-2 py-1 text-center">Загрузка...</div>
+                ) : industryTags.length > 0 ? (
+                  visibleIndustryTags.map((tag) => (
+                    <FilterCheckbox
+                      key={tag.id}
+                      label={tag.name}
+                      count={tagCount(tag)}
+                      checked={selectedCats.includes(tag.name)}
+                      onChange={() =>
+                        onCatsChange(
+                          selectedCats.includes(tag.name)
+                            ? selectedCats.filter((x) => x !== tag.name)
+                            : [...selectedCats, tag.name],
+                        )
+                      }
+                    />
+                  ))
+                ) : (
+                  <div className="text-[10px] text-text-muted italic px-2 py-1">Нет направлений</div>
+                )}
+                
+                {hasMoreIndustries && (
+                  <button
+                    onClick={() => setShowAllIndustries(!showAllIndustries)}
+                    className="flex items-center gap-2 w-full px-2 py-2 text-[10px] font-bold text-accent hover:text-accent/80 transition-colors"
+                  >
+                    {showAllIndustries ? "Скрыть" : `Показать еще (${industryTags.length - 6})`}
+                    <ChevronDown size={12} className={`transition-transform duration-300 ${showAllIndustries ? "rotate-180" : ""}`} />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Type Tags (Category) */}
-          <div className="mb-8">
-            <p className="text-[10px] font-bold tracking-[2px] uppercase text-text-muted mb-4 flex items-center gap-2">
-              <Layers size={12} /> Тип модели
-            </p>
-            <div className="space-y-1">
-              {stats === null ? (
-                <div className="text-[10px] text-text-muted italic px-2 py-1 text-center">Загрузка...</div>
-              ) : typeTags.length > 0 ? (
-                visibleTypeTags.map((tag) => (
-                  <FilterCheckbox
-                    key={tag.id}
-                    label={tag.name}
-                    count={tagCount(tag)}
-                    checked={selectedCats.includes(tag.name)}
-                    onChange={() =>
-                      onCatsChange(
-                        selectedCats.includes(tag.name)
-                          ? selectedCats.filter((x) => x !== tag.name)
-                          : [...selectedCats, tag.name],
-                      )
-                    }
-                  />
-                ))
-              ) : (
-                <div className="text-[10px] text-text-muted italic px-2 py-1">Нет типов</div>
-              )}
-              
-              {hasMoreTypes && (
-                <button
-                  onClick={() => setShowAllTypes(!showAllTypes)}
-                  className="flex items-center gap-2 w-full px-2 py-2 text-[10px] font-bold text-accent hover:text-accent/80 transition-colors"
-                >
-                  {showAllTypes ? "Скрыть" : `Показать еще (${typeTags.length - 6})`}
-                  <ChevronDown size={12} className={`transition-transform duration-300 ${showAllTypes ? "rotate-180" : ""}`} />
-                </button>
-              )}
+          {contentType === "3d" && (
+            <div className="mb-8">
+              <p className="text-[10px] font-bold tracking-[2px] uppercase text-text-muted mb-4 flex items-center gap-2">
+                <Layers size={12} /> Тип модели
+              </p>
+              <div className="space-y-1">
+                {stats === null ? (
+                  <div className="text-[10px] text-text-muted italic px-2 py-1 text-center">Загрузка...</div>
+                ) : typeTags.length > 0 ? (
+                  visibleTypeTags.map((tag) => (
+                    <FilterCheckbox
+                      key={tag.id}
+                      label={tag.name}
+                      count={tagCount(tag)}
+                      checked={selectedCats.includes(tag.name)}
+                      onChange={() =>
+                        onCatsChange(
+                          selectedCats.includes(tag.name)
+                            ? selectedCats.filter((x) => x !== tag.name)
+                            : [...selectedCats, tag.name],
+                        )
+                      }
+                    />
+                  ))
+                ) : (
+                  <div className="text-[10px] text-text-muted italic px-2 py-1">Нет типов</div>
+                )}
+                
+                {hasMoreTypes && (
+                  <button
+                    onClick={() => setShowAllTypes(!showAllTypes)}
+                    className="flex items-center gap-2 w-full px-2 py-2 text-[10px] font-bold text-accent hover:text-accent/80 transition-colors"
+                  >
+                    {showAllTypes ? "Скрыть" : `Показать еще (${typeTags.length - 6})`}
+                    <ChevronDown size={12} className={`transition-transform duration-300 ${showAllTypes ? "rotate-180" : ""}`} />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Format */}
           {contentType === "3d" && (

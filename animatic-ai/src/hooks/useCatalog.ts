@@ -84,7 +84,14 @@ export function useCatalog() {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [
+    filters.contentType,
+    filters.categories,
+    filters.formats,
+    filters.search,
+    filters.sort,
+    filters.onlyAI,
+  ]);
 
   useEffect(() => {
     loadItems();
