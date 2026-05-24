@@ -259,7 +259,11 @@ export function GenerationProvider({ children }: { children: React.ReactNode }) 
         const result = await startAnimationGeneration(
           file,
           userId,
-          resultModelId || undefined
+          resultModelId || undefined,
+          {
+            name: currentSettings.name,
+            description: currentSettings.description,
+          }
         );
 
         const genId = result.generation_id;
@@ -349,19 +353,27 @@ export function GenerationProvider({ children }: { children: React.ReactNode }) 
     try {
       const data = await fetchUserGenerations(userId);
       const items = data.items.map((item: any) => {
+        const isAnim = item.type === "animation" || item.type === "animation_video";
         const entry: GenerationHistory = {
           id: item.id,
-          type: item.type === "animation" ? "animation_video" : "model_photo",
+          type: isAnim ? "animation_video" : "model_photo",
           status: item.status,
           name: "Без названия",
           createdAt: item.created_at,
-          resultModelId: item.result_model_id,
+          resultModelId: isAnim ? item.result_animation_id : item.result_model_id,
         };
-        if (item.status === "completed" && item.result_model_id) {
-          fetchModel(item.result_model_id).then(m => {
-            entry.name = m.name;
-            entry.thumbnail = m.preview_url || undefined;
-          }).catch(() => {});
+        if (item.status === "completed") {
+          if (isAnim && item.result_animation_id) {
+            fetchAnimation(item.result_animation_id).then(a => {
+              entry.name = a.name;
+              entry.thumbnail = a.preview_url || undefined;
+            }).catch(() => {});
+          } else if (item.result_model_id) {
+            fetchModel(item.result_model_id).then(m => {
+              entry.name = m.name;
+              entry.thumbnail = m.preview_url || undefined;
+            }).catch(() => {});
+          }
         }
         return entry;
       });

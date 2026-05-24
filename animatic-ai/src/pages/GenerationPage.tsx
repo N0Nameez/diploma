@@ -16,7 +16,17 @@ import CreditsPanel from "../components/generation/CreditsPanel";
 import { toast } from "react-hot-toast";
 import { Modal } from "../components/Modal";
 import LicenseModal from "../components/model/LicenseModal";
-import { publishModel, downloadModel, fetchModel, fetchTags, type ApiTag } from "../services/api";
+import {
+  publishModel,
+  downloadModel,
+  fetchModel,
+  fetchTags,
+  type ApiTag,
+  publishAnimation,
+  fetchAnimation,
+  updateAnimation,
+  updateModel,
+} from "../services/api";
 
 /**
  * Generation page for creating new 3D models and animations using AI.
@@ -40,6 +50,7 @@ export function GenerationPage() {
     creditsExpiringSoon,
     history,
     resultModelId,
+    resultAnimationId,
     modelFileUrl,
     animationFileUrl,
     queuePosition,
@@ -172,37 +183,37 @@ export function GenerationPage() {
     if (!editorMode || !editorModelId) return;
     setEditorFileUrl(null);
     setEditorPreviewUrl(null);
-    fetchModel(editorModelId)
-      .then((model) => {
-        setEditorName(model.name);
-        setEditorDescription(model.description || "");
-        setEditorCategory(model.category || "Персонажи");
-        setEditorFileUrl(model.file_url);
-        setEditorPreviewUrl(model.preview_url);
+    const fetchFunc = mode === "animation" ? fetchAnimation : fetchModel;
+    fetchFunc(editorModelId)
+      .then((data: any) => {
+        setEditorName(data.name);
+        setEditorDescription(data.description || "");
+        setEditorCategory(data.category || "Персонажи");
+        setEditorFileUrl(data.file_url);
+        setEditorPreviewUrl(data.preview_url);
       })
       .catch(() => { });
-  }, [editorMode, editorModelId]);
+  }, [editorMode, editorModelId, mode]);
 
-  /* Save edited model */
+  /* Save edited model or animation */
   const handleSaveEditor = async () => {
     if (!editorModelId || !user || !editorName.trim()) return;
     setEditorSaving(true);
     setEditorError(null);
     try {
-      const qs = new URLSearchParams();
-      qs.set("name", editorName.trim());
-      qs.set("description", editorDescription);
-      qs.set("category", editorCategory);
-      qs.set("author_id", user.id);
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/models/${editorModelId}?${qs}`,
-        { method: "PUT" },
-      );
-      if (!res.ok) {
-        const body = await res.json();
-        throw new Error(body.detail || "Failed to save");
+      if (mode === "animation") {
+        await updateAnimation(editorModelId, user.id, {
+          name: editorName.trim(),
+          description: editorDescription,
+        });
+      } else {
+        await updateModel(editorModelId, user.id, {
+          name: editorName.trim(),
+          description: editorDescription,
+          category: editorCategory,
+        });
       }
-      showToast("Модель сохранена");
+      showToast(mode === "animation" ? "Анимация сохранена" : "Модель сохранена");
     } catch (err: any) {
       setEditorError(err.message || "Ошибка при сохранении");
       showToast(err.message || "Ошибка при сохранении", "error");
@@ -224,16 +235,24 @@ export function GenerationPage() {
   /* Handle model_id from URL (edit mode from ModelPage) */
   useEffect(() => {
     const modelId = searchParams.get("model_id");
+    const isAnim = searchParams.get("is_animation") === "true";
     if (modelId && user) {
       setEditorMode(true);
       setEditorModelId(modelId);
-      fetchModel(modelId)
-        .then((model) => {
-          setEditorName(model.name);
-          setEditorDescription(model.description || "");
-          setEditorCategory(model.category || "Персонажи");
-          setEditorFileUrl(model.file_url);
-          setEditorPreviewUrl(model.preview_url);
+      if (isAnim) {
+        setMode("animation");
+      } else {
+        setMode("model");
+      }
+
+      const fetchFunc = isAnim ? fetchAnimation : fetchModel;
+      fetchFunc(modelId)
+        .then((data: any) => {
+          setEditorName(data.name);
+          setEditorDescription(data.description || "");
+          setEditorCategory(data.category || "Персонажи");
+          setEditorFileUrl(data.file_url);
+          setEditorPreviewUrl(data.preview_url);
         })
         .catch(() => { });
     }
@@ -276,14 +295,20 @@ export function GenerationPage() {
 
   /* Handle publish with chosen license */
   const handlePublish = async (license: string) => {
-    if (!resultModelId || !user) return;
+    const id = mode === "animation" ? resultAnimationId : resultModelId;
+    if (!id || !user) return;
     try {
-      await publishModel(resultModelId, user.id, license);
+      if (mode === "animation") {
+        await publishAnimation(id, user.id, license);
+      } else {
+        await publishModel(id, user.id, license);
+      }
       setLicenseModalOpen(false);
       showToast(
-        `Модель опубликована с лицензией: ${license === "private" ? "Приватная" : license === "view_only" ? "Просмотр" : "Публичная"}`,
+        `${mode === "animation" ? "Анимация" : "Модель"} опубликована с лицензией: ${license === "private" ? "Приватная" : license === "view_only" ? "Просмотр" : "Публичная"}`,
       );
-      setTimeout(() => navigate(`/models/${resultModelId}`), 1500);
+      const navigatePath = mode === "animation" ? `/animations/${id}` : `/models/${id}`;
+      setTimeout(() => navigate(navigatePath), 1500);
     } catch (err) {
       showToast("Ошибка при публикации", "error");
     }
@@ -381,11 +406,11 @@ export function GenerationPage() {
             {/* Model Preview / 3D Viewer */}
             <Viewer3D
               variant="full"
-              modelUrl={modelFileUrl || editorFileUrl || undefined}
-              animationUrl="/animations/idle_clean.glb"
+              modelUrl={modelFileUrl || animationFileUrl || editorFileUrl || undefined}
+              animationUrl={mode === "animation" ? undefined : "/animations/idle_clean.glb"}
               showToolbar={true}
               showBadge={false}
-              autoRotate={true}
+              autoRotate={mode !== "animation"}
             />
 
             {/* Editor Fields */}
@@ -491,6 +516,7 @@ export function GenerationPage() {
                   setEditorMode(true);
                   if (gen.resultModelId) {
                     setEditorModelId(gen.resultModelId);
+                    setMode(gen.type === "animation_video" ? "animation" : "model");
                   }
                 } else if (status === "processing" || status === "queued") {
                   // Восстанавливаем активную сессию из истории
@@ -728,6 +754,7 @@ export function GenerationPage() {
                     setEditorMode(true);
                     if (gen.resultModelId) {
                       setEditorModelId(gen.resultModelId);
+                      setMode(gen.type === "animation_video" ? "animation" : "model");
                     }
                   } else if (status === "failed") {
                     showToast("❌ Ошибка генерации. Попробуйте другое фото.", "error");
@@ -747,7 +774,7 @@ export function GenerationPage() {
         isOpen={licenseModalOpen}
         onClose={() => setLicenseModalOpen(false)}
         onPublish={handlePublish}
-        modelId={resultModelId}
+        modelId={mode === "animation" ? resultAnimationId : resultModelId}
       />
 
       {/* Auth Modal */}

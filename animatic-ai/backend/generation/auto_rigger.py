@@ -50,6 +50,236 @@ def get_mesh_bbox(objects):
         return None, None
     return mathutils.Vector((min_x, min_y, min_z)), mathutils.Vector((max_x, max_y, max_z))
 
+def post_process_weights(armature_obj, mesh_obj):
+    """
+    Clean up incorrect vertex weights to prevent arm bones from pulling the torso,
+    cross-talk between left/right sides, and ensure all vertices have some weights.
+    """
+    print(f"Applying post-skinning weight cleanup and verification on '{mesh_obj.name}'...")
+    
+    # 1. Bounding box calculations
+    min_v = mathutils.Vector((float('inf'), float('inf'), float('inf')))
+    max_v = mathutils.Vector((float('-inf'), float('-inf'), float('-inf')))
+    for v in mesh_obj.data.vertices:
+        co = v.co
+        min_v.x = min(min_v.x, co.x)
+        min_v.y = min(min_v.y, co.y)
+        min_v.z = min(min_v.z, co.z)
+        max_v.x = max(max_v.x, co.x)
+        max_v.y = max(max_v.y, co.y)
+        max_v.z = max(max_v.z, co.z)
+        
+    size = max_v - min_v
+    center = (min_v + max_v) / 2.0
+    print(f"  Mesh bounds: size={size}, center={center}")
+    
+    # Define bone names
+    right_arm_bones = {
+        "mixamorig:RightArm", "mixamorig:RightForeArm", "mixamorig:RightHand",
+        "mixamorig:RightHandThumb1", "mixamorig:RightHandThumb2", "mixamorig:RightHandThumb3", "mixamorig:RightHandThumb4",
+        "mixamorig:RightHandIndex1", "mixamorig:RightHandIndex2", "mixamorig:RightHandIndex3", "mixamorig:RightHandIndex4",
+        "mixamorig:RightHandMiddle1", "mixamorig:RightHandMiddle2", "mixamorig:RightHandMiddle3", "mixamorig:RightHandMiddle4",
+        "mixamorig:RightHandRing1", "mixamorig:RightHandRing2", "mixamorig:RightHandRing3", "mixamorig:RightHandRing4",
+        "mixamorig:RightHandPinky1", "mixamorig:RightHandPinky2", "mixamorig:RightHandPinky3", "mixamorig:RightHandPinky4"
+    }
+    
+    left_arm_bones = {
+        "mixamorig:LeftArm", "mixamorig:LeftForeArm", "mixamorig:LeftHand",
+        "mixamorig:LeftHandThumb1", "mixamorig:LeftHandThumb2", "mixamorig:LeftHandThumb3", "mixamorig:LeftHandThumb4",
+        "mixamorig:LeftHandIndex1", "mixamorig:LeftHandIndex2", "mixamorig:LeftHandIndex3", "mixamorig:LeftHandIndex4",
+        "mixamorig:LeftHandMiddle1", "mixamorig:LeftHandMiddle2", "mixamorig:LeftHandMiddle3", "mixamorig:LeftHandMiddle4",
+        "mixamorig:LeftHandRing1", "mixamorig:LeftHandRing2", "mixamorig:LeftHandRing3", "mixamorig:LeftHandRing4",
+        "mixamorig:LeftHandPinky1", "mixamorig:LeftHandPinky2", "mixamorig:LeftHandPinky3", "mixamorig:LeftHandPinky4"
+    }
+    
+    name_to_vg = {vg.name: vg for vg in mesh_obj.vertex_groups}
+    
+    left_vgs = [name_to_vg[name] for name in left_arm_bones if name in name_to_vg]
+    right_vgs = [name_to_vg[name] for name in right_arm_bones if name in name_to_vg]
+    all_arm_vgs = left_vgs + right_vgs
+    
+    # 2. Prune weights
+    # We prune:
+    # - Left arm bones from vertices on the right side (X < center.x - 0.015)
+    # - Right arm bones from vertices on the left side (X > center.x + 0.015)
+    # - All arm bones from central torso vertices (|X - center.x| < 0.12 * size.x) below shoulder level (Z < min_v.z + 0.85 * size.z)
+    torso_x_limit = 0.12 * size.x
+    pruned_count = 0
+    
+    for v in mesh_obj.data.vertices:
+        co = v.co
+        
+        # Left arm bones on the right side
+        if co.x < center.x - 0.015:
+            for vg in left_vgs:
+                vg.remove([v.index])
+                pruned_count += 1
+                
+        # Right arm bones on the left side
+        if co.x > center.x + 0.015:
+            for vg in right_vgs:
+                vg.remove([v.index])
+                pruned_count += 1
+                
+        # Central torso cleanup
+        if abs(co.x - center.x) < torso_x_limit:
+            if co.z < min_v.z + 0.85 * size.z:
+                for vg in all_arm_vgs:
+                    vg.remove([v.index])
+                    pruned_count += 1
+                    
+    print(f"  Pruned {pruned_count} incorrect arm bone weights from the torso and opposite side.")
+    
+    # 3. Ensure all vertices have at least some weights, otherwise bind to Hips
+    default_bone_name = "mixamorig:Hips"
+    hips_vg = name_to_vg.get(default_bone_name)
+    if not hips_vg:
+        hips_vg = mesh_obj.vertex_groups.new(name=default_bone_name)
+        
+    fixed_unweighted = 0
+    for v in mesh_obj.data.vertices:
+        total_weight = sum(g.weight for g in v.groups)
+        if total_weight < 0.001:
+            hips_vg.add([v.index], 1.0, 'REPLACE')
+            fixed_unweighted += 1
+            
+    if fixed_unweighted > 0:
+        print(f"  Assigned {fixed_unweighted} unweighted/pruned vertices to '{default_bone_name}'.")
+
+def bind_armature_with_fallback(armature_obj, model_meshes):
+    """
+    Attempt to bind the mesh to the armature. If automatic weight generation fails,
+    uses a voxel remesh copy to generate auto weights and transfers them to the original mesh.
+    """
+    for mesh_obj in model_meshes:
+        # Deselect all and select the mesh and armature
+        bpy.ops.object.select_all(action='DESELECT')
+        mesh_obj.select_set(True)
+        armature_obj.select_set(True)
+        bpy.context.view_layer.objects.active = armature_obj
+        
+        print(f"Attempting automatic skinning for '{mesh_obj.name}'...")
+        try:
+            bpy.ops.object.parent_set(type='ARMATURE_AUTO')
+            print(f"Skinning with AUTOMATIC_WEIGHTS completed successfully for '{mesh_obj.name}'!")
+        except Exception as e:
+            print(f"WARNING: Automatic skinning failed for '{mesh_obj.name}': {e}")
+            print("Initiating Voxel Remesh + Data Transfer weight transfer fallback...")
+            
+            # Clean up mesh_obj from failed ARMATURE_AUTO before fallback operations
+            mesh_obj.parent = None
+            for mod in list(mesh_obj.modifiers):
+                if mod.type == 'ARMATURE':
+                    mesh_obj.modifiers.remove(mod)
+            mesh_obj.vertex_groups.clear()
+            
+            try:
+                # 1. Duplicate the mesh object to make a proxy
+                bpy.ops.object.select_all(action='DESELECT')
+                mesh_obj.select_set(True)
+                bpy.context.view_layer.objects.active = mesh_obj
+                bpy.ops.object.duplicate()
+                proxy_obj = bpy.context.view_layer.objects.active
+                proxy_obj.name = f"{mesh_obj.name}_proxy_remap"
+                
+                # Make sure proxy has no armature modifiers or parent relationship first
+                proxy_obj.parent = None
+                for mod in list(proxy_obj.modifiers):
+                    proxy_obj.modifiers.remove(mod)
+                # Clear existing vertex groups on proxy
+                proxy_obj.vertex_groups.clear()
+                
+                # 2. Apply Voxel Remesh modifier to proxy to clean up geometry
+                remesh_mod = proxy_obj.modifiers.new(name="VoxelRemesh", type='REMESH')
+                remesh_mod.mode = 'VOXEL'
+                remesh_mod.voxel_size = 0.025
+                remesh_mod.use_smooth_shade = True
+                
+                # Apply modifier
+                bpy.ops.object.select_all(action='DESELECT')
+                proxy_obj.select_set(True)
+                bpy.context.view_layer.objects.active = proxy_obj
+                bpy.ops.object.modifier_apply(modifier=remesh_mod.name)
+                
+                # 3. Parent the proxy to the armature with auto weights
+                bpy.ops.object.select_all(action='DESELECT')
+                proxy_obj.select_set(True)
+                armature_obj.select_set(True)
+                bpy.context.view_layer.objects.active = armature_obj
+                bpy.ops.object.parent_set(type='ARMATURE_AUTO')
+                print("Successfully auto-weighted the proxy mesh.")
+                
+                # 4. Use Data Transfer on the original mesh to copy vertex group weights from proxy
+                # First, ensure original mesh is parented to armature with empty groups so it has the vertex groups
+                bpy.ops.object.select_all(action='DESELECT')
+                mesh_obj.select_set(True)
+                armature_obj.select_set(True)
+                bpy.context.view_layer.objects.active = armature_obj
+                bpy.ops.object.parent_set(type='ARMATURE_NONE') # This creates the vertex groups matching bones, and armature modifier
+                
+                # Setup Data Transfer modifier on original mesh
+                bpy.ops.object.select_all(action='DESELECT')
+                mesh_obj.select_set(True)
+                bpy.context.view_layer.objects.active = mesh_obj
+                
+                dt_mod = mesh_obj.modifiers.new(name="WeightTransfer", type='DATA_TRANSFER')
+                dt_mod.object = proxy_obj
+                dt_mod.use_vert_data = True
+                dt_mod.data_types_verts = {'VGROUP_WEIGHTS'}
+                dt_mod.vert_mapping = 'NEAREST'
+                
+                # Apply the data transfer
+                bpy.ops.object.data_transfer_layout_map(modifier=dt_mod.name)
+                bpy.ops.object.modifier_apply(modifier=dt_mod.name)
+                print("Weights transferred successfully to original mesh via Data Transfer.")
+                
+                # 5. Clean up the proxy object
+                bpy.ops.object.select_all(action='DESELECT')
+                proxy_obj.select_set(True)
+                bpy.context.view_layer.objects.active = proxy_obj
+                # Unparent proxy
+                proxy_obj.parent = None
+                bpy.data.objects.remove(proxy_obj, do_unlink=True)
+                
+                # 6. Ensure original mesh is parented to armature and has Armature modifier
+                bpy.ops.object.select_all(action='DESELECT')
+                mesh_obj.select_set(True)
+                armature_obj.select_set(True)
+                bpy.context.view_layer.objects.active = armature_obj
+                
+                # Keep only the first Armature modifier, remove any duplicates
+                arm_mods = [m for m in mesh_obj.modifiers if m.type == 'ARMATURE']
+                if len(arm_mods) > 1:
+                    print(f"Removing {len(arm_mods) - 1} duplicate Armature modifiers...")
+                    for extra_mod in arm_mods[1:]:
+                        mesh_obj.modifiers.remove(extra_mod)
+                
+                arm_mod = arm_mods[0] if arm_mods else mesh_obj.modifiers.new(name="Armature", type='ARMATURE')
+                arm_mod.object = armature_obj
+                
+                print("Proxy-based fallback skinning completed successfully!")
+            except Exception as inner_e:
+                print(f"ERROR: Fallback skinning failed: {inner_e}")
+                # Ultimate fallback: envelope weights or empty groups
+                print("Falling back to ARMATURE_ENVELOPE...")
+                try:
+                    bpy.ops.object.select_all(action='DESELECT')
+                    mesh_obj.select_set(True)
+                    armature_obj.select_set(True)
+                    bpy.context.view_layer.objects.active = armature_obj
+                    bpy.ops.object.parent_set(type='ARMATURE_ENVELOPE')
+                except Exception as e_env:
+                    print(f"ERROR: Envelope fallback failed: {e_env}")
+                    print("Falling back to ARMATURE_NONE...")
+                    bpy.ops.object.select_all(action='DESELECT')
+                    mesh_obj.select_set(True)
+                    armature_obj.select_set(True)
+                    bpy.context.view_layer.objects.active = armature_obj
+                    bpy.ops.object.parent_set(type='ARMATURE_NONE')
+        
+        # Post-process weights to prevent torso stretching and side cross-talk
+        post_process_weights(armature_obj, mesh_obj)
+
 def main():
     args = parse_args()
     
@@ -71,8 +301,24 @@ def main():
         print("Error: No meshes found in the imported model.")
         sys.exit(1)
         
+    # Delete pre-existing Armatures and their animations/data before skeleton import
+    import_armatures = [obj for obj in bpy.data.objects if obj.type == 'ARMATURE']
+    for arm_obj in import_armatures:
+        print(f"Deleting imported armature object: '{arm_obj.name}'...")
+        bpy.data.objects.remove(arm_obj, do_unlink=True)
+        
+    # Delete armature data blocks to avoid orphans
+    for arm_data in list(bpy.data.armatures):
+        print(f"Deleting armature data: '{arm_data.name}'...")
+        bpy.data.armatures.remove(arm_data)
+        
+    # Delete any action (animations) from the imported file
+    for action in list(bpy.data.actions):
+        print(f"Deleting imported action/animation: '{action.name}'...")
+        bpy.data.actions.remove(action)
+        
     # Unparent meshes and apply transforms to model meshes immediately
-    print("Unparenting meshes and applying transformations to model meshes...")
+    print("Unparenting meshes, cleaning vertex groups/modifiers, and applying transformations to model meshes...")
     for mesh_obj in model_meshes:
         bpy.ops.object.select_all(action='DESELECT')
         mesh_obj.select_set(True)
@@ -81,6 +327,17 @@ def main():
         if mesh_obj.parent:
             print(f"Clearing parent '{mesh_obj.parent.name}' for '{mesh_obj.name}'...")
             bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
+            
+        # Remove any pre-existing Armature modifiers
+        for mod in list(mesh_obj.modifiers):
+            if mod.type == 'ARMATURE':
+                print(f"Removing pre-existing Armature modifier '{mod.name}' from '{mesh_obj.name}'...")
+                mesh_obj.modifiers.remove(mod)
+                
+        # Clear all existing vertex groups
+        print(f"Clearing pre-existing vertex groups from '{mesh_obj.name}'...")
+        mesh_obj.vertex_groups.clear()
+        
         # Apply transformation
         bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
         
@@ -154,9 +411,12 @@ def main():
                     print(f"Deleting noise part '{mesh.name}' (vertices={vert_count}, center={part_center}, dist_x={dist_x:.3f}m, dist={dist_to_center:.3f}m)")
                     to_delete.append(mesh)
                 
-        # Delete noise meshes
-        for mesh in to_delete:
-            bpy.data.objects.remove(mesh)
+        # Delete noise meshes in one batch
+        if to_delete:
+            bpy.ops.object.select_all(action='DESELECT')
+            for mesh in to_delete:
+                mesh.select_set(True)
+            bpy.ops.object.delete()
             
         # Re-fetch remaining meshes
         remaining_meshes = [obj for obj in bpy.data.objects if obj.type == 'MESH']
@@ -224,6 +484,28 @@ def main():
         print("Error: Armature not found in the skeleton file.")
         sys.exit(1)
         
+    # Clear imported animation data/actions from the armature first
+    if armature_obj.animation_data:
+        print("Clearing imported skeleton animation data...")
+        armature_obj.animation_data.action = None
+        armature_obj.animation_data.clear()
+        
+    # Delete any new actions (animations) imported with the skeleton
+    for action in list(bpy.data.actions):
+        print(f"Deleting skeleton imported action/animation: '{action.name}'...")
+        bpy.data.actions.remove(action)
+        
+    # Reset pose transforms immediately to ensure we apply transformations to the Rest Pose
+    print("Resetting skeleton pose transforms to Rest Pose before applying transformations...")
+    bpy.ops.object.mode_set(mode='POSE')
+    for pbone in armature_obj.pose.bones:
+        pbone.location = (0, 0, 0)
+        pbone.rotation_quaternion = (1, 0, 0, 0)
+        pbone.rotation_axis_angle = (0, 0, 1, 0)
+        pbone.rotation_euler = (0, 0, 0)
+        pbone.scale = (1, 1, 1)
+    bpy.ops.object.mode_set(mode='OBJECT')
+        
     # Clear custom shapes from all bones to release dependency on helper meshes (like Icosphere)
     print("Clearing bone custom shapes...")
     for bone in armature_obj.pose.bones:
@@ -237,23 +519,12 @@ def main():
                 print(f"Deleting skeleton helper object: '{obj.name}' of type {obj.type}...")
                 bpy.data.objects.remove(obj)
         
-    # Apply transforms to skeleton immediately after import
+    # Apply transforms to skeleton immediately after import (now in rest pose)
     print("Applying transformations to base skeleton...")
     bpy.ops.object.select_all(action='DESELECT')
     armature_obj.select_set(True)
     bpy.context.view_layer.objects.active = armature_obj
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
-    
-    # Reset pose transforms to ensure Rest Pose is active
-    print("Resetting skeleton pose transforms to Rest Pose...")
-    bpy.ops.object.mode_set(mode='POSE')
-    for pbone in armature_obj.pose.bones:
-        pbone.location = (0, 0, 0)
-        pbone.rotation_quaternion = (1, 0, 0, 0)
-        pbone.rotation_axis_angle = (0, 0, 1, 0)
-        pbone.rotation_euler = (0, 0, 0)
-        pbone.scale = (1, 1, 1)
-    bpy.ops.object.mode_set(mode='OBJECT')
     
     # Align bone tails in EDIT mode
     print("Correcting bone tails in EDIT mode...")
@@ -386,29 +657,8 @@ def main():
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     
     # 5. Parent mesh(es) to armature (Skinning)
-    bpy.ops.object.select_all(action='DESELECT')
-    for mesh_obj in model_meshes:
-        mesh_obj.select_set(True)
-        
-    # Active object must be the armature
-    armature_obj.select_set(True)
-    bpy.context.view_layer.objects.active = armature_obj
-    
-    print("Performing skinning (parenting with AUTOMATIC_WEIGHTS)...")
-    try:
-        bpy.ops.object.parent_set(type='ARMATURE_AUTO')
-        print("Skinning with AUTOMATIC_WEIGHTS completed successfully!")
-    except Exception as e:
-        print(f"Error during automatic skinning: {e}")
-        # Fallback to envelope weights if auto weights fails
-        print("Falling back to parenting with ENVELOPE_WEIGHTS...")
-        try:
-            bpy.ops.object.parent_set(type='ARMATURE_ENVELOPE')
-            print("Skinning with ENVELOPE_WEIGHTS completed successfully!")
-        except Exception as e2:
-            print(f"Error during envelope skinning: {e2}")
-            print("Falling back to parenting with EMPTY_GROUPS...")
-            bpy.ops.object.parent_set(type='ARMATURE_NONE')
+    print("Performing skinning with fallback mechanism...")
+    bind_armature_with_fallback(armature_obj, model_meshes)
             
     # 6. Create custom test animation to check deformation (Arm swing)
     print("Creating test animation for RightArm and LeftArm...")
@@ -445,6 +695,8 @@ def main():
         print("Warning: Arm bones mixamorig:RightArm / mixamorig:LeftArm not found.")
         
     bpy.ops.object.mode_set(mode='OBJECT')
+
+    # Ensure meshes remain parented to armature for proper nested glTF export
 
     # Purge orphaned data blocks to clean up meshes and other data from database before export
     bpy.ops.outliner.orphans_purge(do_local_ids=True, do_linked_ids=True, do_recursive=True)

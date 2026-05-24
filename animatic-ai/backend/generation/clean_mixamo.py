@@ -66,7 +66,16 @@ def clean_and_export():
         print("Error: No Armature found in the imported file.")
         sys.exit(1)
         
-    # Select and delete non-armature objects
+    # 3b. Normalize Armature: Apply all transforms to ensure it's at origin with no rotation/scale
+    bpy.ops.object.select_all(action='DESELECT')
+    armature_obj.select_set(True)
+    bpy.context.view_layer.objects.active = armature_obj
+    
+    # Ensure the armature is at the origin and has identity rotation/scale
+    # Mixamo FBX often comes with a -90 or 90 degree rotation on X
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    
+    # 3c. Delete everything else
     bpy.ops.object.select_all(action='DESELECT')
     for obj in objs_to_delete:
         obj.select_set(True)

@@ -142,13 +142,13 @@ def main():
         # Helper to get Vector from landmarks in Blender coordinate system
         # Blender: X (Right/Left), Y (Forward/Backward), Z (Up/Down)
         # MediaPipe: X (Right), Y (Down), Z (Forward/Depth)
-        # Mapping: Blender X = -MP X, Blender Y = MP Z, Blender Z = -MP Y
+        # Mapping: Blender X = MP X, Blender Y = MP Z, Blender Z = -MP Y (Right-Handed)
         def get_joint_pos(idx):
             idx_str = str(idx)
             if idx_str not in landmarks:
                 return None
             val = landmarks[idx_str]
-            return mathutils.Vector((-val[0], val[2], -val[1]))
+            return mathutils.Vector((val[0], val[2], -val[1]))
 
         # 1. Hips Translation & Rotation
         hips_l = get_joint_pos(23)
@@ -168,27 +168,28 @@ def main():
             # Apply to pose Hips bone
             hips_bone = armature_obj.pose.bones.get("mixamorig:Hips")
             if hips_bone:
-                # Set translation
-                hips_bone.location = hips_bone.bone.head_local + hips_offset
+                # Local translation is relative to bone's rest position (matrix_local)
+                hips_bone.location = hips_bone.bone.matrix_local.to_3x3().inverted() @ hips_offset
                 
                 # Spine direction and hips orientation
                 if shoulder_l and shoulder_r:
                     spine_dir = ((shoulder_l + shoulder_r) / 2.0) - current_hips_pos
-                    hips_vec = hips_l - hips_r
+                    # hips_vec points from Right Hip to Left Hip (body left, +X)
+                    hips_vec = (hips_l - hips_r).normalized()
                     
                     # Compute rotation matrix to orient Hips
-                    # Y-axis (forward) is orthogonal to spine and hip vectors
-                    y_axis = hips_vec.cross(spine_dir).normalized()
-                    x_axis = hips_vec.normalized()
-                    z_axis = x_axis.cross(y_axis).normalized()
+                    # Y-axis (up along spine) points to shoulders
+                    # Z-axis (backward) = hips_vec (left) cross y_axis (up)
+                    y_axis = spine_dir.normalized()
+                    z_axis = hips_vec.cross(y_axis).normalized()
+                    # X-axis (left) = y_axis (up) cross z_axis (backward)
+                    x_axis = y_axis.cross(z_axis).normalized()
                     
                     rot_mat = mathutils.Matrix((x_axis, y_axis, z_axis)).transposed()
                     
-                    # Convert to quaternion
-                    rot_q = rot_mat.to_quaternion()
-                    
-                    # Hips rest rotation is identity, apply difference
-                    hips_bone.rotation_quaternion = rot_q
+                    # Compute local rotation relative to Hips rest orientation
+                    rot_mat_local = hips_bone.bone.matrix_local.to_3x3().inverted() @ rot_mat
+                    hips_bone.rotation_quaternion = rot_mat_local.to_quaternion()
                 
                 hips_bone.keyframe_insert(data_path="location")
                 hips_bone.keyframe_insert(data_path="rotation_quaternion")
@@ -200,10 +201,21 @@ def main():
             shoulder_mid = (shoulder_l + shoulder_r) / 2.0
             target_spine_vec = (shoulder_mid - hips_mid).normalized()
             
-            rest_spine_vec = (spine_bone.bone.tail_local - spine_bone.bone.head_local).normalized()
-            rot_q = rest_spine_vec.rotation_difference(target_spine_vec)
+            # Compute parent space transform
+            if spine_bone.parent:
+                parent_matrix = spine_bone.parent.matrix
+                parent_matrix_local_inv = spine_bone.parent.bone.matrix_local.inverted()
+            else:
+                parent_matrix = mathutils.Matrix.Identity(4)
+                parent_matrix_local_inv = mathutils.Matrix.Identity(4)
+                
+            M_parent_rel = parent_matrix @ parent_matrix_local_inv @ spine_bone.bone.matrix_local
+            v_target_local = (M_parent_rel.to_3x3().inverted() @ target_spine_vec).normalized()
             
-            spine_bone.rotation_quaternion = rot_q
+            # Shortest rotation from (0, 1, 0) to target vector in local space
+            q_local = mathutils.Vector((0, 1, 0)).rotation_difference(v_target_local)
+            
+            spine_bone.rotation_quaternion = q_local
             spine_bone.keyframe_insert(data_path="rotation_quaternion")
 
         # 3. Posing and retargeting limbs
@@ -227,22 +239,27 @@ def main():
                 # Target vector pointing along the limb
                 v_target = (p_end - p_start).normalized()
                 
-                # Rest bone vector in armature space
-                v_rest = (pb.bone.tail_local - pb.bone.head_local).normalized()
+                # Get parent pose matrix or Identity if no parent
+                if pb.parent:
+                    parent_matrix = pb.parent.matrix
+                    parent_matrix_local_inv = pb.parent.bone.matrix_local.inverted()
+                else:
+                    parent_matrix = mathutils.Matrix.Identity(4)
+                    parent_matrix_local_inv = mathutils.Matrix.Identity(4)
+                    
+                bone_matrix_local = pb.bone.matrix_local
                 
-                # We need to find the rotation of this bone relative to parent
-                # Since we pose hierarchically, we compute the target orientation in armature space
-                rot_armature = v_rest.rotation_difference(v_target)
+                # Compute M_parent_rel
+                M_parent_rel = parent_matrix @ parent_matrix_local_inv @ bone_matrix_local
                 
-                # Set matrix in armature space to align orientation and preserve skeleton connectivity
-                # Retrieve parent tail position to anchor the child bone
-                p_tail = pb.parent.tail if pb.parent else pb.bone.head_local
+                # Transform v_target to local space
+                v_target_local = (M_parent_rel.to_3x3().inverted() @ v_target).normalized()
                 
-                mat = rot_armature.to_matrix().to_4x4()
-                mat.translation = p_tail
+                # Compute shortest rotation from (0, 1, 0) to v_target_local
+                q_local = mathutils.Vector((0, 1, 0)).rotation_difference(v_target_local)
                 
-                # Assign armature-space matrix
-                pb.matrix = mat
+                # Assign to rotation_quaternion
+                pb.rotation_quaternion = q_local
                 
                 # Insert keyframes
                 pb.keyframe_insert(data_path="rotation_quaternion")
@@ -253,6 +270,8 @@ def main():
     # Rename action to 'mixamo.com' or generic 'Action' for web player compatibility
     if armature_obj.animation_data and armature_obj.animation_data.action:
         armature_obj.animation_data.action.name = "Action"
+
+    # Keep meshes parented to armature for proper nested glTF export
 
     output_path = os.path.abspath(args.output)
     os.makedirs(os.path.dirname(output_path), exist_ok=True)

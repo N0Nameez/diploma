@@ -92,13 +92,12 @@ async def generate_model_from_image(
         start_preprocess = time.time()
         try:
             database.update_generation_status(gen_id, "processing", 15)
-            print(f"[Worker] Removing background...", flush=True)
-            img_no_bg = remove(img, session=new_session('u2net'))
+            print(f"[Worker] Skipping first-pass u2net background removal (delegating to pipeline)...", flush=True)
 
             database.update_generation_status(gen_id, "processing", 20)
             print(f"[Worker] Preprocessing image...", flush=True)
             processor = PreprocessPipeline()
-            processed_img = processor.process(img_no_bg)
+            processed_img = processor.process(img)
 
             # Save processed image for generation
             temp_dir = tempfile.mkdtemp(dir=str(LOCAL_TEMP_DIR))
@@ -270,7 +269,6 @@ async def generate_model_from_image(
                 for line in iter(proc.stdout.readline, ''):
                     line = line.strip()
                     if line:
-                        print(f"[TRELLIS2-STREAM] {line}", flush=True)
                         all_output.append(line)
                         if line.startswith("[PROGRESS:"):
                             try:
@@ -286,7 +284,8 @@ async def generate_model_from_image(
                 database.update_generation_status(gen_id, "processing", 75)
                 
                 if not os.path.exists(glb_path):
-                    raise RuntimeError(f"TRELLIS2 finished but model.glb was not created at {glb_path}")
+                    stdout_tail = "\n".join(all_output[-20:])
+                    raise RuntimeError(f"TRELLIS2 finished successfully (exit code 0) but model.glb was not created at {glb_path}.\nSTDOUT/STDERR:\n{stdout_tail}")
                 
             else:
                 raise ValueError(f"Unknown ai_model: {ai_model}")
@@ -571,6 +570,8 @@ async def generate_animation_from_video(
     video_path: str,
     model_id: str = None,
     source_video_url: str = None,
+    animation_name: str = "",
+    description: str = "",
 ):
     """
     Run video pose extraction and retargeting pipeline in ARQ worker.
@@ -679,8 +680,8 @@ async def generate_animation_from_video(
         
         anim_record = database.create_animation(
             author_id=user_id,
-            name=f"Animation {gen_id[:8]}",
-            description="AI-generated animation from video",
+            name=animation_name or f"Animation {gen_id[:8]}",
+            description=description or "AI-generated animation from video",
             file_url=animation_url,
             preview_url=preview_url,
             source_video_url=source_video_url,
@@ -694,7 +695,7 @@ async def generate_animation_from_video(
         
         # Link default tags
         try:
-            database.link_model_tags(animation_id, ["Анимация", "ИИ"])
+            database.link_animation_tags(animation_id, ["Анимация", "ИИ"])
         except Exception as tag_err:
             print(f"[Worker] Failed to link tags for animation: {tag_err}", flush=True)
 
