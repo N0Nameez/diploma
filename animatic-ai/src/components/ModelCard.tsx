@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { ApiModel, ApiAnimation } from "../services/api";
 import { Box, Eye, Heart, Download, Play } from "lucide-react";
@@ -13,6 +14,8 @@ function ModelCard({ model, type = "3d" }: ModelCardProps) {
   const authorInitial = authorName[0]?.toUpperCase() || "А";
   const isAi = type === "animation" ? m.source === "ai_generated" : m.ai_generated;
 
+  const [imageError, setImageError] = useState(false);
+
   return (
     <Link
       to={type === "animation" ? `/animations/${model.id}` : `/models/${model.id}`}
@@ -24,21 +27,24 @@ function ModelCard({ model, type = "3d" }: ModelCardProps) {
     >
       {/* Preview */}
       <div className="aspect-square relative overflow-hidden bg-accent/5">
-        {model.preview_url ? (
+        {type === "3d" && model.preview_url && !imageError ? (
           <img
             src={model.preview_url}
             alt={model.name}
+            onError={() => setImageError(true)}
             className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
           />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-accent/10 to-accent/5 flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
+          <div className="absolute inset-0 bg-gradient-to-br from-accent/20 to-accent/5 flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
             <div className="text-center">
               {type === "animation" ? (
-                <Play className="w-10 h-10 text-accent/40 mx-auto mb-1" />
+                <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-3 border border-accent/20 group-hover:scale-110 transition-transform duration-300">
+                  <Play className="w-8 h-8 text-accent fill-accent/20" />
+                </div>
               ) : (
                 <Box className="w-10 h-10 text-accent/40 mx-auto mb-1" />
               )}
-              <div className="text-[9px] text-text-secondary font-medium px-1">
+              <div className="text-[10px] text-text-secondary font-bold uppercase tracking-wider px-1">
                 {type === "animation" ? "Анимация" : (model as ApiModel).category || "3D"}
               </div>
             </div>
