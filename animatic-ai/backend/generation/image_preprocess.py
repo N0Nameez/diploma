@@ -41,10 +41,39 @@ class SuperRes:
         print("[OK] Real-ESRGAN x4 загружен")
 
     def upscale(self, image: Image.Image) -> Image.Image:
-        img_bgr = cv2.cvtColor(np.array(image.convert('RGB')), cv2.COLOR_RGB2BGR)
-        upscaled_bgr, _ = self.upsampler.enhance(img_bgr, outscale=1)
-        upscaled_rgb = cv2.cvtColor(upscaled_bgr, cv2.COLOR_BGR2RGB)
-        return Image.fromarray(upscaled_rgb)
+        # Check if the image has a transparent alpha channel
+        has_alpha = False
+        if image.mode == 'RGBA':
+            alpha = image.split()[-1]
+            alpha_np = np.array(alpha)
+            if not np.all(alpha_np == 255):
+                has_alpha = True
+
+        if has_alpha:
+            print("  Alpha channel detected, upscaling RGB and Alpha separately...")
+            # Split into RGB and Alpha
+            rgb = image.convert('RGB')
+            img_bgr = cv2.cvtColor(np.array(rgb), cv2.COLOR_RGB2BGR)
+            upscaled_bgr, _ = self.upsampler.enhance(img_bgr, outscale=1)
+            upscaled_rgb = cv2.cvtColor(upscaled_bgr, cv2.COLOR_BGR2RGB)
+            upscaled_rgb_pil = Image.fromarray(upscaled_rgb)
+
+            # Upscale Alpha channel by duplicating it into a 3-channel image
+            alpha_pil = image.split()[-1]
+            alpha_3ch = Image.merge('RGB', (alpha_pil, alpha_pil, alpha_pil))
+            alpha_bgr = cv2.cvtColor(np.array(alpha_3ch), cv2.COLOR_RGB2BGR)
+            upscaled_alpha_bgr, _ = self.upsampler.enhance(alpha_bgr, outscale=1)
+            upscaled_alpha_rgb = cv2.cvtColor(upscaled_alpha_bgr, cv2.COLOR_BGR2RGB)
+            upscaled_alpha = Image.fromarray(upscaled_alpha_rgb).split()[0]
+
+            # Recombine into RGBA
+            r, g, b = upscaled_rgb_pil.split()
+            return Image.merge('RGBA', (r, g, b, upscaled_alpha))
+        else:
+            img_bgr = cv2.cvtColor(np.array(image.convert('RGB')), cv2.COLOR_RGB2BGR)
+            upscaled_bgr, _ = self.upsampler.enhance(img_bgr, outscale=1)
+            upscaled_rgb = cv2.cvtColor(upscaled_bgr, cv2.COLOR_BGR2RGB)
+            return Image.fromarray(upscaled_rgb)
 
 
 def prepare_canvas(img: Image.Image, target_size: int = TARGET_SIZE) -> Image.Image:
@@ -86,7 +115,7 @@ class PreprocessPipeline:
     Шаги:
       1. Real-ESRGAN x4 — апскейл
       2. Canvas 2048x2048 — квадратный холст
-      3. BiRefNet — удаление фона
+      3. BiRefNet — удаление фона (пропускается для прозрачных изображений)
     """
 
     def __init__(self):
@@ -104,6 +133,14 @@ class PreprocessPipeline:
     def process(self, image: Image.Image, output_dir: str = None) -> str:
         if output_dir:
             Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+        # Check if the source image already has real transparency
+        has_alpha = False
+        if image.mode == 'RGBA':
+            alpha = image.split()[-1]
+            alpha_np = np.array(alpha)
+            if not np.all(alpha_np == 255):
+                has_alpha = True
 
         result = image
 
@@ -125,9 +162,13 @@ class PreprocessPipeline:
             print(f"  saved: {p}")
 
         # Шаг 3: Удаление фона
-        print("\n[3/3] Удаление фона (BiRefNet)")
-        self._init_bg_remover()
-        result = self._bg_remover.remove_bg(result)
+        if has_alpha:
+            print("\n[3/3] Удаление фона (BiRefNet) ПРОПУЩЕНО, так как исходное изображение уже прозрачное")
+        else:
+            print("\n[3/3] Удаление фона (BiRefNet)")
+            self._init_bg_remover()
+            result = self._bg_remover.remove_bg(result)
+        
         if output_dir:
             p = os.path.join(output_dir, '03_processed.png')
             result.save(p)

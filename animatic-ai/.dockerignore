@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+backend/venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Docker
+Dockerfile.*
+docker-compose*.yml
+.dockerignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated
+backend/generation/output/
+*.log
+
+# Env (we use .env file but don't want to copy .env.local etc)
+!.env
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+Documentation/
+*.md
+!README.md
+
+# Misc
+*.zip
+*.tar.gz

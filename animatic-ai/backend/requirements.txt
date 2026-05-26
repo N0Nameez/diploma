@@ -1,0 +1,48 @@
+# ── FastAPI server ──
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.12
+pydantic>=2.0.0
+
+# ── Supabase ──
+supabase>=2.10.0
+
+# ── Auth & Security ──
+httpx>=0.27.0
+PyJWT>=2.8.0
+slowapi>=0.1.9
+
+# ── Database (direct PostgreSQL, bypasses PostgREST cache) ──
+psycopg2-binary>=2.9.0
+
+# ── Task Queue ──
+arq>=0.26.0
+redis>=5.0.0
+
+# ── Environment ──
+python-dotenv>=1.0.0
+python-dateutil>=2.8.2
+
+# ── ML dependencies (shared with generation/) ──
+torch>=2.8.0
+torchvision>=0.23.0
+transformers>=4.37.0
+pymeshlab>=2025.7
+trimesh>=4.0.0
+pygltflib>=1.16.0
+xatlas>=0.0.9
+rembg[birefnet,gpu]>=2.0.50
+onnxruntime-gpu>=1.20.0
+basicsr>=1.4.2
+realesrgan>=0.3.0
+mediapipe>=0.10.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+Pillow>=10.0.0
+ninja>=1.11.0
+pybind11>=2.10.0
+diffusers>=0.25.0
+einops>=0.7.0
+omegaconf>=2.3.0
+tqdm>=4.65.0
+pytest>=8.0.0

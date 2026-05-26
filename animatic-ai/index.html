@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="/images/logo_no_bg.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#000000" />
+  
+  <!-- SEO & Social -->
+  <meta name="description" content="AnimaticAI — нейросеть для генерации 3D-моделей из текста и видео." />
+  <meta property="og:title" content="AnimaticAI — Создавайте 3D-модели и оживляйте их" />
+  <meta property="og:description" content="Нейросетевая платформа для профессионального 3D-моделирования." />
+  <meta property="og:image" content="/images/logo_no_bg.png" />
+  <meta property="og:type" content="website" />
+
+  <!-- Google Fonts (Commented out because of potential blocking/MIME mismatch in some networks)
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Science+Gothic:wght@400;600;700;800&display=swap"
+    rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap"
+    rel="stylesheet">
+  -->
+  <style>
+    :root {
+      font-family: 'Inter', 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+  </style>
+  <title>AnimaticAI — Создавайте 3D-модели и оживляйте их</title>
+  <script>
+    (function () {
+      const theme = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', theme);
+      document.documentElement.classList.remove('light', 'dark');
+      document.documentElement.classList.add(theme);
+    })();
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>

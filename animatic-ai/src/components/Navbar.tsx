@@ -1,0 +1,313 @@
+import { useState, useEffect, useMemo } from 'react';
+import { Button } from "@/components/Button";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import type { User } from "@supabase/supabase-js";
+import { motion, AnimatePresence } from "framer-motion";
+import { Menu, X, Moon, Sun, LogOut, User as UserIcon, Crown, ShieldAlert } from "lucide-react";
+import { NotificationDropdown } from "./NotificationDropdown";
+
+interface NavbarProps {
+  links: { label: string; href: string }[];
+  user: User | null;
+  profile?: any;
+  onThemeToggle: () => void;
+  onLoginClick: () => void;
+  onRegisterClick: () => void;
+  onLogout: () => void;
+  fullWidth?: boolean;
+}
+
+/**
+ * Navbar component providing navigation links, theme toggle, and user authentication actions.
+ */
+export function Navbar({
+  links = [],
+  user = null,
+  profile = null,
+  onThemeToggle = () => {},
+  onLoginClick = () => {},
+  onRegisterClick = () => {},
+  onLogout = () => {},
+  fullWidth = false,
+}: NavbarProps) {
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const [avatarBuster, setAvatarBuster] = useState(Date.now());
+
+  useEffect(() => {
+    setAvatarBuster(Date.now());
+  }, [profile?.avatar_url, profile?.updated_at]);
+
+  useEffect(() => {
+    const handleRefresh = () => setAvatarBuster(Date.now());
+    window.addEventListener('profile-refresh', handleRefresh);
+    return () => window.removeEventListener('profile-refresh', handleRefresh);
+  }, []);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const handleHomeClick = (e: React.MouseEvent) => {
+    if (location.pathname === '/') {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  return (
+    <nav
+      className={`fixed z-[60] transition-all duration-500 ${
+        scrolled ? 'top-4 left-4 right-4' : 'top-0 left-0 right-0'
+      }`}
+    >
+      <div
+        className={`mx-auto transition-all duration-500 flex items-center justify-between px-6 lg:px-8 relative ${
+          scrolled
+            ? `${fullWidth ? 'max-w-full' : 'max-w-[1200px]'} h-14`
+            : `${fullWidth ? 'max-w-full' : 'max-w-[1400px]'} h-20`
+        }`}
+      >
+        {/* Separate layer for the glass effect to avoid nested backdrop-filter bugs */}
+        <div 
+          className={`absolute inset-0 rounded-2xl -z-10 transition-opacity duration-500 pointer-events-none ${
+            scrolled ? 'bg-background-glass backdrop-blur-3xl border border-border-glass shadow-xl opacity-100' : 'opacity-0'
+          }`} 
+        />
+        
+        {/* Logo */}
+        <div className="flex-none">
+          <Link 
+            to="/" 
+            onClick={handleHomeClick}
+            className="font-tight font-bold text-xl lg:text-2xl flex items-center gap-1 tracking-tight no-underline bg-clip-text text-transparent bg-gradient-to-r from-[#EC4899] to-[#7C3AED]"
+          >
+              AnimaticAI
+          </Link>
+        </div>
+
+        {/* Desktop Links */}
+        <div className="hidden lg:flex flex-1 justify-center">
+          <div className="flex gap-8 items-center">
+            {links.map((link) => (
+              <Button 
+                key={link.href} 
+                label={link.label} 
+                href={link.href} 
+                variant="link" 
+                onClick={link.href === '/' ? handleHomeClick : undefined}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Right Section (Desktop) */}
+        <div className="hidden lg:flex flex-none items-center gap-4">
+          <button
+            onClick={onThemeToggle}
+            className="w-9 h-9 border bg-background-glass border-border rounded-[10px] flex items-center justify-center transition-all duration-200 text-text-secondary hover:bg-background-surface hover:text-accent hover:border-accent"
+          >
+            <Sun size={16} className="hidden dark:block" />
+            <Moon size={16} className="block dark:hidden" />
+          </button>
+
+          {user && <NotificationDropdown />}
+
+          {user ? (
+            <div className="flex items-center gap-4">
+              {profile?.subscription_status && ['pro', 'studio'].includes(profile.subscription_status.toLowerCase()) ? (
+                <Link
+                  to="/profile"
+                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] bg-accent/10 border border-accent/20 text-accent hover:bg-accent/20 transition-all duration-200"
+                >
+                  <Crown size={14} className="fill-current" />
+                  <span className="text-xs font-bold uppercase tracking-wider">
+                    {profile.subscription_status}
+                  </span>
+                </Link>
+              ) : (
+                <Link
+                  to="/pricing"
+                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] bg-background-secondary border border-border text-text-secondary hover:bg-background-surface transition-all duration-200"
+                >
+                  <Crown size={14} />
+                  <span className="text-xs font-bold uppercase tracking-wider">Upgrade</span>
+                </Link>
+              )}
+              <Link
+                to="/profile"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-[10px] bg-background-secondary border border-border hover:border-accent transition-all duration-200"
+              >
+                <div className="w-6 h-6 rounded-full bg-accent flex items-center justify-center text-white text-[10px] font-bold overflow-hidden">
+                  {profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture ? (
+                    <img 
+                      src={`${profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture}?v=${avatarBuster}`} 
+                      alt="Avatar" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    user.email?.[0].toUpperCase()
+                  )}
+                </div>
+                <span className="text-sm font-medium text-text-primary max-w-[100px] truncate">
+                  {user.user_metadata?.display_name ?? user.user_metadata?.username ?? user.user_metadata?.full_name ?? user.email}
+                </span>
+              </Link>
+
+              {(profile?.role === 'admin' || profile?.role === 'moderator') && (
+                <Link
+                  to="/admin"
+                  className="w-9 h-9 flex items-center justify-center rounded-[10px] bg-accent/10 border border-accent/20 text-accent hover:bg-accent/20 transition-all duration-200"
+                  title="Панель управления"
+                >
+                  <ShieldAlert size={18} />
+                </Link>
+              )}
+
+              <button
+                onClick={onLogout}
+                className="text-sm text-text-secondary hover:text-accent transition-colors"
+              >
+                <LogOut size={18} />
+              </button>
+            </div>
+          ) : (
+            <>
+              <Button label="Войти" variant="ghost" onClick={onLoginClick} />
+              <Button label="Регистрация" variant="primary" onClick={onRegisterClick} />
+            </>
+          )}
+        </div>
+
+        {/* Mobile Menu Button */}
+        <div className="flex lg:hidden items-center gap-3">
+          {user && <NotificationDropdown />}
+          <button
+            onClick={onThemeToggle}
+            className="w-9 h-9 border border-border rounded-[10px] flex items-center justify-center text-text-secondary"
+          >
+            <Sun size={18} className="hidden dark:block" />
+            <Moon size={18} className="block dark:hidden" />
+          </button>
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 text-text-primary focus:outline-none"
+          >
+            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Drawer */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="absolute top-full left-4 right-4 mt-2 p-6 bg-background-glass backdrop-blur-3xl border border-border-glass rounded-2xl shadow-2xl lg:hidden flex flex-col gap-6"
+          >
+            <div className="flex flex-col gap-4">
+              {links.map((link) => (
+                <Link
+                  key={link.href}
+                  to={link.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-lg font-medium text-text-secondary hover:text-accent transition-colors"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+
+            <div className="h-px bg-border w-full" />
+
+            <div className="flex flex-col gap-4">
+              {user ? (
+                <>
+                  <Link
+                    to="/profile"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-background-surface border border-border"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-white font-bold overflow-hidden">
+                      {profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture ? (
+                        <img 
+                          src={`${profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture}?v=${avatarBuster}`} 
+                          alt="Avatar" 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        user.email?.[0].toUpperCase()
+                      )}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-medium text-text-primary">
+                        {user.user_metadata?.display_name ?? user.user_metadata?.username ?? user.user_metadata?.full_name ?? "Профиль"}
+                      </span>
+                      <span className="text-xs text-text-muted">{user.email}</span>
+                    </div>
+                  </Link>
+                  {profile?.subscription_status && ['pro', 'studio'].includes(profile.subscription_status.toLowerCase()) ? (
+                    <Link
+                      to="/profile"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 p-3 rounded-xl bg-accent/10 border border-accent/20 text-accent"
+                    >
+                      <Crown size={20} className="fill-current" />
+                      <span className="font-bold">{profile.subscription_status}</span>
+                    </Link>
+                  ) : (
+                    <Link
+                      to="/pricing"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 p-3 rounded-xl bg-background-secondary border border-border text-text-secondary"
+                    >
+                      <Crown size={20} />
+                      <span className="font-bold">Upgrade to PRO</span>
+                    </Link>
+                  )}
+                  {/* Admin Panel Link */}
+                  {(profile?.role === 'admin' || profile?.role === 'moderator') && (
+                    <Link
+                      to="/admin"
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-accent hover:bg-accent/5 transition-colors"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <ShieldAlert size={16} />
+                      Панель управления
+                    </Link>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      onLogout();
+                      setMobileMenuOpen(false);
+                    }}
+
+                    className="flex items-center gap-2 text-text-secondary hover:text-accent p-2"
+                  >
+                    <LogOut size={20} /> Выйти
+                  </button>
+                </>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <Button label="Войти" variant="ghost" onClick={onLoginClick} className="w-full h-12" />
+                  <Button label="Регистрация" variant="primary" onClick={onRegisterClick} className="w-full h-12" />
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </nav>
+  );
+}
+
+

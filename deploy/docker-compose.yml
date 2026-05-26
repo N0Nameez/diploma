@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # ── Redis (Открываем порт 6379 для локального воркера) ──
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # ── FastAPI Backend (Только API, без тяжелого ML) ──
+  backend:
+    build:
+      context: ../animatic-ai
+      dockerfile: ../deploy/Dockerfile.backend
+    restart: always
+    ports:
+      - "8001:8001"
+    env_file: .env
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SUPABASE_URL=http://kong:8000
+    depends_on:
+      - redis
+    networks:
+      - default
+      - supabase_network
+
+
+  # ── Cloudflare Tunnel (Host mode + Single Conn для стабильности) ──
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: always
+    network_mode: host
+    command: tunnel run --protocol http2 --ha-connections 1 --heartbeat-interval 10s --heartbeat-count 2 --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    # Ограничили до 1 соединения, чтобы избежать конфликтов на плохом канале
+
+networks:
+  default:
+  supabase_network:
+    external: true
+    name: supabase_default
+
+volumes:
+  redis_data:
