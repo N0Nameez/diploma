@@ -251,7 +251,9 @@ export function AnimationPage() {
     return (
       <div className="pt-16 min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="text-6xl mb-4">🎬</div>
+          <div className="flex items-center justify-center w-20 h-20 rounded-full bg-background-secondary mx-auto mb-6 border border-border">
+            <Play className="w-10 h-10 text-text-muted opacity-40" />
+          </div>
           <div className="font-extrabold text-2xl mb-2 text-text-primary">
             Анимация не найдена
           </div>

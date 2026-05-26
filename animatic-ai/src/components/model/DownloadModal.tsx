@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Download } from "lucide-react";
+import { Download, X } from "lucide-react";
 
 interface DownloadModalProps {
   isOpen: boolean;
@@ -83,28 +83,28 @@ export function DownloadModal({
   return (
     <div
       onClick={handleOverlayClick}
-      className={`fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm flex items-center justify-center ${
+      className={`fixed inset-0 z-[1000] bg-background-primary/60 backdrop-blur-md flex items-center justify-center ${
         isClosing ? "animate-fade-out" : "animate-fade"
       }`}
     >
       <div
-        className={`relative w-[480px] max-w-[95vw] bg-background-surface border border-border rounded-3xl p-9 ${
+        className={`relative w-[480px] max-w-[95vw] bg-background-glass backdrop-blur-3xl border border-border-glass rounded-[32px] p-10 shadow-2xl ${
           isClosing ? "animate-fade-out" : "animate-fade"
         }`}
       >
         {/* Close button */}
         <button
           onClick={handleClose}
-          className="absolute top-5 right-5 w-8 h-8 rounded-lg bg-background-secondary border border-border text-textSecondary hover:text-text flex items-center justify-center transition-all duration-200 text-lg"
+          className="absolute top-6 right-6 w-10 h-10 rounded-xl bg-white/5 border border-border-glass text-text-secondary hover:text-accent hover:border-accent/30 flex items-center justify-center transition-all duration-200 text-xl"
         >
-          ×
+          <X className="w-5 h-5" />
         </button>
 
         {/* Header */}
-        <div className="font-extrabold text-2xl text-text mb-1">
+        <div className="font-extrabold text-2xl text-text-primary mb-1">
           {modelName}
         </div>
-        <div className="text-sm text-textSecondary font-light mb-6">
+        <div className="text-sm text-text-secondary font-light mb-8">
           Выберите формат для скачивания
         </div>
 
@@ -114,51 +114,52 @@ export function DownloadModal({
             <div
               key={fmt.id}
               onClick={() => handleFormatClick(fmt)}
-              className={`flex items-center gap-4 p-4 rounded-xl bg-background-secondary border border-border cursor-pointer hover:border-accent hover:bg-accentGlow/30 transition-all duration-200 ${
+              className={`flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-border-glass cursor-pointer hover:border-accent/40 hover:bg-white/10 transition-all duration-200 ${
                 downloading === fmt.id ? "opacity-60 pointer-events-none" : ""
               }`}
             >
               <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center text-[11px] font-extrabold tracking-[0.5px]"
+                className="w-12 h-12 rounded-xl flex items-center justify-center text-[11px] font-extrabold tracking-[0.5px] border border-white/5 shadow-inner"
                 style={{ background: fmt.color, color: fmt.textColor }}
               >
                 {fmt.icon}
               </div>
               <div className="flex-1">
-                <div className="font-semibold text-text text-sm">
+                <div className="font-bold text-text-primary text-sm">
                   {fmt.name} — {fmt.desc}
                 </div>
-                <div className="text-xs text-text-secondary">
+                <div className="text-[11px] text-text-secondary mt-0.5">
                   {downloading === fmt.id
                     ? "Конвертация..."
                     : fmt.id === "glb"
-                      ? "Оригинал"
+                      ? "Оригинальный формат"
                       : "Конвертация из GLB"}
                 </div>
               </div>
-              <Download className="w-5 h-5 text-textSecondary" />
+              <Download className="w-5 h-5 text-text-muted" />
             </div>
           ))}
         </div>
 
         {/* Notice */}
-        <div className="mt-6 p-4 rounded-xl bg-accent/10 border border-accent/20 flex items-start gap-3">
-          <svg
-            width="16"
-            height="16"
-            fill="none"
-            stroke="var(--accent)"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-            className="flex-shrink-0 mt-0.5"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          <div className="text-xs text-textSecondary leading-relaxed">
-            Модель распространяется по лицензии <strong>CC BY 4.0</strong>. При
-            использовании укажите автора.
+        <div className="mt-8 p-4 rounded-2xl bg-accent/5 border border-accent/20 flex items-start gap-3">
+          <div className="w-5 h-5 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+             <svg
+                width="12"
+                height="12"
+                fill="none"
+                stroke="var(--accent)"
+                strokeWidth="2.5"
+                viewBox="0 0 24 24"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+          </div>
+          <div className="text-xs text-text-secondary leading-relaxed">
+            Модель распространяется по лицензии <strong className="text-text-primary">CC BY 4.0</strong>. При
+            использовании, пожалуйста, укажите автора произведения.
           </div>
         </div>
       </div>

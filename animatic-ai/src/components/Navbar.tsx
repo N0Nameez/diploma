@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Moon, Sun, LogOut, User as UserIcon, Crown, ShieldAlert } from "lucide-react";
+import { NotificationDropdown } from "./NotificationDropdown";
 
 interface NavbarProps {
   links: { label: string; href: string }[];
@@ -67,12 +68,19 @@ export function Navbar({
       }`}
     >
       <div
-        className={`mx-auto transition-all duration-500 flex items-center justify-between px-6 lg:px-8 ${
+        className={`mx-auto transition-all duration-500 flex items-center justify-between px-6 lg:px-8 relative ${
           scrolled
-            ? `bg-background-glass backdrop-blur-3xl border border-border-glass rounded-2xl shadow-xl ${fullWidth ? 'max-w-full' : 'max-w-[1200px]'} h-14`
-            : `  ${fullWidth ? 'max-w-full  border-transparent' : 'max-w-[1400px] border-transparent'} h-20 `
+            ? `${fullWidth ? 'max-w-full' : 'max-w-[1200px]'} h-14`
+            : `${fullWidth ? 'max-w-full' : 'max-w-[1400px]'} h-20`
         }`}
       >
+        {/* Separate layer for the glass effect to avoid nested backdrop-filter bugs */}
+        <div 
+          className={`absolute inset-0 rounded-2xl -z-10 transition-opacity duration-500 pointer-events-none ${
+            scrolled ? 'bg-background-glass backdrop-blur-3xl border border-border-glass shadow-xl opacity-100' : 'opacity-0'
+          }`} 
+        />
+        
         {/* Logo */}
         <div className="flex-none">
           <Link 
@@ -103,11 +111,13 @@ export function Navbar({
         <div className="hidden lg:flex flex-none items-center gap-4">
           <button
             onClick={onThemeToggle}
-            className="w-9 h-9 border border-border rounded-[10px] flex items-center justify-center transition-all duration-200 text-text-secondary hover:bg-background-surface hover:text-accent hover:border-accent"
+            className="w-9 h-9 border bg-background-glass border-border rounded-[10px] flex items-center justify-center transition-all duration-200 text-text-secondary hover:bg-background-surface hover:text-accent hover:border-accent"
           >
             <Sun size={16} className="hidden dark:block" />
             <Moon size={16} className="block dark:hidden" />
           </button>
+
+          {user && <NotificationDropdown />}
 
           {user ? (
             <div className="flex items-center gap-4">
@@ -177,6 +187,7 @@ export function Navbar({
 
         {/* Mobile Menu Button */}
         <div className="flex lg:hidden items-center gap-3">
+          {user && <NotificationDropdown />}
           <button
             onClick={onThemeToggle}
             className="w-9 h-9 border border-border rounded-[10px] flex items-center justify-center text-text-secondary"

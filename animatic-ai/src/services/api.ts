@@ -4,6 +4,19 @@ import { supabase } from "@/lib/supabase";
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const API_BASE = API_URL;
 
+/* ── Types ── */
+
+export type ApiNotification = {
+  id: string;
+  recipient_id: string;
+  type: 'comment' | 'reply' | 'like' | 'favorite' | 'follower' | 'approved' | 'rejected' | 'generation_started' | 'generation_complete' | 'generation_error' | 'subscription_expiring';
+  title: string;
+  message: string;
+  link_url: string;
+  is_read: boolean;
+  created_at: string;
+}
+
 /* ── Generic fetch wrapper ── */
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -429,6 +442,17 @@ export interface ApiUser {
   subscription_end_date?: string | null;
   subscription_days_left?: number | null;
   subscription_auto_renew?: boolean;
+  notification_settings?: {
+    comments: boolean;
+    replies: boolean;
+    likes: boolean;
+    favorites: boolean;
+    followers: boolean;
+    generation_started: boolean;
+    generation_finished: boolean;
+    subscription: boolean;
+    email: boolean;
+  };
   created_at: string;
   updated_at?: string;
 }
@@ -810,4 +834,40 @@ export async function getAdminFinance(userId: string, timeFilter: string = 'mont
 
 export async function getAdminLogs(userId: string) {
   return api<any[]>(`/api/admin/logs?user_id=${userId}`);
+}
+
+/* ── Notifications ── */
+
+export async function fetchNotifications(userId: string, limit = 50) {
+  return api<{ items: ApiNotification[]; total: number; unread_count: number }>(
+    `/api/notifications?user_id=${userId}&limit=${limit}&_t=${Date.now()}`,
+  );
+}
+
+export async function markNotificationRead(notificationId: string, userId: string) {
+  return api<{ status: string }>(`/api/notifications/${notificationId}/read`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+export async function markAllNotificationsRead(userId: string) {
+  return api<{ status: string }>("/api/notifications/read-all", {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+export async function deleteNotification(notificationId: string, userId: string) {
+  return api<{ status: string }>(`/api/notifications/${notificationId}`, {
+    method: "DELETE",
+    body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+export async function clearReadNotifications(userId: string) {
+  return api<{ status: string }>("/api/notifications/clear-read", {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId }),
+  });
 }

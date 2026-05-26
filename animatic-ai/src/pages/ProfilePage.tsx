@@ -8,6 +8,7 @@ import Pagination from "../components/catalog/Pagination";
 import { toast } from "react-hot-toast";
 import { CropModal } from "../components/CropModal";
 import { ReportModal } from "../components/ReportModal";
+import { ConfirmModal } from "../components/common/ConfirmModal";
 import {
   fetchUser,
   fetchUserModels,
@@ -27,9 +28,15 @@ import {
   fetchUserFollowing,
   cancelSubscription,
   toggleAutoRenew,
+  fetchNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  deleteNotification,
+  clearReadNotifications,
   type ApiModel,
   type ApiAnimation,
   type ApiUser,
+  type ApiNotification,
 } from "../services/api";
 import {
   Folder,
@@ -48,9 +55,19 @@ import {
   CreditCard,
   Flag,
   Play,
+  Bell,
+  Trash2,
+  Check,
+  Sparkles,
+  ThumbsUp,
+  MessageSquare,
+  Reply,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
 } from "lucide-react";
 
-type TabId = "works" | "favorites" | "liked" | "social" | "settings";
+type TabId = "works" | "favorites" | "liked" | "social" | "notifications" | "settings";
 type ModelsFilter = "all" | "free_use" | "view_only" | "private";
 type WorksTypeFilter = "all" | "models" | "animations";
 type SocialTab = "followers" | "following";
@@ -159,6 +176,61 @@ export function ProfilePage() {
   // Report
   const [reportModalOpen, setReportModalOpen] = useState(false);
 
+  // Notifications
+  const [notifications, setNotifications] = useState<ApiNotification[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    loading: false,
+  });
+
+  const loadNotifications = useCallback(async (silent = false) => {
+    if (!user || !isOwner) return;
+    if (!silent && notifications.length === 0) setLoadingNotifications(true);
+    try {
+      const res = await fetchNotifications(user.id, 100);
+      setNotifications(res.items);
+      setUnreadNotificationsCount(res.unread_count);
+    } catch (err) {
+      console.error("Failed to load notifications:", err);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  }, [user, isOwner, notifications.length]);
+
+  useEffect(() => {
+    if (activeTab === "notifications") {
+      loadNotifications();
+    }
+  }, [activeTab, loadNotifications]);
+
+  useEffect(() => {
+    if (!user || !isOwner) return;
+    const handleSync = () => {
+      loadNotifications(true);
+    };
+    window.addEventListener('notifications-updated', handleSync);
+    return () => window.removeEventListener('notifications-updated', handleSync);
+  }, [user, isOwner, loadNotifications]);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const tab = searchParams.get("tab");
+    if (tab === "notifications") {
+      setActiveTab("notifications");
+    }
+  }, []);
+
   // Cover modal
   const [showCoverModal, setShowCoverModal] = useState(false);
 
@@ -172,8 +244,8 @@ export function ProfilePage() {
 
   // Redirect from private tabs if not owner
   useEffect(() => {
-    if (!isOwner && (activeTab === "favorites" || activeTab === "settings")) {
-      setActiveTab("models");
+    if (!isOwner && (activeTab === "favorites" || activeTab === "notifications" || activeTab === "settings")) {
+      setActiveTab("works");
     }
   }, [activeTab, isOwner]);
 
@@ -958,9 +1030,9 @@ export function ProfilePage() {
         ) : (
           <>
             {/* Left */}
-            <div className="min-w-0">
+            <div className="min-w-0 overflow-hidden">
               {/* Tabs */}
-          <div className="flex gap-2 bg-background-surface border border-border rounded-[20px] p-2 mb-8 shadow-sm overflow-x-auto no-scrollbar">
+          <div className="flex overflow-x-auto no-scrollbar gap-2 bg-background-surface border border-border rounded-[20px] p-2 mb-8 shadow-sm flex-nowrap">
             {[
               {
                 id: "works" as TabId,
@@ -996,23 +1068,27 @@ export function ProfilePage() {
                   </>
                 ),
               },
-              ...(isOwner
-                ? [
-                    {
-                      id: "settings" as TabId,
-                      label: (
-                        <>
-                          <Settings className="w-4 h-4" /> Настройки
-                        </>
-                      ),
-                    },
-                  ]
-                : []),
+              ...(isOwner ? [
+                {
+                  id: "notifications" as TabId,
+                  label: (
+                    <>
+                      <div className="relative">
+                        <Bell className="w-4 h-4" />
+                        {unreadNotificationsCount > 0 && (
+                          <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-background-surface" />
+                        )}
+                      </div>
+                      Уведомления
+                    </>
+                  ),
+                },
+              ] : []),
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-3 px-6 py-3.5 rounded-[14px] text-sm font-black transition-all duration-300 whitespace-nowrap ${
+                className={`flex-1 min-w-max flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-[14px] text-sm font-black transition-all duration-300 whitespace-nowrap flex-shrink-0 ${
                   activeTab === tab.id
                     ? "bg-accent text-white shadow-xl shadow-accent/25 scale-[1.02]"
                     : "text-text-secondary hover:bg-background-secondary hover:text-text-primary"
@@ -1109,7 +1185,9 @@ export function ProfilePage() {
 
               {displayedWorks.length === 0 && (
                 <div className="text-center py-20 bg-background-surface/50 border-2 border-dashed border-border rounded-3xl">
-                  <div className="text-4xl mb-4">✨</div>
+                  <div className="flex items-center justify-center w-16 h-16 rounded-full bg-background-secondary mx-auto mb-4 border border-border">
+                    <Sparkles className="w-8 h-8 text-text-muted opacity-40" />
+                  </div>
                   <p className="text-text-secondary font-medium">Здесь пока пусто</p>
                 </div>
               )}
@@ -1121,7 +1199,7 @@ export function ProfilePage() {
             <div className="space-y-6">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="font-extrabold text-lg flex items-center gap-2">
-                  <Bookmark className="w-5 h-5 text-pink-500" /> Избранное
+                  <Bookmark className="w-5 h-5 text-accent" /> Избранное
                 </div>
                 
                 {/* Type Filter */}
@@ -1161,7 +1239,9 @@ export function ProfilePage() {
               </div>
               {userFavorites.length === 0 && userFavoriteAnimations.length === 0 && (
                 <div className="text-center py-20 bg-background-surface/50 border-2 border-dashed border-border rounded-3xl">
-                  <div className="text-4xl mb-4">❤️</div>
+                  <div className="flex items-center justify-center w-16 h-16 rounded-full bg-background-secondary mx-auto mb-4 border border-border">
+                    <Bookmark className="w-8 h-8 text-text-muted opacity-40" />
+                  </div>
                   <p className="text-text-secondary font-medium">Вы еще ничего не добавили в избранное</p>
                 </div>
               )}
@@ -1213,7 +1293,9 @@ export function ProfilePage() {
               </div>
               {userLikedModels.length === 0 && userLikedAnimations.length === 0 && (
                 <div className="text-center py-20 bg-background-surface/50 border-2 border-dashed border-border rounded-3xl">
-                  <div className="text-4xl mb-4">👍</div>
+                  <div className="flex items-center justify-center w-16 h-16 rounded-full bg-background-secondary mx-auto mb-4 border border-border">
+                    <Heart className="w-8 h-8 text-text-muted opacity-40" />
+                  </div>
                   <p className="text-text-secondary font-medium">Вы еще не ставили лайки</p>
                 </div>
               )}
@@ -1325,6 +1407,158 @@ export function ProfilePage() {
             </div>
           )}
 
+          {/* Notifications */}
+          {activeTab === "notifications" && isOwner && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between border-b border-border pb-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-5 h-5 flex items-center justify-center text-accent">
+                    <Bell className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold">Уведомления</h2>
+                    <p className="text-sm text-text-secondary">
+                      {unreadNotificationsCount > 0 
+                        ? `У вас ${unreadNotificationsCount} новых уведомлений` 
+                        : "Нет новых уведомлений"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      if (!user) return;
+                      await markAllNotificationsRead(user.id);
+                      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+                      setUnreadNotificationsCount(0);
+                      window.dispatchEvent(new CustomEvent('notifications-updated'));
+                      showToast("Все уведомления прочитаны");
+                    }}
+                    className="px-4 py-2 rounded-xl bg-background-secondary border border-border text-sm font-bold hover:border-accent transition-all flex items-center gap-2"
+                  >
+                    <Check className="w-4 h-4" /> Прочитать все
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!user) return;
+                      setConfirmModal({
+                        isOpen: true,
+                        title: "Очистить уведомления",
+                        message: "Вы уверены, что хотите удалить все прочитанные уведомления? Это действие нельзя отменить.",
+                        loading: false,
+                        onConfirm: async () => {
+                          setConfirmModal(prev => ({ ...prev, loading: true }));
+                          try {
+                            await clearReadNotifications(user.id);
+                            setNotifications(prev => prev.filter(n => !n.is_read));
+                            window.dispatchEvent(new CustomEvent('notifications-updated'));
+                            showToast("Прочитанные уведомления удалены");
+                          } catch (err) {
+                            showToast("Ошибка при удалении", "error");
+                          } finally {
+                            setConfirmModal(prev => ({ ...prev, isOpen: false, loading: false }));
+                          }
+                        }
+                      });
+                    }}
+                    className="px-4 py-2 rounded-xl bg-background-secondary border border-border text-sm font-bold hover:text-red-500 hover:border-red-500/30 transition-all flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" /> Очистить
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {loadingNotifications && notifications.length === 0 ? (
+                  <div className="py-20 text-center text-text-secondary">Загрузка...</div>
+                ) : notifications.length === 0 ? (
+                  <div className="py-20 text-center bg-background-surface border border-dashed border-border rounded-3xl">
+                    <Bell className="w-12 h-12 text-text-muted mx-auto mb-4 opacity-20" />
+                    <p className="text-text-secondary">У вас пока нет уведомлений</p>
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      className={`p-4 rounded-2xl border transition-all duration-200 flex items-start gap-4 group ${
+                        !n.is_read 
+                          ? "bg-accent/5 border-accent/20 shadow-sm" 
+                          : "bg-background-surface border-border hover:border-accent/30"
+                      }`}
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-background-secondary flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors group-hover:bg-background-surface">
+                        {n.type === 'like' && <Heart className="w-5 h-5 text-accent fill-accent/10" />}
+                        {n.type === 'favorite' && <Bookmark className="w-5 h-5 text-warning fill-warning/10" />}
+                        {n.type === 'follower' && <User className="w-5 h-5 text-blue-400" />}
+                        {n.type === 'comment' && <MessageSquare className="w-5 h-5 text-accent2" />}
+                        {n.type === 'reply' && <Reply className="w-5 h-5 text-accent2" />}
+                        {n.type === 'generation_complete' && <CheckCircle2 className="w-5 h-5 text-success" />}
+                        {n.type === 'generation_error' && <XCircle className="w-5 h-5 text-danger" />}
+                        {n.type === 'generation_started' && <Zap className="w-5 h-5 text-warning" />}
+                        {n.type === 'subscription_expiring' && <AlertTriangle className="w-5 h-5 text-warning" />}
+                        {!['like', 'favorite', 'follower', 'comment', 'reply', 'generation_complete', 'generation_error', 'generation_started', 'subscription_expiring'].includes(n.type) && <Bell className="w-5 h-5 text-accent" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-4 mb-1">
+                          <h4 className={`font-bold text-sm ${!n.is_read ? 'text-text-primary' : 'text-text-secondary'}`}>
+                            {n.title}
+                          </h4>
+                          <span className="text-[10px] text-text-muted whitespace-nowrap">
+                            {new Date(n.created_at).toLocaleString('ru-RU')}
+                          </span>
+                        </div>
+                        <p className="text-sm text-text-secondary mb-3 leading-relaxed">
+                          {n.message}
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <Link
+                            to={n.link_url || '#'}
+                            onClick={async () => {
+                              if (!n.is_read && user) {
+                                await markNotificationRead(n.id, user.id);
+                                window.dispatchEvent(new CustomEvent('notifications-updated'));
+                              }
+                            }}
+                            className="text-xs font-bold text-accent hover:underline flex items-center gap-1"
+                          >
+                            Перейти
+                          </Link>
+                          {!n.is_read && (
+                            <button
+                              onClick={async () => {
+                                if (!user) return;
+                                await markNotificationRead(n.id, user.id);
+                                setNotifications(prev => prev.map(noti => noti.id === n.id ? { ...noti, is_read: true } : noti));
+                                setUnreadNotificationsCount(prev => Math.max(0, prev - 1));
+                                window.dispatchEvent(new CustomEvent('notifications-updated'));
+                              }}
+                              className="text-[10px] font-bold text-text-muted hover:text-text-primary transition-colors"
+                            >
+                              Отметить как прочитанное
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (!user) return;
+                          await deleteNotification(n.id, user.id);
+                          setNotifications(prev => prev.filter(noti => noti.id !== n.id));
+                          if (!n.is_read) setUnreadNotificationsCount(prev => Math.max(0, prev - 1));
+                          window.dispatchEvent(new CustomEvent('notifications-updated'));
+                          showToast("Удалено");
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-2 text-text-muted hover:text-red-500 transition-all"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Settings */}
           {activeTab === "settings" && (
             <div className="max-w-xl">
@@ -1396,6 +1630,60 @@ export function ProfilePage() {
                       setEmailInput(user?.email || "");
                     }}
                   />
+                </div>
+
+                <div className="mt-8 pt-8 border-t border-border">
+                  <div className="font-extrabold text-base mb-5 flex items-center gap-2.5">
+                    <span className="w-8 h-8 rounded-[9px] bg-accent/12 flex items-center justify-center text-base">
+                      <Bell className="w-4 h-4" />
+                    </span>
+                    Уведомления
+                  </div>
+                  <div className="space-y-4">
+                    {[
+                      { key: 'comments', label: 'Новые комментарии' },
+                      { key: 'replies', label: 'Ответы на комментарии' },
+                      { key: 'likes', label: 'Лайки на ваши работы' },
+                      { key: 'favorites', label: 'Добавления в избранное' },
+                      { key: 'followers', label: 'Новые подписчики' },
+                      { key: 'generation_started', label: 'Начало генерации' },
+                      { key: 'generation_finished', label: 'Завершение генерации' },
+                      { key: 'subscription', label: 'Окончание подписки' },
+                      { key: 'email', label: 'Email рассылки' },
+                    ].map((setting) => (
+                      <div key={setting.key} className="flex items-center justify-between">
+                        <span className="text-sm text-text-secondary">{setting.label}</span>
+                        <button
+                          onClick={async () => {
+                            if (!user || !profile) return;
+                            const currentSettings = profile.notification_settings || {};
+                            const newSettings = {
+                              ...currentSettings,
+                              [setting.key]: !currentSettings[setting.key as keyof typeof currentSettings]
+                            };
+                            
+                            // Optimistic update
+                            setProfile({ ...profile, notification_settings: newSettings } as ApiUser);
+                            
+                            try {
+                              await updateUserProfile(user.id, { notification_settings: newSettings });
+                              showToast("Настройки обновлены");
+                            } catch (err) {
+                              setProfile(profile);
+                              showToast("Ошибка при обновлении");
+                            }
+                          }}
+                          className={`w-9 h-5 rounded-full p-1 transition-colors duration-200 flex items-center ${
+                            profile.notification_settings?.[setting.key as keyof typeof profile.notification_settings] !== false 
+                              ? 'bg-accent justify-end' 
+                              : 'bg-background-secondary border border-border justify-start'
+                          }`}
+                        >
+                          <div className="w-3 h-3 rounded-full bg-white shadow-sm" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="mt-8 pt-8 border-t border-border">
@@ -1509,15 +1797,25 @@ export function ProfilePage() {
                       <button
                         onClick={async () => {
                           if (!user) return;
-                          if (!window.confirm("Вы уверены, что хотите отменить подписку? Она останется активной до конца оплаченного периода.")) return;
-                          try {
-                            await cancelSubscription(user.id);
-                            const fresh = await fetchUser(user.id);
-                            setProfile(fresh);
-                            showToast("Подписка отменена");
-                          } catch (err) {
-                            showToast("Ошибка при отмене подписки");
-                          }
+                          setConfirmModal({
+                            isOpen: true,
+                            title: "Отмена подписки",
+                            message: "Вы уверены, что хотите отменить подписку? Она останется активной до конца оплаченного периода, но не будет продлена автоматически.",
+                            loading: false,
+                            onConfirm: async () => {
+                              setConfirmModal(prev => ({ ...prev, loading: true }));
+                              try {
+                                await cancelSubscription(user.id);
+                                const fresh = await fetchUser(user.id);
+                                setProfile(fresh);
+                                showToast("Подписка отменена");
+                              } catch (err) {
+                                showToast("Ошибка при отмене подписки", "error");
+                              } finally {
+                                setConfirmModal(prev => ({ ...prev, isOpen: false, loading: false }));
+                              }
+                            }
+                          });
                         }}
                         className="flex-1 h-8 rounded-[9px] bg-background-secondary border border-border text-[10px] font-bold text-text-muted hover:text-red-500 hover:border-red-500/30 transition-all"
                       >
@@ -1576,7 +1874,7 @@ export function ProfilePage() {
           {activity?.feed && activity.feed.length > 0 && (
             <div className="bg-background-surface border border-border rounded-2xl p-5">
               <div className="font-extrabold text-sm text-text mb-3 flex items-center gap-2">
-                <Zap className="w-4 h-4" /> Последнее
+                < Zap className="w-4 h-4" /> Последнее
               </div>
               <div className="flex flex-col gap-1">
                 {activity.feed.slice(0, 5).map((item, i) => {
@@ -1679,6 +1977,15 @@ export function ProfilePage() {
           onSuccess={() => toast.success("Жалоба на пользователя отправлена")}
         />
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        loading={confirmModal.loading}
+      />
     </div>
   );
 }
