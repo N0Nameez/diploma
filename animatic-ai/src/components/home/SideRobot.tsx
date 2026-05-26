@@ -4,12 +4,15 @@ import { Canvas } from '@react-three/fiber';
 import { useGLTF, Float, Stage, Environment } from '@react-three/drei';
 import { useInView } from 'react-intersection-observer';
 import { useTransform } from 'framer-motion';
+import { ModelReadyNotifier } from '@/components/home/ModelReadyNotifier';
+import React from 'react';
 
 const DRACO_URL = 'https://www.gstatic.com/draco/versioned/decoders/1.5.5/';
 
 interface SideRobotProps {
   side: 'left' | 'right';
   modelPath: string;
+  fallbackImage: string;
   progress: MotionValue<number>;
 }
 
@@ -18,8 +21,9 @@ interface SideRobotProps {
  * Hidden on mobile via CSS (hidden lg:block).
  * Canvas is pre-mounted with rootMargin and kept alive with triggerOnce.
  */
-export function SideRobot({ side, modelPath, progress }: SideRobotProps) {
+export function SideRobot({ side, modelPath, fallbackImage, progress }: SideRobotProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const [isModelReady, setIsModelReady] = React.useState(false);
   
   const smoothProgress = useSpring(progress, {
     stiffness: 200,
@@ -45,7 +49,7 @@ export function SideRobot({ side, modelPath, progress }: SideRobotProps) {
     <motion.div
       ref={ref}
       style={{ x, opacity }}
-      className={`absolute top-[20%] -translate-y-1/2 z-20 pointer-events-none hidden lg:block will-change-transform ${
+      className={`absolute top-[20%] -translate-y-1/2 z-0 pointer-events-none hidden lg:block will-change-transform ${
         side === 'left' ? '-left-[150px]' : '-right-[150px]'
       }`}
     >
@@ -55,6 +59,15 @@ export function SideRobot({ side, modelPath, progress }: SideRobotProps) {
         }`} />
         
         <div className="w-full h-full relative z-10">
+          <motion.img 
+            src={fallbackImage}
+            alt="Side Model"
+            className="absolute inset-0 w-full h-full object-contain pointer-events-none drop-shadow-2xl z-0 scale-[0.66]"
+            initial={{ opacity: 1 }}
+            animate={{ opacity: isModelReady ? 0 : 1 }}
+            transition={{ duration: 1, ease: "easeInOut" }}
+          />
+
           {inView && (
             <Canvas 
               camera={{ position: [0, 0, 5], far: 50 }}
@@ -76,6 +89,7 @@ export function SideRobot({ side, modelPath, progress }: SideRobotProps) {
                   <Stage intensity={0.2} environment="city" adjustCamera={false} shadows={false}>
                     <Model path={modelPath} />
                   </Stage>
+                  <ModelReadyNotifier onReady={() => setIsModelReady(true)} />
                 </Float>
               </Suspense>
               <Environment preset="city" />

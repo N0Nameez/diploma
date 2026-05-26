@@ -7,9 +7,11 @@ import { Hero } from "@/components/home/Hero";
 import { TreeCTA } from "@/components/home/TreeCTA";
 import CursorGlow from "@/components/CursorGlow";
 import { BackgroundParticles } from "@/components/home/BackgroundParticles";
+import { ModelReadyNotifier } from "@/components/home/ModelReadyNotifier";
 // Module-level preloads are triggered by importing this file
 import '@/components/home/ModelPreloader';
 import type { User } from "@supabase/supabase-js";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface HeroSceneProps {
   onRegisterClick: () => void;
@@ -22,7 +24,8 @@ interface HeroSceneProps {
  */
 export function HeroScene({ onRegisterClick, user }: HeroSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const isMobile = useIsMobile();
+  const [isModelReady, setIsModelReady] = React.useState(false);
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -57,35 +60,48 @@ export function HeroScene({ onRegisterClick, user }: HeroSceneProps) {
         {/* Grid Overlay */}
         <div className="absolute inset-0 z-0 opacity-20 pointer-events-none bg-[linear-gradient(var(--grid-color)_1px,transparent_1px),linear-gradient(90deg,var(--grid-color)_1px,transparent_1px)] bg-[size:40px_40px]" />
 
-        {/* 3D Scene Wrapper */}
+        {/* 3D Scene Wrapper or Mobile Fallback */}
         <div className="absolute inset-0 z-0 overflow-hidden">
-          <Canvas
-            camera={{ position: [0, 0, 8], fov: 45 }}
-            eventSource={document.body}
-            eventPrefix="client"
-            dpr={isMobile ? [1, 1] : [1, 1.5]}
-            performance={{ min: 0.5 }} // Allow quality scaling
-            gl={{ 
-              antialias: false, // Disable for mobile performance
-              alpha: true,
-              powerPreference: "high-performance",
-              stencil: false,
-              depth: true
-            }}
-          >
-            <Suspense fallback={null}>
-              <ambientLight intensity={1.5} />
-              <directionalLight position={[10, 10, 5]} intensity={1.5} />
-              <directionalLight position={[-10, -10, -5]} intensity={1} color="#EC4899" />
-              
-              <SceneContent progress={smoothProgress} />
-              
-              {/* Performance optimization helpers */}
-              <AdaptiveDpr pixelated />
-              <AdaptiveEvents />
-              <Preload all />
-            </Suspense>
-          </Canvas>
+          {/* Fallback Image */}
+          <motion.img 
+            src="/hero-fallback.webp" 
+            alt="Sakura Tree"
+            className="absolute inset-0 w-full h-full object-cover object-center scale-105 pointer-events-none"
+            initial={{ opacity: 1 }}
+            animate={{ opacity: isMobile ? 0.7 : (isModelReady ? 0 : 1) }}
+            transition={{ duration: 1.5, ease: "easeInOut" }}
+          />
+
+          {!isMobile && (
+            <Canvas
+              camera={{ position: [0, 0, 8], fov: 45 }}
+              eventSource={document.body}
+              eventPrefix="client"
+              dpr={[1, 1.5]}
+              performance={{ min: 0.5 }} // Allow quality scaling
+              gl={{ 
+                antialias: false, // Disable for performance
+                alpha: true,
+                powerPreference: "high-performance",
+                stencil: false,
+                depth: true
+              }}
+            >
+              <Suspense fallback={null}>
+                <ambientLight intensity={1.5} />
+                <directionalLight position={[10, 10, 5]} intensity={1.5} />
+                <directionalLight position={[-10, -10, -5]} intensity={1} color="#EC4899" />
+                
+                <SceneContent progress={smoothProgress} />
+                <ModelReadyNotifier onReady={() => setIsModelReady(true)} />
+                
+                {/* Performance optimization helpers */}
+                <AdaptiveDpr pixelated />
+                <AdaptiveEvents />
+                <Preload all />
+              </Suspense>
+            </Canvas>
+          )}
         </div>
 
         {/* Hero Section Overlay */}

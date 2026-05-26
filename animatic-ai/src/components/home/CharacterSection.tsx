@@ -1,11 +1,11 @@
-import { Suspense } from 'react';
+import React, { Suspense } from 'react';
 import { motion } from 'framer-motion';
 import { RobotModel } from './RobotModel';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stage } from '@react-three/drei';
 import { useInView } from 'react-intersection-observer';
-
-const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 768;
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { ModelReadyNotifier } from '@/components/home/ModelReadyNotifier';
 
 /**
  * Section featuring the interactive robot character.
@@ -13,6 +13,8 @@ const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 768;
  * On mobile, Canvas quality is reduced and shadows are disabled.
  */
 export function CharacterSection() {
+  const isMobile = useIsMobile();
+  const [isModelReady, setIsModelReady] = React.useState(false);
   const { ref, inView } = useInView({
     threshold: 0.05,
     triggerOnce: true,       // Keep Canvas alive once mounted
@@ -66,11 +68,21 @@ export function CharacterSection() {
         >
           
           <div className="absolute inset-0 cursor-grab active:cursor-grabbing">
-            {inView && (
+            {/* Fallback Image */}
+            <motion.img 
+              src="/robot-fallback.webp" 
+              alt="AI Assistant"
+              className="absolute inset-0 w-full h-full object-contain drop-shadow-2xl pointer-events-none"
+              initial={{ opacity: 1 }}
+              animate={{ opacity: isMobile ? 1 : (isModelReady ? 0 : 1) }}
+              transition={{ duration: 1, ease: "easeInOut" }}
+            />
+
+            {inView && !isMobile && (
               <Canvas 
-                shadows={!IS_MOBILE}
+                shadows={true}
                 camera={{ position: [0, 0, 10], fov: 40 }}
-                dpr={IS_MOBILE ? [1, 1] : [1, 1.5]}
+                dpr={[1, 1.5]}
                 performance={{ min: 0.5 }}
                 gl={{ 
                   antialias: false, 
@@ -79,12 +91,13 @@ export function CharacterSection() {
                 }}
               >
                 <ambientLight intensity={0.5} />
-                <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} castShadow={!IS_MOBILE} />
+                <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} castShadow={true} />
                 <pointLight position={[-10, -10, -10]} />
                 <Suspense fallback={null}>
                   <Stage environment="city" intensity={0.6}>
                     <RobotModel />
                   </Stage>
+                  <ModelReadyNotifier onReady={() => setIsModelReady(true)} />
                 </Suspense>
                 <OrbitControls 
                   enableZoom={false} 
@@ -96,9 +109,11 @@ export function CharacterSection() {
             )}
           </div>
 
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 font-mono text-[10px] text-accent uppercase tracking-widest bg-background-primary/80 backdrop-blur-md px-4 py-2 rounded-full border border-accent opacity-0 group-hover:opacity-100 transition-opacity">
-            Интерактивная 3D-модель
-          </div>
+          {!isMobile && (
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 font-mono text-[10px] text-accent uppercase tracking-widest bg-background-primary/80 backdrop-blur-md px-4 py-2 rounded-full border border-accent opacity-0 group-hover:opacity-100 transition-opacity">
+              Интерактивная 3D-модель
+            </div>
+          )}
         </motion.div>
       </div>
 

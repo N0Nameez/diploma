@@ -41,11 +41,13 @@ export function AboutSection() {
       <SideRobot 
         side="left" 
         modelPath="/models/blot_draco.glb" 
+        fallbackImage="/blot-fallback.webp"
         progress={sectionProgress}
       />
       <SideRobot 
         side="right" 
         modelPath="/models/heart_draco.glb" 
+        fallbackImage="/heart-fallback.webp"
         progress={sectionProgress}
       />
 

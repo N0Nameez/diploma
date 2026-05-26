@@ -4,6 +4,9 @@ import { ArrowUpRight } from 'lucide-react';
 import { Canvas } from '@react-three/fiber';
 import { useGLTF, OrbitControls, Environment, Center, Float } from '@react-three/drei';
 import { useInView } from 'react-intersection-observer';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { ModelReadyNotifier } from '@/components/home/ModelReadyNotifier';
+import React from 'react';
 
 const DRACO_URL = 'https://www.gstatic.com/draco/versioned/decoders/1.5.5/';
 const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 768;
@@ -25,6 +28,7 @@ interface ExampleCardProps {
   category: string;
   description: string;
   image: string;
+  fallbackImage: string;
   modelPath?: string;
   index: number;
   total: number;
@@ -36,7 +40,9 @@ interface ExampleCardProps {
  * Individual work example card with optional 3D model viewer.
  * On mobile, 3D is disabled for performance — only the image is shown.
  */
-function ExampleCard({ title, category, description, image, modelPath, index, total, progress, onCTA }: ExampleCardProps) {
+function ExampleCard({ title, category, description, image, fallbackImage, modelPath, index, total, progress, onCTA }: ExampleCardProps) {
+  const isMobile = useIsMobile();
+  const [isModelReady, setIsModelReady] = React.useState(false);
   const { ref, inView } = useInView({
     threshold: 0.05,
     triggerOnce: true,       // Keep Canvas alive once mounted
@@ -46,7 +52,7 @@ function ExampleCard({ title, category, description, image, modelPath, index, to
   const start = index / total;
   const scale = useTransform(progress, [start, (index + 1) / total], [1, 0.95]);
 
-  const show3D = modelPath && !IS_MOBILE;
+  const show3D = modelPath && !isMobile;
 
   return (
     <motion.div
@@ -59,12 +65,23 @@ function ExampleCard({ title, category, description, image, modelPath, index, to
       className="sticky w-full max-w-6xl mx-auto h-[75vh] md:h-[70vh] mb-[10vh] overflow-hidden border border-text-primary bg-background-primary rounded-[40px] flex flex-col md:flex-row group"
     >
       <div className="w-full md:w-1/2 h-[45%] md:h-full overflow-hidden relative bg-[#050505]">
+        {/* Background base image */}
         <img
           src={image}
-          alt={title}
+          alt={`${title} background`}
           className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${
             show3D ? 'opacity-30 blur-sm scale-105' : 'opacity-100 group-hover:scale-110'
           }`}
+        />
+
+        {/* Fallback specific model image */}
+        <motion.img
+          src={fallbackImage}
+          alt={title}
+          className="absolute inset-0 w-full h-full object-contain pointer-events-none drop-shadow-2xl z-0"
+          initial={{ opacity: 1 }}
+          animate={{ opacity: isMobile ? 1 : (isModelReady ? 0 : 1) }}
+          transition={{ duration: 1, ease: "easeInOut" }}
         />
 
         {show3D && inView && (
@@ -89,6 +106,7 @@ function ExampleCard({ title, category, description, image, modelPath, index, to
                   </Center>
                 </Float>
                 <Environment preset="city" />
+                <ModelReadyNotifier onReady={() => setIsModelReady(true)} />
               </Suspense>
               <OrbitControls
                 enableZoom={false}
@@ -146,6 +164,7 @@ export function WorkExamples({ onCTAAction }: { onCTAAction: () => void }) {
       category: "Модели",
       description: "Создавайте сложные объекты с идеальной геометрией и фотореалистичными текстурами за считанные минуты.",
       image: "/images/dron_bg.png",
+      fallbackImage: "/dron-fallback.webp",
       modelPath: "/models/dron_draco.glb"
     },
     {
@@ -153,6 +172,7 @@ export function WorkExamples({ onCTAAction }: { onCTAAction: () => void }) {
       category: "Архитектура",
       description: "Генерация интерьеров и экстерьеров по вашим чертежам. Идеально для архитекторов и дизайнеров.",
       image: "/images/building_bg.png",
+      fallbackImage: "/building-fallback.webp",
       modelPath: "/models/building_draco.glb"
     },
     {
@@ -160,6 +180,7 @@ export function WorkExamples({ onCTAAction }: { onCTAAction: () => void }) {
       category: "Мебель или объекты",
       description: "От уникальных стульев до сложных декоративных элементов. Наполняйте свои сцены уникальным контентом.",
       image: "/images/chair_bg.png",
+      fallbackImage: "/chair-fallback.webp",
       modelPath: "/models/chair_draco.glb"
     },
     {
@@ -167,6 +188,7 @@ export function WorkExamples({ onCTAAction }: { onCTAAction: () => void }) {
       category: "Персонажи",
       description: "Воплощайте самых смелых героев в 3D. Наш ИИ понимает анатомию и сложные формы.",
       image: "/images/samurai_bg.png",
+      fallbackImage: "/samurai-fallback.webp",
       modelPath: "/models/samurai_draco.glb"
     }
   ];
@@ -212,7 +234,4 @@ export function WorkExamples({ onCTAAction }: { onCTAAction: () => void }) {
   );
 }
 
-useGLTF.preload("/models/dron_draco.glb", DRACO_URL);
-useGLTF.preload("/models/building_draco.glb", DRACO_URL);
-useGLTF.preload("/models/chair_draco.glb", DRACO_URL);
-useGLTF.preload("/models/samurai_draco.glb", DRACO_URL);
+
