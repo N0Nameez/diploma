@@ -804,6 +804,9 @@ def update_user_profile(user_id: str, updates: dict) -> dict | None:
                 allowed["cover_url"] = updates["cover_url"]
             if "cover_preset" in updates:
                 allowed["cover_preset"] = updates["cover_preset"]
+            if "notification_settings" in updates:
+                import json
+                allowed["notification_settings"] = json.dumps(updates["notification_settings"])
 
             if not allowed:
                 return get_user_profile(user_id)
@@ -1812,3 +1815,127 @@ def get_admin_logs() -> list:
     except Exception as e:
         print(f"DB ERROR (get_admin_logs): {e}")
         return []
+
+# ── Notifications ──
+
+def get_notifications(user_id: str, limit: int = 50) -> dict:
+    """Get notifications for a user."""
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT * FROM public.notifications
+                WHERE recipient_id = %s
+                ORDER BY created_at DESC
+                LIMIT %s
+            """, (user_id, limit))
+            rows = cur.fetchall()
+            cols = [desc[0] for desc in cur.description]
+            items = [dict(zip(cols, row)) for row in rows]
+            
+            cur.execute("""
+                SELECT COUNT(*) FROM public.notifications
+                WHERE recipient_id = %s AND is_read = FALSE
+            """, (user_id,))
+            unread_count = cur.fetchone()[0]
+            
+            cur.execute("""
+                SELECT COUNT(*) FROM public.notifications
+                WHERE recipient_id = %s
+            """, (user_id,))
+            total = cur.fetchone()[0]
+            
+            return {"items": items, "total": total, "unread_count": unread_count}
+
+def mark_notification_read(notification_id: str, user_id: str) -> bool:
+    """Mark a specific notification as read."""
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE public.notifications
+                SET is_read = TRUE
+                WHERE id = %s AND recipient_id = %s
+            """, (notification_id, user_id))
+            return cur.rowcount > 0
+
+def mark_all_notifications_read(user_id: str) -> bool:
+    """Mark all user notifications as read."""
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE public.notifications
+                SET is_read = TRUE
+                WHERE recipient_id = %s AND is_read = FALSE
+            """, (user_id,))
+            return True
+
+def delete_notification(notification_id: str, user_id: str) -> bool:
+    """Delete a specific notification."""
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                DELETE FROM public.notifications
+                WHERE id = %s AND recipient_id = %s
+            """, (notification_id, user_id))
+            return cur.rowcount > 0
+
+def clear_read_notifications(user_id: str) -> bool:
+    """Delete all read notifications for a user."""
+    with _get_pg_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                DELETE FROM public.notifications
+                WHERE recipient_id = %s AND is_read = TRUE
+            """, (user_id,))
+            return True
+
+def cleanup_old_notifications(days: int = 30) -> int:
+    """Delete read notifications older than X days."""
+    try:
+        with _get_pg_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    DELETE FROM public.notifications
+                    WHERE is_read = TRUE AND created_at < NOW() - INTERVAL '%s days'
+                """, (days,))
+                return cur.rowcount
+    except Exception as e:
+        print(f"DB ERROR (cleanup_old_notifications): {e}")
+        return 0
+
+def check_expiring_subscriptions() -> int:
+    """Check for subscriptions ending in 3 days and create notifications."""
+    try:
+        with _get_pg_connection() as conn:
+            with conn.cursor() as cur:
+                # Find active subscriptions ending in ~3 days that haven't been notified yet
+                # We use a simple check to avoid duplicate notifications (e.g. check if a notification of this type was sent in last 7 days)
+                cur.execute("""
+                    SELECT s.user_id, s.current_period_end
+                    FROM public.subscriptions s
+                    WHERE s.status = 'active'
+                    AND s.current_period_end > now() + interval '2 days'
+                    AND s.current_period_end < now() + interval '4 days'
+                    AND NOT EXISTS (
+                        SELECT 1 FROM public.notifications n
+                        WHERE n.recipient_id = s.user_id
+                        AND n.type = 'subscription_expiring'
+                        AND n.created_at > now() - interval '7 days'
+                    )
+                """)
+                expiring = cur.fetchall()
+                
+                count = 0
+                for user_id, end_date in expiring:
+                    # Use create_notification function if it's available via PERFORM in SQL, 
+                    # but here we do direct insert for simplicity
+                    cur.execute("""
+                        INSERT INTO public.notifications (recipient_id, type, title, message, link_url)
+                        VALUES (%s, 'subscription_expiring', 'Подписка скоро истечет', 
+                                'Ваша подписка закончится через 3 дня (' || to_char(%s, 'DD.MM') || '). Не забудьте продлить!', 
+                                '/pricing')
+                    """, (user_id, end_date))
+                    count += 1
+                return count
+    except Exception as e:
+        print(f"DB ERROR (check_expiring_subscriptions): {e}")
+        return 0

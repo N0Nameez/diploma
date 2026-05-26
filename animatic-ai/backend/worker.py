@@ -730,12 +730,28 @@ async def generate_animation_from_video(
 
 
 
+async def cleanup_notifications(ctx):
+    """Cron job: cleanup read notifications older than 30 days and check for expiring subscriptions."""
+    import database
+    # 1. Cleanup old read notifications
+    count_deleted = database.cleanup_old_notifications(days=30)
+    print(f"[Cron] Cleaned up {count_deleted} old notifications", flush=True)
+    
+    # 2. Check for expiring subscriptions and notify users
+    count_notified = database.check_expiring_subscriptions()
+    if count_notified > 0:
+        print(f"[Cron] Sent {count_notified} subscription expiry notifications", flush=True)
+
+
 class WorkerSettings:
     redis_settings = RedisSettings(
         host=REDIS_HOST,
         port=REDIS_PORT,
     )
     functions = [generate_model_from_image, generate_animation_from_video]
+    cron_jobs = [
+        cron(cleanup_notifications, hour=0, minute=0)
+    ]
     # Max concurrent jobs: 1 (sequential processing for GPU)
     max_jobs = 1
     # Job timeout: 15 minutes

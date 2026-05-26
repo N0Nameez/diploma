@@ -10,7 +10,7 @@ from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, Form, Body, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import smtplib
@@ -77,9 +77,6 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan
 )
-
-from fastapi import Request
-import time
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -1820,7 +1817,54 @@ async def get_admin_logs(user_id: str):
     if not user or user.get('role') not in ['admin', 'moderator']:
         raise HTTPException(status_code=403, detail="Access denied")
     return database.get_admin_logs()
+
+
+# ── Notifications ──
+
+@app.get("/api/notifications")
+async def get_notifications(user_id: str, limit: int = 50):
+    return database.get_notifications(user_id, limit)
+
+@app.post("/api/notifications/{notification_id}/read")
+async def mark_notification_read(notification_id: str, data: dict):
+    user_id = data.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    success = database.mark_notification_read(notification_id, user_id)
+    return {"status": "success" if success else "failed"}
+
+@app.post("/api/notifications/read-all")
+async def mark_all_notifications_read(data: dict):
+    user_id = data.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    database.mark_all_notifications_read(user_id)
+    return {"status": "success"}
+
+@app.delete("/api/notifications/{notification_id}")
+async def delete_notification(notification_id: str, data: dict):
+    user_id = data.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    success = database.delete_notification(notification_id, user_id)
+    return {"status": "success" if success else "failed"}
+
+@app.post("/api/notifications/clear-read")
+async def clear_read_notifications(data: dict):
+    user_id = data.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    database.clear_read_notifications(user_id)
+    return {"status": "success"}
+
+@app.put("/api/users/{user_id}/notification-settings")
+async def update_notification_settings(user_id: str, settings: dict):
+    success = database.update_user_profile(user_id, {"notification_settings": settings})
+    return {"status": "success" if success else "failed"}
+
+
 @app.get("/api/admin/finance")
+
 async def get_admin_finance(user_id: str, time_filter: str = 'month'):
     user = database.get_user_profile(user_id)
     if not user or user.get('role') != 'admin':
