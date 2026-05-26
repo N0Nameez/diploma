@@ -1,40 +1,29 @@
 import React, { useEffect, useState } from 'react';
-import { useProgress } from '@react-three/drei';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useModelProgress } from '@/hooks/useModelProgress';
 
 /**
  * LoadingScreen - Premium loading experience for the landing page.
- * Tracks 3D model loading progress and provides a smooth transition.
+ * Tracks custom byte-level 3D model loading progress and provides a smooth transition.
  */
 export function LoadingScreen() {
-  const { progress, active } = useProgress();
+  const progress = useModelProgress(s => s.progress);
+  const isLoaded = useModelProgress(s => s.isLoaded);
+  const startLoading = useModelProgress(s => s.startLoading);
   const [shouldShow, setShouldShow] = useState(true);
-  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    // Safety timeout: if loading takes too long, force ready state
-    const safetyTimer = setTimeout(() => {
-      if (!isReady) {
-        console.warn('LoadingScreen: Safety timeout reached. Forcing ready state.');
-        setIsReady(true);
-        setTimeout(() => setShouldShow(false), 1000);
-      }
-    }, 15000); // 15 seconds max
-
-    // We consider it ready when progress is 100 AND loading is no longer active
-    if (progress === 100 && !active) {
+    startLoading();
+  }, [startLoading]);
+  useEffect(() => {
+    // We consider it ready when progress is 100 AND our custom loader is finished
+    if (isLoaded && progress === 100) {
       const timer = setTimeout(() => {
-        setIsReady(true);
-        setTimeout(() => setShouldShow(false), 1000);
+        setShouldShow(false);
       }, 800);
-      return () => {
-        clearTimeout(timer);
-        clearTimeout(safetyTimer);
-      };
+      return () => clearTimeout(timer);
     }
-
-    return () => clearTimeout(safetyTimer);
-  }, [progress, active, isReady]);
+  }, [progress, isLoaded]);
 
   if (!shouldShow) return null;
 
@@ -53,7 +42,7 @@ export function LoadingScreen() {
 
   return (
     <AnimatePresence mode="wait">
-      {!isReady && (
+      {shouldShow && (
         <motion.div
           key="loading-screen"
           initial={{ opacity: 1 }}

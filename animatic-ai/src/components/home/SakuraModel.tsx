@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
+import { useModelProgress } from '@/hooks/useModelProgress';
 
 class ModelErrorBoundary extends Component<{children: ReactNode, fallback: ReactNode}, {hasError: boolean}> {
   constructor(props: {children: ReactNode, fallback: ReactNode}) {
@@ -35,9 +36,10 @@ interface ModelProps {
 
 function Model({ position, scale, rotation }: ModelProps) {
   const groupRef = useRef<THREE.Group>(null);
+  const sakuraUrl = useModelProgress(s => s.sakuraUrl);
 
   // Using Draco compressed model for performance
-  const { scene } = useGLTF('/models/sakura_draco.glb', 'https://www.gstatic.com/draco/versioned/decoders/1.5.5/');
+  const { scene } = useGLTF(sakuraUrl, 'https://www.gstatic.com/draco/versioned/decoders/1.5.5/');
 
   const materialsWithTime = useRef<THREE.ShaderMaterial[]>([]);
 
@@ -157,6 +159,11 @@ function Fallback() {
 }
 
 export function SakuraModel(props: ModelProps) {
+  const isLoaded = useModelProgress(s => s.isLoaded);
+
+  // Wait for the custom loader to prepare the Blob URL
+  if (!isLoaded) return null;
+
   return (
     <ModelErrorBoundary fallback={<Fallback />}>
       <Suspense fallback={<Fallback />}>
@@ -165,6 +172,3 @@ export function SakuraModel(props: ModelProps) {
     </ModelErrorBoundary>
   );
 }
-
-
-useGLTF.preload('/models/sakura_draco.glb', 'https://www.gstatic.com/draco/versioned/decoders/1.5.5/');

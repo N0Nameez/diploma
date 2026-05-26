@@ -10,10 +10,11 @@ import { FAQSection } from '@/components/home/FAQSection';
 import { CTASection } from '@/components/home/CTASection';
 import { WorkExamples } from '@/components/home/WorkExamples';
 import { SectionDivider } from '@/components/home/SectionDivider';
-import { useProgress } from '@react-three/drei';
-// Triggers module-level useGLTF.preload() for all landing page models
-import '@/components/home/ModelPreloader';
+// Background preloader for secondary models
+import { preloadBackgroundModels } from '@/components/home/ModelPreloader';
 import { LoadingScreen } from '@/components/LoadingScreen/LoadingScreen';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { useModelProgress } from '@/hooks/useModelProgress';
 
 import type { User } from "@supabase/supabase-js";
 
@@ -27,7 +28,9 @@ interface HomePageProps {
  * Waits for all 3D assets to fully load before revealing content.
  */
 export function HomePage({ onRegisterClick, user }: HomePageProps) {
-  const { progress, active } = useProgress();
+  const storeIsLoaded = useModelProgress(s => s.isLoaded);
+  const storeProgress = useModelProgress(s => s.progress);
+  const isMobile = useIsMobile();
   const [isLoaded, setIsLoaded] = useState(false);
   const navigate = useNavigate();
 
@@ -40,14 +43,22 @@ export function HomePage({ onRegisterClick, user }: HomePageProps) {
   };
 
   useEffect(() => {
-    // We consider it ready when progress is 100 AND loading is no longer active
-    // This handles both fresh loads and cached assets
-    if (progress >= 100 && !active && !isLoaded) {
-      const timer = setTimeout(() => setIsLoaded(true), 2000);
+    // On mobile, we bypass the 3D model loading screen entirely
+    if (isMobile) {
+      setIsLoaded(true);
+      return;
+    }
+
+    // We consider it ready when our custom store says it's loaded and progress is 100
+    if (storeProgress >= 100 && storeIsLoaded && !isLoaded) {
+      const timer = setTimeout(() => {
+        setIsLoaded(true);
+        // Start preloading the rest of the models in the background
+        preloadBackgroundModels();
+      }, 1000);
       return () => clearTimeout(timer);
     }
-    // Remove the `else if (active)` block that reverts isLoaded to false
-  }, [progress, active, isLoaded]);
+  }, [storeProgress, storeIsLoaded, isLoaded, isMobile]);
 
   useEffect(() => {
     // Safety fallback: show content after 20s no matter what
@@ -66,7 +77,7 @@ export function HomePage({ onRegisterClick, user }: HomePageProps) {
 
   return (
     <>
-      <LoadingScreen />
+      {!isMobile && <LoadingScreen />}
       <motion.main 
         initial={{ opacity: 0 }}
         animate={{ opacity: isLoaded ? 1 : 0 }}
