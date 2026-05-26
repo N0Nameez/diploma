@@ -213,7 +213,7 @@ export function PricingSection({ onRegisterClick }: { onRegisterClick: () => voi
     // Direct payment flow for Pro
     setLoading(plan.name);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/payments/create`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/payments/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

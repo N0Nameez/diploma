@@ -1,7 +1,7 @@
 /* API client for the FastAPI backend */
 import { supabase } from "@/lib/supabase";
 
-export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+export const API_URL = import.meta.env.VITE_API_URL;
 const API_BASE = API_URL;
 
 /* ── Types ── */
@@ -526,6 +526,7 @@ export async function updateUserProfile(
     avatar_url?: string;
     cover_url?: string | null;
     cover_preset?: string;
+    notification_settings?: Record<string, boolean>;
   },
 ) {
 
