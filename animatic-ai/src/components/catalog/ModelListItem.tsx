@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import type { ApiModel, ApiAnimation } from "../../services/api";
-import { Box, Heart, Download, Play } from "lucide-react";
+import { Box, Heart, Download, Play, Cpu } from "lucide-react";
+import { isSystemAsset } from "../../lib/assets";
 
 interface ModelListItemProps {
   model: ApiModel | ApiAnimation;
@@ -10,7 +11,8 @@ interface ModelListItemProps {
 export function ModelListItem({ model, type = "3d" }: ModelListItemProps) {
   // API возвращает username/display_name на верхнем уровне
   const m = model as any;
-  const authorName = m.display_name || m.username || "Автор";
+  const isSystem = isSystemAsset(model);
+  const authorName = isSystem ? "Система" : (m.display_name || m.username || "Автор");
   const authorInitial = authorName[0]?.toUpperCase() || "А";
   const isAi = type === "animation" ? m.source === "ai_generated" : m.ai_generated;
 
@@ -63,7 +65,9 @@ export function ModelListItem({ model, type = "3d" }: ModelListItemProps) {
         {/* Author */}
         <div className="flex items-center gap-1.5 text-xs text-textSecondary">
           <div className="w-4 h-4 rounded-full overflow-hidden bg-accent/20 flex items-center justify-center text-[9px] text-accent font-bold">
-            {m.avatar_url ? (
+            {isSystem ? (
+              <Cpu className="w-2.5 h-2.5 text-accent" />
+            ) : m.avatar_url ? (
               <img src={m.avatar_url} alt="" className="w-full h-full object-cover" />
             ) : (
               authorInitial

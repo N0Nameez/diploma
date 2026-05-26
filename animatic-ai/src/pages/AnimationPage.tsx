@@ -19,6 +19,7 @@ import {
 import type { ApiAnimation } from "../services/api";
 import { Download, Heart, Bookmark, Gamepad2, Box, Flag, Play } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { isSystemAsset } from "../lib/assets";
 
 interface CommentItemProps {
   comment: any;
@@ -784,6 +785,75 @@ export function AnimationPage() {
               )}
             </div>
           </div>
+
+          {/* Author */}
+          {!isSystemAsset(animation) && (
+            <div className="bg-background-surface border border-border rounded-2xl p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <Link 
+                  to={`/profile/${animation.author_id}`}
+                  className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-accent to-accent/80 border border-accent/20 flex items-center justify-center transition-transform duration-300 hover:scale-105"
+                >
+                  {raw.avatar_url ? (
+                    <img src={raw.avatar_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-lg font-bold text-white">
+                      {dm.authorInitial}
+                    </span>
+                  )}
+                </Link>
+                <div className="flex-1">
+                  <Link 
+                    to={`/profile/${animation.author_id}`}
+                    className="font-bold text-text-primary text-sm hover:text-accent transition-colors duration-200 block"
+                  >
+                    {dm.author}
+                  </Link>
+                  <div className="text-xs text-text-secondary">
+                    @{dm.authorUsername} ·{" "}
+                    {raw.source === "ai_generated" ? "ИИ-генерация" : "Авторская работа"}
+                  </div>
+                </div>
+                <button
+                  onClick={handleFollow}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${isFollowing
+                    ? "bg-background-secondary border border-border text-text-secondary"
+                    : "bg-accent text-white hover:brightness-110"
+                    }`}
+                >
+                  {isFollowing ? "Вы подписаны" : "Подписаться"}
+                </button>
+              </div>
+              <div className="flex gap-5 pt-4 border-t border-border">
+                <div>
+                  <div className="font-extrabold text-base text-text-primary">
+                    {dm.authorModelsCount}
+                  </div>
+                  <div className="text-[10px] text-text-muted uppercase tracking-[0.5px]">
+                    Модели
+                  </div>
+                </div>
+                <div>
+                  <div className="font-extrabold text-base text-text-primary">
+                    {dm.authorFollowers >= 1000
+                      ? `${(dm.authorFollowers / 1000).toFixed(1)}K`
+                      : dm.authorFollowers}
+                  </div>
+                  <div className="text-[10px] text-text-muted uppercase tracking-[0.5px]">
+                    Подписчики
+                  </div>
+                </div>
+                <div>
+                  <div className="font-extrabold text-base text-text-primary">
+                    {dm.likes}
+                  </div>
+                  <div className="text-[10px] text-text-muted uppercase tracking-[0.5px]">
+                    Лайки
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
